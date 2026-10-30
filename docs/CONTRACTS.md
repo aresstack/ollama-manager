@@ -8,8 +8,10 @@ Changes go through a coordinator PR first; feature branches only implement them.
 - Every port method throws the checked `OperationException` with an `ErrorKind`. Adapters map library
   or IO exceptions to a kind and never leak them.
 - `CancellationToken`: long-running methods call `throwIfCancelled()` between units of work and register
-  `onCancel(Runnable)` to abort blocking IO (close stream, destroy owned process). After cancellation they
-  throw `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
+  `onCancel(Runnable)` to abort blocking IO (close stream, destroy owned process). `onCancel` returns a
+  `CancellationToken.Registration`; close it in `finally` (or try-with-resources) when the guarded work ends,
+  so tokens reused across operations do not accumulate callbacks. After cancellation they throw
+  `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
 - `ProgressListener<T>` is called from background threads; callers dispatch to the EDT themselves.
 - `TransferProgress(phase, completedBytes, totalBytes)`; `totalBytes = -1` when unknown.
 

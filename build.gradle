@@ -19,7 +19,8 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
-        options.compilerArgs << '-Xlint:all' << '-Xlint:-options' << '-Werror'
+        // Allow try-with-resources over CancellationToken.Registration without referencing it in the body.
+        options.compilerArgs << '-Xlint:all' << '-Xlint:-options' << '-Xlint:-try' << '-Werror'
     }
 
     dependencies {
