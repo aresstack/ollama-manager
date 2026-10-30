@@ -256,9 +256,10 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         throw new OperationException(ErrorKind.NOT_OWNED, "server was not started by this manager: " + server);
     }
 
+    /** Compare canonical paths, because Windows may report the same folder by its 8.3 short name. */
     private InstallationKind kindOf(File executable) {
         if (portableRoot != null) {
-            for (File parent = executable.getParentFile(); parent != null; parent = parent.getParentFile()) {
+            for (File parent = BinaryLocator.canonical(executable).getParentFile(); parent != null; parent = parent.getParentFile()) {
                 if (parent.equals(portableRoot)) {
                     return InstallationKind.MANAGED_PORTABLE;
                 }
