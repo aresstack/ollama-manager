@@ -31,7 +31,7 @@ Select with `-Pacceptance.stages=` (comma-separated, or `all`). `readonly` alway
 |---|---|---|
 | `readonly` | GET on reference | version, tag and ps count, GPU evidence of loaded models |
 | `hardware` | runs `nvidia-smi`, CIM | probe vs `nvidia-smi` (name, driver, VRAM ±64 MiB), advisor = `[BASE]` for NVIDIA |
-| `install` | downloads official BASE ZIP (~1–2 GB per version) | SHA-256 manifest, extract, `ollama.exe --version`, active version, cancelled install leaves versions unchanged, uninstall refused while the version runs (also when it is **not** active), rollback/re-activate |
+| `install` | downloads official BASE ZIP (~1–2 GB per version) | cancel during download leaves no version, restart from scratch, SHA-256 manifest, extract, `ollama.exe --version`, active version, download time and free space logged, uninstall refused while the version runs (also when it is **not** active), rollback/re-activate; ROCm/MLX reported as SKIP (no download) |
 | `process` | starts `ollama serve` on the test port | start on 11434 refused, stop of foreign handle refused, cancel start, `/api/version`, `isInUse`, second start on same port refused, stop, restart |
 | `models` | pulls the test model into `<workDir>\models`, loads it on the GPU | cancel pull, resume pull, `/api/tags`, preload + `/api/ps` placement and evidence, unload, guarded delete |
 

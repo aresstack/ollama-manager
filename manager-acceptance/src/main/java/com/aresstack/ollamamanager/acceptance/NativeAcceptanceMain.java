@@ -268,22 +268,21 @@ public final class NativeAcceptanceMain {
         String rollbackVersion = System.getProperty("acceptance.rollbackVersion", "").trim();
         Set<DistributionPackage> base = EnumSet.of(DistributionPackage.BASE);
 
+        // Cancel first, then restart the same download from scratch: covers abort and restart without a duplicate.
+        cancelInstall(service, version);
+
         OllamaInstallation older = null;
         if (!rollbackVersion.isEmpty()) {
-            older = service.installVersion(rollbackVersion, base, progress("install " + rollbackVersion),
-                CancellationToken.none());
+            older = timedInstall(service, rollbackVersion, base);
             report.pass("install rollback version", older.toString());
         }
-        OllamaInstallation installed = version.isEmpty()
-            ? service.installLatest(base, progress("install latest"), CancellationToken.none())
-            : service.installVersion(version, base, progress("install " + version), CancellationToken.none());
+        OllamaInstallation installed = timedInstall(service, version, base);
         report.pass("install BASE with SHA-256 check", installed.toString());
         verifyVersion(installed);
         report.check(installed.equals(installer.active(installRoot)), "installed version is active",
             "active=" + installer.active(installRoot));
         binary = installed;
-
-        cancelInstall(service, rollbackVersion.isEmpty() ? version : rollbackVersion);
+        report.skip("ROCm/MLX add-on layout", "not downloaded for an NVIDIA BASE acceptance (issue #16)");
 
         if (older == null) {
             report.skip("running non-active version blocks uninstall", "set -Pacceptance.rollbackVersion");
@@ -308,6 +307,19 @@ public final class NativeAcceptanceMain {
         installer.activate(installed, installRoot);
         report.check(installed.equals(installer.active(installRoot)), "re-activate newer version",
             "active=" + installer.active(installRoot));
+    }
+
+    private OllamaInstallation timedInstall(PortableInstallationService service, String version,
+                                            Set<DistributionPackage> packages) throws OperationException {
+        String label = version.isEmpty() ? "latest" : version;
+        long freeBefore = installRoot.getParentFile().getUsableSpace();
+        long started = System.currentTimeMillis();
+        OllamaInstallation result = version.isEmpty()
+            ? service.installLatest(packages, progress("install " + label), CancellationToken.none())
+            : service.installVersion(version, packages, progress("install " + label), CancellationToken.none());
+        report.info("install " + label + " millis=" + (System.currentTimeMillis() - started) + " freeBytesBefore="
+            + freeBefore + " freeBytesAfter=" + installRoot.getParentFile().getUsableSpace());
+        return result;
     }
 
     private void usageGateOnActive(PortableInstallationService service, OllamaInstallation installed) throws Exception {
