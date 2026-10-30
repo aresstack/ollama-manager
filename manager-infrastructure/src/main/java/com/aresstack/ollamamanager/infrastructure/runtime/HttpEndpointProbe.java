@@ -22,10 +22,25 @@ import java.util.Map;
 public final class HttpEndpointProbe implements EndpointProbe {
 
     private static final int MAX_BODY_BYTES = 64 * 1024;
+    /**
+     * Long enough for Windows to report a refused loopback connect, which it retries for about a second before
+     * failing; a shorter timeout would turn every free port into an unknown one.
+     */
+    static final int CONNECT_TIMEOUT_MILLIS = 5000;
+
+    private final SocketConnector connector;
+
+    public HttpEndpointProbe() {
+        this(HttpEndpointProbe::connectSocket);
+    }
+
+    HttpEndpointProbe(SocketConnector connector) {
+        this.connector = connector;
+    }
 
     @Override
     public ProbeResult probe(Endpoint endpoint, int timeoutMillis) {
-        ProbeResult listening = checkListening(endpoint, timeoutMillis);
+        ProbeResult listening = checkListening(endpoint);
         if (listening != null) {
             return listening;
         }
@@ -42,8 +57,8 @@ public final class HttpEndpointProbe implements EndpointProbe {
                 return ProbeResult.foreign("HTTP " + status);
             }
             return classify(readBounded(connection.getInputStream()));
-        } catch (ConnectException e) {
-            return ProbeResult.free();
+        } catch (SocketTimeoutException e) {
+            return ProbeResult.foreign("no HTTP answer within " + timeoutMillis + " ms");
         } catch (IOException e) {
             return ProbeResult.foreign(e.getClass().getSimpleName() + ": " + e.getMessage());
         } finally {
@@ -54,20 +69,30 @@ public final class HttpEndpointProbe implements EndpointProbe {
     }
 
     /**
-     * Return {@link ProbeResult#free()} if nothing accepts connections, or {@code null} if something listens.
-     * Windows retries a refused loopback connect for about two seconds instead of failing fast, so a connect
-     * timeout on a loopback address also means that nothing listens there.
+     * Return {@link ProbeResult#free()} only for an explicit refusal, or {@code null} if something listens. Any
+     * other outcome, including a connect timeout, is not proof of a free port and fails closed as foreign.
      */
-    private static ProbeResult checkListening(Endpoint endpoint, int timeoutMillis) {
-        try (Socket socket = new Socket(Proxy.NO_PROXY)) {
-            socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), timeoutMillis);
+    private ProbeResult checkListening(Endpoint endpoint) {
+        try {
+            connector.connect(endpoint, CONNECT_TIMEOUT_MILLIS);
             return null;
         } catch (ConnectException e) {
             return ProbeResult.free();
         } catch (SocketTimeoutException e) {
-            return endpoint.isLoopback() ? ProbeResult.free() : ProbeResult.foreign("connect timed out");
+            return ProbeResult.foreign("connect timed out; port state unknown");
         } catch (IOException e) {
             return ProbeResult.foreign(e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /** Opens and closes a plain TCP connection; replaceable in tests. */
+    interface SocketConnector {
+        void connect(Endpoint endpoint, int timeoutMillis) throws IOException;
+    }
+
+    private static void connectSocket(Endpoint endpoint, int timeoutMillis) throws IOException {
+        try (Socket socket = new Socket(Proxy.NO_PROXY)) {
+            socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), timeoutMillis);
         }
     }
 

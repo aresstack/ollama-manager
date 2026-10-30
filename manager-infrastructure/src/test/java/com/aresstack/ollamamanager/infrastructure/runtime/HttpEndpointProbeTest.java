@@ -5,7 +5,11 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.Test;
 
 import java.io.OutputStream;
+import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 
@@ -19,6 +23,29 @@ public class HttpEndpointProbeTest {
         assertEquals("0.12.3", HttpEndpointProbe.classify("{\"version\":\"0.12.3\"}").version());
         assertEquals(ProbeResult.Kind.FOREIGN, HttpEndpointProbe.classify("{\"name\":\"x\"}").kind());
         assertEquals(ProbeResult.Kind.FOREIGN, HttpEndpointProbe.classify("<html></html>").kind());
+    }
+
+    @Test
+    public void onlyExplicitRefusalMeansFree() {
+        Endpoint loopback = new Endpoint("127.0.0.1", 11434);
+        assertEquals(ProbeResult.Kind.FREE, new HttpEndpointProbe((endpoint, timeout) -> {
+            throw new ConnectException("Connection refused");
+        }).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FOREIGN, new HttpEndpointProbe((endpoint, timeout) -> {
+            throw new SocketTimeoutException("connect timed out");
+        }).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FOREIGN, new HttpEndpointProbe((endpoint, timeout) -> {
+            throw new SocketException("Network is unreachable");
+        }).probe(loopback, 100).kind());
+    }
+
+    @Test
+    public void silentListenerIsForeign() throws Exception {
+        try (ServerSocket silent = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))) {
+            Endpoint endpoint = new Endpoint("127.0.0.1", silent.getLocalPort());
+            ProbeResult result = new HttpEndpointProbe().probe(endpoint, 300);
+            assertEquals(ProbeResult.Kind.FOREIGN, result.kind());
+        }
     }
 
     @Test
