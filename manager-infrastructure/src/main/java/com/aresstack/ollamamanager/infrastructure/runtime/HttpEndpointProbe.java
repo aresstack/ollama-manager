@@ -8,8 +8,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URL;
@@ -29,13 +31,15 @@ public final class HttpEndpointProbe implements EndpointProbe {
     static final int CONNECT_TIMEOUT_MILLIS = 5000;
 
     private final SocketConnector connector;
+    private final BindChecker bindChecker;
 
     public HttpEndpointProbe() {
-        this(HttpEndpointProbe::connectSocket);
+        this(HttpEndpointProbe::connectSocket, HttpEndpointProbe::bindExclusively);
     }
 
-    HttpEndpointProbe(SocketConnector connector) {
+    HttpEndpointProbe(SocketConnector connector, BindChecker bindChecker) {
         this.connector = connector;
+        this.bindChecker = bindChecker;
     }
 
     @Override
@@ -69,8 +73,10 @@ public final class HttpEndpointProbe implements EndpointProbe {
     }
 
     /**
-     * Return {@link ProbeResult#free()} only for an explicit refusal, or {@code null} if something listens. Any
-     * other outcome, including a connect timeout, is not proof of a free port and fails closed as foreign.
+     * Return {@link ProbeResult#free()} for an explicit refusal, or {@code null} if something listens. A connect
+     * timeout proves nothing, so it counts as free only if an exclusive bind of the exact address and port
+     * succeeds; every other outcome fails closed as foreign. The real server can still lose a bind race later,
+     * which the runtime reports as {@code PORT_IN_USE}.
      */
     private ProbeResult checkListening(Endpoint endpoint) {
         try {
@@ -79,9 +85,33 @@ public final class HttpEndpointProbe implements EndpointProbe {
         } catch (ConnectException e) {
             return ProbeResult.free();
         } catch (SocketTimeoutException e) {
-            return ProbeResult.foreign("connect timed out; port state unknown");
+            return bindChecker.canBind(endpoint) ? ProbeResult.free()
+                : ProbeResult.foreign("connect timed out and the port cannot be bound");
         } catch (IOException e) {
             return ProbeResult.foreign(e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /** Tries an exclusive bind of the exact endpoint and releases it again; replaceable in tests. */
+    interface BindChecker {
+        boolean canBind(Endpoint endpoint);
+    }
+
+    /**
+     * Bind exactly the endpoint's address without {@code SO_REUSEADDR}. IPv6 hosts may be bracketed. A listener on
+     * the wildcard address also blocks this bind on Windows (exclusive bind is the JDK default there) and Linux.
+     */
+    static boolean bindExclusively(Endpoint endpoint) {
+        String host = endpoint.host();
+        if (host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
+        try (ServerSocket socket = new ServerSocket()) {
+            socket.setReuseAddress(false);
+            socket.bind(new InetSocketAddress(InetAddress.getByName(host), endpoint.port()), 1);
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -91,8 +121,12 @@ public final class HttpEndpointProbe implements EndpointProbe {
     }
 
     private static void connectSocket(Endpoint endpoint, int timeoutMillis) throws IOException {
+        String host = endpoint.host();
+        if (host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
         try (Socket socket = new Socket(Proxy.NO_PROXY)) {
-            socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), timeoutMillis);
+            socket.connect(new InetSocketAddress(host, endpoint.port()), timeoutMillis);
         }
     }
 

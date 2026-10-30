@@ -2,7 +2,10 @@ package com.aresstack.ollamamanager.infrastructure.runtime;
 
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.sun.net.httpserver.HttpServer;
+import org.junit.Assume;
 import org.junit.Test;
+
+import java.io.IOException;
 
 import java.io.OutputStream;
 import java.net.ConnectException;
@@ -14,6 +17,8 @@ import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class HttpEndpointProbeTest {
 
@@ -26,17 +31,52 @@ public class HttpEndpointProbeTest {
     }
 
     @Test
-    public void onlyExplicitRefusalMeansFree() {
+    public void distinguishesRefusalTimeoutAndErrors() {
         Endpoint loopback = new Endpoint("127.0.0.1", 11434);
-        assertEquals(ProbeResult.Kind.FREE, new HttpEndpointProbe((endpoint, timeout) -> {
-            throw new ConnectException("Connection refused");
-        }).probe(loopback, 100).kind());
-        assertEquals(ProbeResult.Kind.FOREIGN, new HttpEndpointProbe((endpoint, timeout) -> {
-            throw new SocketTimeoutException("connect timed out");
-        }).probe(loopback, 100).kind());
-        assertEquals(ProbeResult.Kind.FOREIGN, new HttpEndpointProbe((endpoint, timeout) -> {
-            throw new SocketException("Network is unreachable");
-        }).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FREE, probe(new ConnectException("refused"), true).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FREE,
+            probe(new SocketTimeoutException("connect timed out"), true).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FOREIGN,
+            probe(new SocketTimeoutException("connect timed out"), false).probe(loopback, 100).kind());
+        assertEquals(ProbeResult.Kind.FOREIGN,
+            probe(new SocketException("Network is unreachable"), true).probe(loopback, 100).kind());
+    }
+
+    @Test
+    public void exclusiveBindDetectsOccupiedPortsForIpv4AndIpv6() throws Exception {
+        assertBindCheck("127.0.0.1", "127.0.0.1");
+        try (ServerSocket probe = new ServerSocket(0, 1, InetAddress.getByName("::1"))) {
+            probe.getLocalPort();
+        } catch (IOException e) {
+            Assume.assumeNoException("IPv6 loopback unavailable", e);
+        }
+        assertBindCheck("::1", "[::1]");
+    }
+
+    @Test
+    public void bindConflictAfterTimeoutFailsClosed() throws Exception {
+        try (ServerSocket occupied = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))) {
+            Endpoint endpoint = new Endpoint("127.0.0.1", occupied.getLocalPort());
+            HttpEndpointProbe timingOut = new HttpEndpointProbe((target, timeout) -> {
+                throw new SocketTimeoutException("connect timed out");
+            }, HttpEndpointProbe::bindExclusively);
+            assertEquals(ProbeResult.Kind.FOREIGN, timingOut.probe(endpoint, 100).kind());
+        }
+    }
+
+    private static void assertBindCheck(String address, String host) throws IOException {
+        int port;
+        try (ServerSocket occupied = new ServerSocket(0, 50, InetAddress.getByName(address))) {
+            port = occupied.getLocalPort();
+            assertFalse(HttpEndpointProbe.bindExclusively(new Endpoint(host, port)));
+        }
+        assertTrue(HttpEndpointProbe.bindExclusively(new Endpoint(host, port)));
+    }
+
+    private static HttpEndpointProbe probe(IOException connectFailure, boolean bindable) {
+        return new HttpEndpointProbe((endpoint, timeout) -> {
+            throw connectFailure;
+        }, endpoint -> bindable);
     }
 
     @Test
