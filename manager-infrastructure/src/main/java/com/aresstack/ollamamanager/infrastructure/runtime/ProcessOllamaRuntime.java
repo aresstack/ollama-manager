@@ -4,6 +4,7 @@ import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.installation.InstallationUsage;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
 import com.aresstack.ollamamanager.application.port.OllamaRuntimePort;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
@@ -33,7 +34,7 @@ import java.util.regex.Pattern;
  * only on the child's {@link ProcessBuilder}, and only {@link Process} objects this instance created are ever
  * terminated. Nothing is stopped by name, PID or port.
  */
-public final class ProcessOllamaRuntime implements OllamaRuntimePort {
+public final class ProcessOllamaRuntime implements OllamaRuntimePort, InstallationUsage {
 
     static final long VERSION_TIMEOUT_MILLIS = 10000;
     static final long FORCE_KILL_WAIT_MILLIS = 5000;
@@ -162,6 +163,26 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         for (OwnedServer server : new ArrayList<OwnedServer>(running)) {
             terminate(server, gracePeriodMillis);
         }
+    }
+
+    /**
+     * Report whether a live server started by this instance runs from the installation's binary directory,
+     * regardless of which version is marked active.
+     */
+    @Override
+    public boolean isInUse(OllamaInstallation installation) {
+        File directory = installation.binaryDirectory();
+        if (directory == null) {
+            return false;
+        }
+        File wanted = BinaryLocator.canonical(directory);
+        for (OwnedServer server : running) {
+            File used = server.installation().binaryDirectory();
+            if (server.isAlive() && used != null && BinaryLocator.canonical(used).equals(wanted)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     int runningCount() {

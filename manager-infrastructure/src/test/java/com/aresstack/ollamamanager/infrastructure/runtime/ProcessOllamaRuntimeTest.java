@@ -344,6 +344,22 @@ public class ProcessOllamaRuntimeTest {
     }
 
     @Test
+    public void reportsInstallationInUseOnlyWhileOwnedServerRuns() throws Exception {
+        File otherDirectory = folder.newFolder("other");
+        OllamaInstallation other = new OllamaInstallation(InstallationKind.MANAGED_INSTALLED, "0.12.4",
+            otherDirectory, Endpoint.DEFAULT);
+        assertFalse(runtime.isInUse(installation));
+
+        startedProcess(false);
+        ManagedServer server = runtime.start(installation, ServerSettings.defaults(), CancellationToken.none());
+
+        assertTrue(runtime.isInUse(installation));
+        assertFalse(runtime.isInUse(other));
+        runtime.stop(server, 0);
+        assertFalse(runtime.isInUse(installation));
+    }
+
+    @Test
     public void parsesVersionOutput() {
         assertEquals("0.12.3", ProcessOllamaRuntime.parseVersion(Collections.singletonList("ollama version is 0.12.3")));
         assertNull(ProcessOllamaRuntime.parseVersion(Collections.singletonList("command not found")));
