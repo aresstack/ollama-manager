@@ -227,6 +227,35 @@ public class PortableDistributionInstallerTest {
     }
 
     @Test
+    public void verifiesCompletePartialLocallyInsteadOfRequestingRange() throws Exception {
+        byte[] zip = base("v0.12.6");
+        OllamaRelease release = publish("v0.12.6", zip);
+        File downloads = new File(root, "downloads");
+        downloads.mkdirs();
+        Files.write(new File(downloads, release.assetFor(DistributionPackage.BASE).sha256()
+            + "-ollama-windows-amd64.zip.part").toPath(), zip);
+
+        OllamaInstallation installation = installer(WINDOWS).install(release, BASE, root, ignore(),
+            CancellationToken.none());
+
+        assertTrue(server.requests.isEmpty());
+        assertTrue(new File(installation.binaryDirectory(), "ollama.exe").isFile());
+    }
+
+    @Test
+    public void usesCanonicalDirectoryForActiveProtection() throws Exception {
+        PortableDistributionInstaller installer = installer(WINDOWS);
+        OllamaInstallation current = installer.install(publish("v0.12.6", base("v0.12.6")), BASE, root, ignore(),
+            CancellationToken.none());
+        OllamaInstallation dotted = new OllamaInstallation(InstallationKind.MANAGED_PORTABLE, "v0.12.6",
+            new File(current.binaryDirectory(), "."), Endpoint.DEFAULT);
+
+        expect(ErrorKind.INVALID_STATE, () -> installer.uninstall(dotted, root));
+        installer.activate(dotted, root);
+        assertEquals(current, installer.active(root));
+    }
+
+    @Test
     public void cancellationRemovesPartialResults() throws Exception {
         byte[] zip = base("v0.12.6");
         OllamaRelease release = publish("v0.12.6", zip);

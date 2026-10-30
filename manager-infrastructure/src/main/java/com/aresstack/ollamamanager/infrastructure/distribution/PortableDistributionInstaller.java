@@ -209,13 +209,20 @@ public final class PortableDistributionInstaller implements DistributionInstalle
                 "cannot remove the active version " + directory.getName() + "; activate another one first");
         }
         Object files = readMarker(directory).get("files");
+        List<String> remaining = new ArrayList<String>();
         if (files instanceof List) {
             for (Object file : (List<?>) files) {
                 File target = new File(directory, String.valueOf(file).replace('/', File.separatorChar));
-                if (isInside(directory, target) && !Files.isSymbolicLink(target.toPath())) {
-                    target.delete();
+                if (isInside(directory, target) && !Files.isSymbolicLink(target.toPath())
+                    && target.exists() && !target.delete()) {
+                    remaining.add(String.valueOf(file));
                 }
             }
+        }
+        if (!remaining.isEmpty()) {
+            // Keep the marker so the version stays listed and the uninstall can be retried.
+            throw new OperationException(ErrorKind.IO, "cannot delete " + remaining.size() + " files in "
+                + directory + " (in use?), for example " + remaining.get(0));
         }
         new File(directory, NOTICE).delete();
         new File(directory, MARKER).delete();
@@ -258,7 +265,13 @@ public final class PortableDistributionInstaller implements DistributionInstalle
             target.delete();
         }
         long existing = partial.isFile() ? partial.length() : 0;
-        if (existing > asset.sizeBytes() && asset.sizeBytes() > 0) {
+        if (existing > 0 && existing >= asset.sizeBytes() && asset.sizeBytes() > 0) {
+            // A complete partial cannot be resumed with a Range request; verify it locally instead.
+            if (existing == asset.sizeBytes() && sha256(partial, cancellation).equals(asset.sha256())) {
+                LOG.info("verified " + asset.name() + " sha256 " + asset.sha256() + " from earlier download");
+                move(partial, target);
+                return target;
+            }
             partial.delete();
             existing = 0;
         }
@@ -367,15 +380,17 @@ public final class PortableDistributionInstaller implements DistributionInstalle
         if (installation.kind() != InstallationKind.MANAGED_PORTABLE || installation.binaryDirectory() == null) {
             throw new OperationException(ErrorKind.NOT_OWNED, "not a portable installation: " + installation);
         }
-        File directory = installation.binaryDirectory();
+        File directory;
         try {
-            if (!directory.getCanonicalFile().getParentFile().equals(layout.versions.getCanonicalFile())
+            directory = installation.binaryDirectory().getCanonicalFile();
+            File parent = directory.getParentFile();
+            if (parent == null || !parent.equals(layout.versions.getCanonicalFile())
                 || !new File(directory, MARKER).isFile()) {
                 throw new OperationException(ErrorKind.NOT_OWNED,
-                    directory + " was not created by the manager below " + layout.root);
+                    installation.binaryDirectory() + " was not created by the manager below " + layout.root);
             }
         } catch (IOException e) {
-            throw new OperationException(ErrorKind.IO, "cannot resolve " + directory, e);
+            throw new OperationException(ErrorKind.IO, "cannot resolve " + installation.binaryDirectory(), e);
         }
         return directory;
     }
