@@ -2,6 +2,8 @@ package com.aresstack.ollamamanager.infrastructure.hardware;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
+import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
+import com.aresstack.ollamamanager.application.hardware.GpuSupport;
 import com.aresstack.ollamamanager.domain.hardware.GpuDescriptor;
 import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
 import com.aresstack.ollamamanager.domain.hardware.GpuVendor;
@@ -49,6 +51,16 @@ public class SystemHardwareProbeTest {
         GpuDescriptor nvidia = snapshot.gpus().get(0);
         assertEquals(GpuVendor.NVIDIA, nvidia.vendor());
         assertEquals(null, nvidia.vramBytes());
+    }
+
+    @Test
+    public void nvidiaOnlyViaCimKeepsCorrectDriverAssessment() throws Exception {
+        FakeCommandRunner runner = new FakeCommandRunner()
+            .respond("powershell.exe", "-NoProfile", CommandResult.completed(0, CIM));
+        HardwareSnapshot snapshot = probe(runner).probe(CancellationToken.none());
+        GpuDescriptor nvidia = snapshot.gpus().get(0);
+        assertEquals("32.0.15.7688", nvidia.driverVersion());
+        assertEquals(GpuSupport.SUPPORTED, new GpuCompatibilityRules().assess(nvidia).support());
     }
 
     @Test

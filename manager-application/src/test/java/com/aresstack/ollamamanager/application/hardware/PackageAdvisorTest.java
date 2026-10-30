@@ -62,10 +62,26 @@ public class PackageAdvisorTest {
     }
 
     @Test
+    public void appliesDocumentedMinimumDriverBoundaries() {
+        GpuCompatibilityRules rules = new GpuCompatibilityRules();
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
+            rules.assess(nvidia("NVIDIA GeForce RTX 4090", "549.99")).support());
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
+            rules.assess(nvidia("NVIDIA GeForce RTX 4090", "540.12")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 4090", "550.00")).support());
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
+            rules.assess(nvidia("NVIDIA GeForce RTX 5080", "569.99")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 5080", "570.00")).support());
+    }
+
+    @Test
     public void olderNvidiaGenerations() {
         GpuCompatibilityRules rules = new GpuCompatibilityRules();
-        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 1060 6GB", "552.22")).support());
-        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 750 Ti", "552.22")).support());
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
+            rules.assess(nvidia("NVIDIA GeForce GTX 1060 6GB", "552.22")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 1060 6GB", "570.00")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 750 Ti", "572.16")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 1660 SUPER", "550.00")).support());
         assertEquals(GpuSupport.UNSUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 770", "472.12")).support());
         assertEquals(GpuSupport.UNKNOWN, rules.assess(nvidia("NVIDIA Quadro P4000", "552.22")).support());
         assertEquals(GpuSupport.UNKNOWN, rules.assess(nvidia("NVIDIA GeForce RTX 3060", null)).support());

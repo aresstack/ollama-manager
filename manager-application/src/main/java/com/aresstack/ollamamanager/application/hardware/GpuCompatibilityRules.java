@@ -13,7 +13,8 @@ import java.util.regex.Pattern;
 /**
  * Versioned, name-based compatibility rules derived from https://docs.ollama.com/gpu for Windows.
  * <p>
- * NVIDIA: compute capability 5.0+ (Maxwell and newer) with driver 531+; Blackwell (RTX 50xx) needs 570+.
+ * NVIDIA: compute capability 7.0+ needs driver 550+, 5.0-6.2 (Maxwell, Pascal) needs 570+. Blackwell
+ * (RTX 50xx) also needs 570+ because older drivers do not know the device.
  * Compute capability is inferred from the product name, so unmatched names stay {@link GpuSupport#UNKNOWN}.
  * Windows driver versions such as {@code 32.0.15.7688} are normalised to the NVIDIA release {@code 576.88}.
  * AMD: only the Windows ROCm list (not the longer Linux list) from the docs counts as supported; other Radeon models stay UNKNOWN
@@ -21,9 +22,10 @@ import java.util.regex.Pattern;
  */
 public final class GpuCompatibilityRules {
 
-    public static final String VERSION = "ollama-docs-gpu-2026-10-windows";
+    public static final String VERSION = "ollama-docs-gpu-2026-10-30-windows";
 
-    static final int NVIDIA_MIN_DRIVER = 531;
+    static final int NVIDIA_MIN_DRIVER = 550;
+    static final int NVIDIA_LEGACY_MIN_DRIVER = 570;
     static final int NVIDIA_BLACKWELL_MIN_DRIVER = 570;
 
     private static final List<String> AMD_WINDOWS_ROCM = Collections.unmodifiableList(Arrays.asList(
@@ -48,17 +50,15 @@ public final class GpuCompatibilityRules {
     }
 
     private GpuAssessment assessNvidia(GpuDescriptor gpu) {
-        String name = gpu.name().toLowerCase(Locale.ROOT);
-        Boolean capable = nvidiaComputeCapable(name);
-        if (capable == null) {
+        Integer minDriver = nvidiaMinDriver(gpu.name().toLowerCase(Locale.ROOT));
+        if (minDriver == null) {
             return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.UNKNOWN, false,
                 "Compute capability of this NVIDIA model is not known to rules " + VERSION + ".");
         }
-        if (!capable) {
+        if (minDriver == 0) {
             return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.UNSUPPORTED, false,
                 "NVIDIA GPU older than compute capability 5.0; Ollama does not support it.");
         }
-        int minDriver = RTX_50.matcher(name).find() ? NVIDIA_BLACKWELL_MIN_DRIVER : NVIDIA_MIN_DRIVER;
         Integer driver = driverMajor(gpu.driverVersion());
         if (driver == null) {
             return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.UNKNOWN, false,
@@ -70,24 +70,35 @@ public final class GpuCompatibilityRules {
                     + " or newer manually.");
         }
         return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.SUPPORTED, false,
-            "Supported NVIDIA GPU (compute capability 5.0+, driver " + gpu.driverVersion() + ").");
+            "Supported NVIDIA GPU (driver " + gpu.driverVersion() + ", needs " + minDriver + "+).");
     }
 
-    /** Return true for Maxwell+, false for older generations, null when the name is not recognised. */
-    private static Boolean nvidiaComputeCapable(String name) {
-        if (name.contains("rtx") || name.contains("titan v") || name.contains("titan x")) {
-            return Boolean.TRUE;
+    /**
+     * Return the minimum driver for the model, 0 for generations below compute capability 5.0, or
+     * {@code null} when the name is not recognised.
+     */
+    private static Integer nvidiaMinDriver(String name) {
+        if (RTX_50.matcher(name).find()) {
+            return NVIDIA_BLACKWELL_MIN_DRIVER;
+        }
+        if (name.contains("rtx") || name.contains("titan v")) {
+            return NVIDIA_MIN_DRIVER;
+        }
+        if (name.contains("titan x")) {
+            return NVIDIA_LEGACY_MIN_DRIVER;
         }
         Matcher gtx = GTX_MODEL.matcher(name);
         if (gtx.find()) {
             int model = Integer.parseInt(gtx.group(1));
-            // GTX 745/750 are Maxwell; the rest of the 700 series and older are Kepler or Fermi.
-            return Boolean.valueOf(model >= 900 || model == 745 || model == 750);
+            if (model >= 1600 && model < 1700) {
+                return NVIDIA_MIN_DRIVER;
+            }
+            // GTX 745/750, 9xx and 10xx are Maxwell or Pascal (5.0-6.2); the rest of 7xx and older are Kepler.
+            return model >= 900 || model == 745 || model == 750 ? NVIDIA_LEGACY_MIN_DRIVER : 0;
         }
         Matcher gt = GT_MODEL.matcher(name);
-        if (gt.find()) {
-            int model = Integer.parseInt(gt.group(1));
-            return model >= 1000 ? Boolean.TRUE : null;
+        if (gt.find() && Integer.parseInt(gt.group(1)) >= 1000) {
+            return NVIDIA_LEGACY_MIN_DRIVER;
         }
         return null;
     }
