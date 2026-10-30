@@ -19,21 +19,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * {@link OllamaApiPort} on plain {@link HttpURLConnection}. Streams are read incrementally and bounded,
- * so a pull never buffers the whole response. Cancellation disconnects the active connection.
+ * {@link OllamaApiPort} over {@link RawHttpRequest}. Streams are read incrementally and bounded, so a pull
+ * never buffers the whole response. Cancellation closes the socket, which aborts a blocked read at once.
  */
 public final class HttpOllamaApiClient implements OllamaApiPort {
+
+    private static final int HTTP_OK = 200;
 
     static final int MAX_BODY_BYTES = 16 * 1024 * 1024;
     static final int MAX_LINE_CHARS = 1024 * 1024;
@@ -94,20 +92,14 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         Map<String, Object> body = modelBody(modelName);
         body.put("stream", Boolean.TRUE);
         cancellation.throwIfCancelled();
-        HttpURLConnection connection = open(endpoint, "POST", "/api/pull", longReadTimeoutMillis, cancellation);
-        try {
-            byte[] bytes = prepareBody(connection, body);
-            connect(connection, endpoint, cancellation);
-            writeBody(connection, bytes);
-            int status = connection.getResponseCode();
-            if (status != HttpURLConnection.HTTP_OK) {
-                throw httpFailure(status, readBody(connection.getErrorStream()));
+        try (RawHttpRequest.Response response = open(endpoint, "POST", "/api/pull", body, longReadTimeoutMillis,
+            cancellation)) {
+            if (response.status() != HTTP_OK) {
+                throw httpFailure(response.status(), readBody(response.body()));
             }
-            readPullStream(connection.getInputStream(), listener, cancellation);
+            readPullStream(response.body(), listener, cancellation);
         } catch (IOException e) {
             throw ioFailure(e, cancellation);
-        } finally {
-            connection.disconnect();
         }
     }
 
@@ -138,43 +130,31 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
     @Override
     public void delete(Endpoint endpoint, String modelName, CancellationToken cancellation)
         throws OperationException {
-        // Java 8 HttpURLConnection refuses a request body on DELETE, which Ollama requires (JDK-7157360).
-        cancellation.throwIfCancelled();
-        byte[] body = Json.write(modelBody(modelName)).getBytes(StandardCharsets.UTF_8);
-        RawHttpRequest.Response response;
-        try {
-            response = RawHttpRequest.send(endpoint, "DELETE", "/api/delete", body, connectTimeoutMillis,
-                readTimeoutMillis, MAX_BODY_BYTES, cancellation);
-        } catch (IOException e) {
-            throw ioFailure(e, cancellation);
-        }
-        if (response.status() != HttpURLConnection.HTTP_OK) {
-            throw httpFailure(response.status(), response.body());
-        }
+        exchange(endpoint, "DELETE", "/api/delete", modelBody(modelName), readTimeoutMillis, cancellation, false);
     }
 
     private Object exchange(Endpoint endpoint, String method, String path, Map<String, Object> body,
                             int readTimeout, CancellationToken cancellation) throws OperationException {
+        return exchange(endpoint, method, path, body, readTimeout, cancellation, true);
+    }
+
+    private Object exchange(Endpoint endpoint, String method, String path, Map<String, Object> body,
+                            int readTimeout, CancellationToken cancellation, boolean expectJson)
+        throws OperationException {
         cancellation.throwIfCancelled();
-        HttpURLConnection connection = open(endpoint, method, path, readTimeout, cancellation);
         String text;
-        try {
-            byte[] bytes = body == null ? null : prepareBody(connection, body);
-            connect(connection, endpoint, cancellation);
-            if (bytes != null) {
-                writeBody(connection, bytes);
+        try (RawHttpRequest.Response response = open(endpoint, method, path, body, readTimeout, cancellation)) {
+            text = readBody(response.body());
+            if (response.status() != HTTP_OK) {
+                throw httpFailure(response.status(), text);
             }
-            int status = connection.getResponseCode();
-            if (status != HttpURLConnection.HTTP_OK) {
-                throw httpFailure(status, readBody(connection.getErrorStream()));
-            }
-            text = readBody(connection.getInputStream());
         } catch (IOException e) {
             throw ioFailure(e, cancellation);
-        } finally {
-            connection.disconnect();
         }
         cancellation.throwIfCancelled();
+        if (!expectJson) {
+            return null;
+        }
         try {
             return Json.parse(text);
         } catch (IllegalArgumentException e) {
@@ -182,60 +162,11 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         }
     }
 
-    private HttpURLConnection open(Endpoint endpoint, String method, String path, int readTimeout,
-                                   CancellationToken cancellation) throws OperationException {
-        try {
-            final HttpURLConnection connection =
-                (HttpURLConnection) new URL(endpoint.baseUrl() + path).openConnection();
-            connection.setRequestMethod(method);
-            connection.setConnectTimeout(connectTimeoutMillis);
-            connection.setReadTimeout(readTimeout);
-            connection.setUseCaches(false);
-            connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("Accept", "application/json, application/x-ndjson");
-            cancellation.onCancel(new Runnable() {
-                @Override
-                public void run() {
-                    connection.disconnect();
-                }
-            });
-            return connection;
-        } catch (IOException e) {
-            throw new OperationException(ErrorKind.CONNECTION_FAILED, "cannot open " + endpoint + path, e);
-        }
-    }
-
-    /**
-     * Connect separately so that a connect timeout, which Windows reports for a closed port after its SYN
-     * retries, counts as {@code CONNECTION_FAILED} rather than a slow answer.
-     */
-    private static void connect(HttpURLConnection connection, Endpoint endpoint, CancellationToken cancellation)
-        throws OperationException {
-        try {
-            connection.connect();
-        } catch (IOException e) {
-            if (cancellation.isCancelled()) {
-                throw new OperationCancelledException("operation cancelled");
-            }
-            throw new OperationException(ErrorKind.CONNECTION_FAILED, "cannot connect to Ollama at " + endpoint, e);
-        }
-    }
-
-    private static byte[] prepareBody(HttpURLConnection connection, Map<String, Object> body) {
-        byte[] bytes = Json.write(body).getBytes(StandardCharsets.UTF_8);
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setFixedLengthStreamingMode(bytes.length);
-        return bytes;
-    }
-
-    private static void writeBody(HttpURLConnection connection, byte[] bytes) throws IOException {
-        OutputStream out = connection.getOutputStream();
-        try {
-            out.write(bytes);
-        } finally {
-            out.close();
-        }
+    private RawHttpRequest.Response open(Endpoint endpoint, String method, String path, Map<String, Object> body,
+                                         int readTimeout, CancellationToken cancellation)
+        throws IOException, OperationException {
+        byte[] bytes = body == null ? null : Json.write(body).getBytes(StandardCharsets.UTF_8);
+        return RawHttpRequest.open(endpoint, method, path, bytes, connectTimeoutMillis, readTimeout, cancellation);
     }
 
     private static void readPullStream(InputStream in, ProgressListener<TransferProgress> listener,
@@ -328,10 +259,10 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
             // A non-JSON error body still yields the status code below.
         }
         String text = "HTTP " + status + (message == null ? "" : ": " + message);
-        if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+        if (status == 404) {
             return new OperationException(ErrorKind.NOT_FOUND, text);
         }
-        if (status == HttpURLConnection.HTTP_UNAVAILABLE) {
+        if (status == 503) {
             return new OperationException(ErrorKind.SERVICE_UNAVAILABLE, text);
         }
         return new OperationException(ErrorKind.HTTP_ERROR, text);
@@ -343,9 +274,6 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         }
         if (e instanceof SocketTimeoutException) {
             return new OperationException(ErrorKind.TIMEOUT, "Ollama did not answer in time", e);
-        }
-        if (e instanceof ConnectException) {
-            return new OperationException(ErrorKind.CONNECTION_FAILED, "cannot connect to Ollama", e);
         }
         return new OperationException(ErrorKind.IO, "communication with Ollama failed: " + e.getMessage(), e);
     }

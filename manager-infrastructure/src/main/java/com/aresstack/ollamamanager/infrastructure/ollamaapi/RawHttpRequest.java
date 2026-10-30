@@ -6,7 +6,8 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -16,22 +17,31 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * Minimal HTTP/1.1 client for the one request {@link java.net.HttpURLConnection} cannot send on Java 8:
- * a {@code DELETE} with a body. Sends {@code Connection: close} and supports fixed-length, chunked and
- * close-delimited responses.
+ * Minimal HTTP/1.1 transport on a plain socket. It replaces {@link java.net.HttpURLConnection} because on
+ * Java 8 that class refuses a body on {@code DELETE} (JDK-7157360), and its {@code disconnect()} can wait for
+ * a reader's lock instead of aborting a blocked read. Here cancellation closes the socket, which unblocks
+ * any read immediately. Sends {@code Connection: close}; supports fixed-length, chunked and close-delimited
+ * responses.
  */
 final class RawHttpRequest {
 
     private static final int MAX_HEADER_LINE = 8192;
+    private static final int MAX_HEADERS = 100;
 
     private RawHttpRequest() {
     }
 
-    static Response send(Endpoint endpoint, String method, String path, byte[] body, int connectTimeoutMillis,
-                         int readTimeoutMillis, int maxBodyBytes, CancellationToken cancellation)
+    /**
+     * Send a request and read the status and headers. The caller must close the returned response.
+     *
+     * @param body request body, or {@code null} for none
+     */
+    static Response open(Endpoint endpoint, String method, String path, byte[] body, int connectTimeoutMillis,
+                         int readTimeoutMillis, CancellationToken cancellation)
         throws IOException, OperationException {
         final Socket socket = new Socket();
         cancellation.onCancel(() -> closeQuietly(socket));
+        boolean opened = false;
         try {
             try {
                 socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), connectTimeoutMillis);
@@ -44,22 +54,33 @@ final class RawHttpRequest {
             }
             socket.setSoTimeout(readTimeoutMillis);
             OutputStream out = socket.getOutputStream();
-            String head = method + " " + path + " HTTP/1.1\r\n"
-                + "Host: " + endpoint.toHostValue() + "\r\n"
-                + "Content-Type: application/json\r\n"
-                + "Accept: application/json\r\n"
-                + "Content-Length: " + body.length + "\r\n"
-                + "Connection: close\r\n\r\n";
-            out.write(head.getBytes(StandardCharsets.US_ASCII));
-            out.write(body);
+            StringBuilder head = new StringBuilder()
+                .append(method).append(' ').append(path).append(" HTTP/1.1\r\n")
+                .append("Host: ").append(endpoint.toHostValue()).append("\r\n")
+                .append("Accept: application/json, application/x-ndjson\r\n")
+                .append("Connection: close\r\n");
+            if (body != null) {
+                head.append("Content-Type: application/json\r\n")
+                    .append("Content-Length: ").append(body.length).append("\r\n");
+            }
+            head.append("\r\n");
+            out.write(head.toString().getBytes(StandardCharsets.US_ASCII));
+            if (body != null) {
+                out.write(body);
+            }
             out.flush();
-            return readResponse(new BufferedInputStream(socket.getInputStream()), maxBodyBytes);
+            Response response = readHead(new BufferedInputStream(socket.getInputStream()), socket);
+            opened = true;
+            return response;
         } finally {
-            closeQuietly(socket);
+            if (!opened) {
+                closeQuietly(socket);
+            }
         }
     }
 
-    static Response readResponse(InputStream in, int maxBodyBytes) throws IOException, OperationException {
+    /** Parse status line and headers from {@code in}; {@code resource} is closed with the response. */
+    static Response readHead(InputStream in, Closeable resource) throws IOException, OperationException {
         String statusLine = readLine(in);
         String[] parts = statusLine.split(" ", 3);
         if (parts.length < 2 || !parts[0].startsWith("HTTP/1.")) {
@@ -74,7 +95,11 @@ final class RawHttpRequest {
         long contentLength = -1;
         boolean chunked = false;
         String line;
+        int headers = 0;
         while (!(line = readLine(in)).isEmpty()) {
+            if (++headers > MAX_HEADERS) {
+                throw new OperationException(ErrorKind.NOT_OLLAMA, "too many HTTP headers");
+            }
             int colon = line.indexOf(':');
             if (colon <= 0) {
                 throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid HTTP header: " + line);
@@ -91,51 +116,18 @@ final class RawHttpRequest {
                 chunked = value.toLowerCase(Locale.ROOT).contains("chunked");
             }
         }
-        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        InputStream body;
         if (chunked) {
-            long size;
-            while ((size = chunkSize(readLine(in))) > 0) {
-                copy(in, body, size, maxBodyBytes);
-                readLine(in);
-            }
+            body = new ChunkedInputStream(in);
         } else if (contentLength >= 0) {
-            copy(in, body, contentLength, maxBodyBytes);
+            body = new LengthLimitedInputStream(in, contentLength);
         } else {
-            copy(in, body, Long.MAX_VALUE, maxBodyBytes);
+            body = in;
         }
-        return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
+        return new Response(status, body, resource);
     }
 
-    private static long chunkSize(String line) throws OperationException {
-        int extension = line.indexOf(';');
-        try {
-            return Long.parseLong((extension < 0 ? line : line.substring(0, extension)).trim(), 16);
-        } catch (NumberFormatException e) {
-            throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid chunk size: " + line, e);
-        }
-    }
-
-    private static void copy(InputStream in, ByteArrayOutputStream out, long length, int maxBodyBytes)
-        throws IOException, OperationException {
-        byte[] buffer = new byte[8192];
-        long remaining = length;
-        while (remaining > 0) {
-            int read = in.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-            if (read == -1) {
-                if (length == Long.MAX_VALUE) {
-                    return;
-                }
-                throw new IOException("connection closed before end of body");
-            }
-            if (out.size() + read > maxBodyBytes) {
-                throw new OperationException(ErrorKind.NOT_OLLAMA, "response exceeds " + maxBodyBytes + " bytes");
-            }
-            out.write(buffer, 0, read);
-            remaining -= read;
-        }
-    }
-
-    private static String readLine(InputStream in) throws IOException, OperationException {
+    static String readLine(InputStream in) throws IOException, OperationException {
         StringBuilder line = new StringBuilder();
         int c;
         while ((c = in.read()) != -1) {
@@ -151,29 +143,137 @@ final class RawHttpRequest {
         throw new IOException("connection closed inside HTTP header");
     }
 
-    private static void closeQuietly(Socket socket) {
+    private static void closeQuietly(Closeable resource) {
         try {
-            socket.close();
+            resource.close();
         } catch (IOException ignored) {
             // Closing is best effort.
         }
     }
 
-    static final class Response {
+    /** Status and decoded body stream of a response. Closing it closes the connection. */
+    static final class Response implements Closeable {
         private final int status;
-        private final String body;
+        private final InputStream body;
+        private final Closeable resource;
 
-        Response(int status, String body) {
+        Response(int status, InputStream body, Closeable resource) {
             this.status = status;
             this.body = body;
+            this.resource = resource;
         }
 
         int status() {
             return status;
         }
 
-        String body() {
+        /** Return the body with transfer encoding removed; it ends at the end of the message. */
+        InputStream body() {
             return body;
+        }
+
+        @Override
+        public void close() {
+            closeQuietly(resource);
+        }
+    }
+
+    /** Decodes {@code Transfer-Encoding: chunked}; ends at the zero-size chunk. */
+    static final class ChunkedInputStream extends InputStream {
+        private final InputStream in;
+        private long remaining;
+        private boolean finished;
+
+        ChunkedInputStream(InputStream in) {
+            this.in = in;
+        }
+
+        @Override
+        public int read() throws IOException {
+            byte[] one = new byte[1];
+            int n = read(one, 0, 1);
+            return n == -1 ? -1 : one[0] & 0xff;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            if (finished) {
+                return -1;
+            }
+            if (remaining == 0) {
+                remaining = nextChunkSize();
+                if (remaining == 0) {
+                    finished = true;
+                    return -1;
+                }
+            }
+            int n = in.read(buffer, offset, (int) Math.min(length, remaining));
+            if (n == -1) {
+                throw new IOException("connection closed inside chunk");
+            }
+            remaining -= n;
+            if (remaining == 0) {
+                expectLineEnd();
+            }
+            return n;
+        }
+
+        private long nextChunkSize() throws IOException {
+            String line = line();
+            int extension = line.indexOf(';');
+            try {
+                long size = Long.parseLong((extension < 0 ? line : line.substring(0, extension)).trim(), 16);
+                if (size < 0) {
+                    throw new NumberFormatException();
+                }
+                return size;
+            } catch (NumberFormatException e) {
+                throw new IOException("invalid chunk size: " + line, e);
+            }
+        }
+
+        private void expectLineEnd() throws IOException {
+            if (!line().isEmpty()) {
+                throw new IOException("missing CRLF after chunk");
+            }
+        }
+
+        private String line() throws IOException {
+            try {
+                return readLine(in);
+            } catch (OperationException e) {
+                throw new IOException(e.getMessage(), e);
+            }
+        }
+    }
+
+    /** Ends after a fixed number of bytes. */
+    static final class LengthLimitedInputStream extends FilterInputStream {
+        private long remaining;
+
+        LengthLimitedInputStream(InputStream in, long length) {
+            super(in);
+            this.remaining = length;
+        }
+
+        @Override
+        public int read() throws IOException {
+            byte[] one = new byte[1];
+            int n = read(one, 0, 1);
+            return n == -1 ? -1 : one[0] & 0xff;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int n = in.read(buffer, offset, (int) Math.min(length, remaining));
+            if (n == -1) {
+                throw new IOException("connection closed before end of body");
+            }
+            remaining -= n;
+            return n;
         }
     }
 }

@@ -172,6 +172,45 @@ public class HttpOllamaApiClientTest {
     }
 
     @Test
+    public void cancellationFromAnotherThreadAbortsBlockedRead() throws Exception {
+        CountDownLatch requestReceived = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        server.on("POST", "/api/pull", (exchange, body) -> {
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().flush();
+            requestReceived.countDown();
+            try {
+                release.await(20, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        CancellationToken token = new CancellationToken();
+        HttpOllamaApiClient slowClient = new HttpOllamaApiClient(2000, 2000, 30000);
+        Thread canceller = new Thread(() -> {
+            try {
+                requestReceived.await(5, TimeUnit.SECONDS);
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            token.cancel();
+        });
+        canceller.start();
+        long start = System.nanoTime();
+        try {
+            slowClient.pull(endpoint, "x", progress -> { }, token);
+            fail();
+        } catch (OperationCancelledException e) {
+            assertEquals(ErrorKind.CANCELLED, e.kind());
+        } finally {
+            release.countDown();
+        }
+        canceller.join(5000);
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) < 5000);
+    }
+
+    @Test
     public void cancelledTokenSendsNoRequest() {
         CancellationToken token = new CancellationToken();
         token.cancel();

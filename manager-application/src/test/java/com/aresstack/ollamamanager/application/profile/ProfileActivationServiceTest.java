@@ -18,11 +18,12 @@ import static org.junit.Assert.fail;
 public class ProfileActivationServiceTest {
 
     private final InMemoryConfigurationRepository configurations = new InMemoryConfigurationRepository();
-    private final ProfileActivationService service = new ProfileActivationService(configurations);
+    private final ModelProfileRepository repository = new ModelProfileRepository(configurations);
+    private final ProfileActivationService service = new ProfileActivationService(repository);
 
     @Before
     public void setUp() throws Exception {
-        new ModelProfileRepository(configurations).save(
+        repository.save(
             ScenarioPreset.PARALLEL_THROUGHPUT.createProfile("batch", ProfileTestData.SCOPE));
     }
 
@@ -77,5 +78,14 @@ public class ProfileActivationServiceTest {
         } catch (OperationException e) {
             assertEquals(ErrorKind.NOT_FOUND, e.kind());
         }
+    }
+
+    @Test
+    public void activationKeepsProfileRevisionSavedMeanwhile() throws Exception {
+        repository.save(repository.find("batch").revise(ServerSettings.defaults(),
+            ScenarioPreset.PARALLEL_THROUGHPUT.modelOptions()));
+        service.activate("batch", ServerSettings.defaults(), RuntimeOwnership.OWNED, false);
+        assertEquals(2, repository.find("batch").revision());
+        assertEquals("batch", configurations.stored.activeProfileId());
     }
 }

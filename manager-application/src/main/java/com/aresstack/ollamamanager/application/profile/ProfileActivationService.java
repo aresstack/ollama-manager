@@ -19,13 +19,18 @@ import com.aresstack.ollamamanager.domain.server.ServerSettings;
  */
 public final class ProfileActivationService {
 
+    private final ModelProfileRepository profiles;
     private final ConfigurationRepository configurations;
 
-    public ProfileActivationService(ConfigurationRepository configurations) {
-        if (configurations == null) {
-            throw new IllegalArgumentException("configurations must not be null");
+    /**
+     * @param profiles the repository whose lock serializes activation with profile saves and deletions
+     */
+    public ProfileActivationService(ModelProfileRepository profiles) {
+        if (profiles == null) {
+            throw new IllegalArgumentException("profiles must not be null");
         }
-        this.configurations = configurations;
+        this.profiles = profiles;
+        this.configurations = profiles.configurations();
     }
 
     /**
@@ -45,19 +50,20 @@ public final class ProfileActivationService {
      * @return the plan the caller must follow
      * @throws OperationException {@code INVALID_STATE} if a needed restart was not confirmed
      */
-    public synchronized ProfileActivationPlan activate(String profileId, ServerSettings applied,
+    public ProfileActivationPlan activate(String profileId, ServerSettings applied,
                                                        RuntimeOwnership ownership, boolean restartConfirmed)
         throws OperationException {
-        ManagerConfiguration configuration = configurations.load();
-        ModelProfile profile = requireProfile(configuration, profileId);
-        ProfileActivationPlan plan = ProfileActivationPlan.plan(profile, applied, ownership);
-        if (plan.mode() == ActivationMode.RESTART_OWNED_SERVER && !restartConfirmed) {
-            throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profileId
-                + " changes server-wide settings; confirm a restart of the owned server first");
-        }
-        configurations.save(configuration.withDesiredServerSettings(profile.serverSettings())
-            .withActiveProfileId(profileId));
-        return plan;
+        ProfileActivationPlan[] plan = new ProfileActivationPlan[1];
+        profiles.update(configuration -> {
+            ModelProfile profile = requireProfile(configuration, profileId);
+            plan[0] = ProfileActivationPlan.plan(profile, applied, ownership);
+            if (plan[0].mode() == ActivationMode.RESTART_OWNED_SERVER && !restartConfirmed) {
+                throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profileId
+                    + " changes server-wide settings; confirm a restart of the owned server first");
+            }
+            return configuration.withDesiredServerSettings(profile.serverSettings()).withActiveProfileId(profileId);
+        });
+        return plan[0];
     }
 
     private static ModelProfile requireProfile(ManagerConfiguration configuration, String profileId)

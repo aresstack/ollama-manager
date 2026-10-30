@@ -24,6 +24,10 @@ public final class ModelProfileRepository {
         this.configurations = configurations;
     }
 
+    ConfigurationRepository configurations() {
+        return configurations;
+    }
+
     public List<ModelProfile> list() throws OperationException {
         return configurations.load().profiles();
     }
@@ -46,23 +50,37 @@ public final class ModelProfileRepository {
      *
      * @throws OperationException {@code INVALID_STATE} on a revision conflict
      */
-    public synchronized void save(ModelProfile profile) throws OperationException {
-        ManagerConfiguration configuration = configurations.load();
-        ModelProfile existing = configuration.findProfile(profile.id());
-        int expected = existing == null ? 1 : existing.revision() + 1;
-        if (profile.revision() != expected) {
-            throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profile.id() + " has revision "
-                + profile.revision() + ", expected " + expected);
-        }
-        configurations.save(configuration.withProfile(profile));
+    public void save(ModelProfile profile) throws OperationException {
+        update(configuration -> {
+            ModelProfile existing = configuration.findProfile(profile.id());
+            int expected = existing == null ? 1 : existing.revision() + 1;
+            if (profile.revision() != expected) {
+                throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profile.id() + " has revision "
+                    + profile.revision() + ", expected " + expected);
+            }
+            return configuration.withProfile(profile);
+        });
     }
 
     /** Remove a profile; if it was active, no profile is active afterwards. Unknown ids are ignored. */
-    public synchronized void delete(String id) throws OperationException {
-        ManagerConfiguration configuration = configurations.load();
-        if (configuration.findProfile(id) == null) {
-            return;
+    public void delete(String id) throws OperationException {
+        update(configuration -> configuration.findProfile(id) == null ? configuration : without(configuration, id));
+    }
+
+    /**
+     * Run one read-modify-write of the configuration under this repository's lock. Every profile change,
+     * including activation, goes through here so none restores a stale snapshot. Nothing is saved if
+     * {@code change} returns the loaded instance unchanged.
+     */
+    synchronized void update(Change change) throws OperationException {
+        ManagerConfiguration loaded = configurations.load();
+        ManagerConfiguration changed = change.apply(loaded);
+        if (changed != loaded) {
+            configurations.save(changed);
         }
+    }
+
+    private static ManagerConfiguration without(ManagerConfiguration configuration, String id) {
         List<ModelProfile> remaining = new ArrayList<ModelProfile>();
         for (ModelProfile profile : configuration.profiles()) {
             if (!profile.id().equals(id)) {
@@ -70,7 +88,11 @@ public final class ModelProfileRepository {
             }
         }
         String activeId = id.equals(configuration.activeProfileId()) ? null : configuration.activeProfileId();
-        configurations.save(new ManagerConfiguration(configuration.desiredServerSettings(),
-            configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory(), remaining, activeId));
+        return new ManagerConfiguration(configuration.desiredServerSettings(),
+            configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory(), remaining, activeId);
+    }
+
+    interface Change {
+        ManagerConfiguration apply(ManagerConfiguration current) throws OperationException;
     }
 }
