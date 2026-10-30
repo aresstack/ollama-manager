@@ -15,7 +15,8 @@ import java.util.regex.Pattern;
  * <p>
  * NVIDIA: compute capability 5.0+ (Maxwell and newer) with driver 531+; Blackwell (RTX 50xx) needs 570+.
  * Compute capability is inferred from the product name, so unmatched names stay {@link GpuSupport#UNKNOWN}.
- * AMD: only the Windows ROCm list from the docs counts as supported; other Radeon models stay UNKNOWN
+ * Windows driver versions such as {@code 32.0.15.7688} are normalised to the NVIDIA release {@code 576.88}.
+ * AMD: only the Windows ROCm list (not the longer Linux list) from the docs counts as supported; other Radeon models stay UNKNOWN
  * and can be enabled through a manual override.
  */
 public final class GpuCompatibilityRules {
@@ -27,14 +28,13 @@ public final class GpuCompatibilityRules {
 
     private static final List<String> AMD_WINDOWS_ROCM = Collections.unmodifiableList(Arrays.asList(
         "rx 7900 xtx", "rx 7900 xt", "rx 7900 gre", "rx 7800 xt", "rx 7700 xt", "rx 7600 xt", "rx 7600",
-        "rx 6950 xt", "rx 6900 xtx", "rx 6900 xt", "rx 6800 xt", "rx 6800",
-        "pro w7900", "pro w7800", "pro w7700", "pro w7600", "pro w7500",
-        "pro w6900x", "pro w6800x duo", "pro w6800x", "pro w6800", "pro v620"));
+        "pro w7900", "pro w7800", "pro w7700", "pro w7600", "pro w7500"));
 
     private static final Pattern GTX_MODEL = Pattern.compile("\\bgtx\\s*(\\d{3,4})\\b");
     private static final Pattern GT_MODEL = Pattern.compile("\\bgt\\s*(\\d{3,4})\\b");
     private static final Pattern RTX_50 = Pattern.compile("\\brtx\\s*50\\d\\d\\b");
     private static final Pattern DRIVER_MAJOR = Pattern.compile("^(\\d+)");
+    private static final Pattern WINDOWS_DRIVER = Pattern.compile("^\\d+\\.\\d+\\.(\\d+)\\.(\\d{4})$");
 
     public GpuAssessment assess(GpuDescriptor gpu) {
         if (gpu.vendor() == GpuVendor.NVIDIA) {
@@ -112,6 +112,13 @@ public final class GpuCompatibilityRules {
     private static Integer driverMajor(String driverVersion) {
         if (driverVersion == null) {
             return null;
+        }
+        Matcher windows = WINDOWS_DRIVER.matcher(driverVersion.trim());
+        if (windows.find()) {
+            // The last five digits of the Windows version are the NVIDIA release: 32.0.15.7688 -> 576.88.
+            String digits = windows.group(1) + windows.group(2);
+            int end = digits.length();
+            return end < 5 ? null : Integer.valueOf(digits.substring(end - 5, end - 2));
         }
         Matcher matcher = DRIVER_MAJOR.matcher(driverVersion.trim());
         return matcher.find() ? Integer.valueOf(matcher.group(1)) : null;

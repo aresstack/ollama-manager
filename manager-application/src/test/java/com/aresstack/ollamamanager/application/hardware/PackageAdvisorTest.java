@@ -53,6 +53,15 @@ public class PackageAdvisorTest {
     }
 
     @Test
+    public void normalisesWindowsDriverVersionsFromCim() {
+        GpuCompatibilityRules rules = new GpuCompatibilityRules();
+        assertEquals(GpuSupport.SUPPORTED,
+            rules.assess(nvidia("NVIDIA GeForce RTX 5080", "32.0.15.7688")).support());
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
+            rules.assess(nvidia("NVIDIA GeForce RTX 5080", "32.0.15.6094")).support());
+    }
+
+    @Test
     public void olderNvidiaGenerations() {
         GpuCompatibilityRules rules = new GpuCompatibilityRules();
         assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 1060 6GB", "552.22")).support());
@@ -74,6 +83,7 @@ public class PackageAdvisorTest {
         GpuCompatibilityRules rules = new GpuCompatibilityRules();
         assertEquals(GpuSupport.SUPPORTED, rules.assess(amd("AMD Radeon RX 7900 XT", true)).support());
         assertEquals(GpuSupport.SUPPORTED, rules.assess(amd("AMD Radeon RX 7600", true)).support());
+        assertEquals(GpuSupport.UNKNOWN, rules.assess(amd("AMD Radeon RX 6800 XT", true)).support());
         assertEquals(GpuSupport.UNKNOWN, rules.assess(amd("AMD Radeon RX 76000", true)).support());
     }
 
@@ -111,7 +121,7 @@ public class PackageAdvisorTest {
     @Test
     public void multiGpuCombinesBackends() {
         PackageRecommendation r = advisor.recommend(windows(nvidia("NVIDIA GeForce RTX 4090", "560.94"),
-            amd("AMD Radeon RX 6800 XT", true)), SupportOverrides.none(), true);
+            amd("AMD Radeon RX 7800 XT", true)), SupportOverrides.none(), true);
         assertEquals(EnumSet.allOf(DistributionPackage.class), r.packages());
         assertEquals(2, r.assessments().size());
     }
