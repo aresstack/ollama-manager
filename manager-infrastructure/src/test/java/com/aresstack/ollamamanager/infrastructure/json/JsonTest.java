@@ -9,6 +9,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 public class JsonTest {
 
@@ -43,6 +44,33 @@ public class JsonTest {
     @Test(expected = IllegalArgumentException.class)
     public void rejectsTruncatedInput() {
         Json.parse("{\"a\": [1, 2");
+    }
+
+    @Test
+    public void rejectsMalformedJsonThatLenientParsersAccept() {
+        String[] malformed = {
+            "{a: 1}",
+            "{'a': 1}",
+            "{\"a\": 1} // comment",
+            "/* comment */ {\"a\": 1}",
+            "{\"a\": \"line\nbreak\"}",
+            "{\"a\": \"tab\tinside\"}",
+            "{\"a\": 1,}",
+            "[1, 2,]",
+            "{\"a\": NaN}",
+            "",
+            "   ",
+            "{",
+            "{\"models\": [{\"name\": \"x\""
+        };
+        for (String text : malformed) {
+            try {
+                Json.parse(text);
+                fail("accepted malformed JSON: " + text);
+            } catch (IllegalArgumentException expected) {
+                // Reject as required.
+            }
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)

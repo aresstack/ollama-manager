@@ -106,6 +106,16 @@ public class ServerSettingsTest {
     }
 
     @Test
+    public void catalogNamesEveryVariableTheSettingsCanEmit() {
+        ServerSettings settings = ServerSettings.defaults()
+            .with(ServerSettingCatalog.PARALLELISM, 4)
+            .with(ServerSettingCatalog.KEEP_ALIVE, "5m");
+
+        assertTrue(ServerSettingCatalog.environmentVariables().containsAll(settings.toEnvironment().keySet()));
+        assertEquals(ServerSettingCatalog.all().size(), ServerSettingCatalog.environmentVariables().size());
+    }
+
+    @Test
     public void equalSettingsHaveEqualHashCodes() {
         ServerSettings upper = ServerSettings.defaults().with(ServerSettingCatalog.BIND, Endpoint.parse("LOCALHOST:11434"));
         ServerSettings lower = ServerSettings.defaults().with(ServerSettingCatalog.BIND, Endpoint.parse("localhost:11434"));

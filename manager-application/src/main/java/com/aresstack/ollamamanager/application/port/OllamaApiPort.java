@@ -6,7 +6,7 @@ import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
-import com.aresstack.ollamamanager.domain.model.ModelIdentity;
+import com.aresstack.ollamamanager.domain.model.ModelDetails;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 
@@ -22,14 +22,17 @@ public interface OllamaApiPort {
     /** Return the version from {@code GET /api/version}. */
     String version(Endpoint endpoint, CancellationToken cancellation) throws OperationException;
 
-    /** Return models on disk from {@code GET /api/tags}. */
+    /**
+     * Return models on disk from {@code GET /api/tags}. This is the source of exact identities: each entry
+     * carries the digest reported by Ollama, never an invented one.
+     */
     List<InstalledModel> installedModels(Endpoint endpoint, CancellationToken cancellation) throws OperationException;
 
     /** Return models in memory from {@code GET /api/ps}. */
     List<LoadedModel> loadedModels(Endpoint endpoint, CancellationToken cancellation) throws OperationException;
 
-    /** Return the exact identity, including digest and quantization, from {@code POST /api/show}. */
-    ModelIdentity show(Endpoint endpoint, String modelName, CancellationToken cancellation) throws OperationException;
+    /** Return descriptive metadata from {@code POST /api/show}; it contains no digest. */
+    ModelDetails show(Endpoint endpoint, String modelName, CancellationToken cancellation) throws OperationException;
 
     /** Pull a model, streaming NDJSON progress to {@code listener}. */
     void pull(Endpoint endpoint, String modelName, ProgressListener<TransferProgress> listener,

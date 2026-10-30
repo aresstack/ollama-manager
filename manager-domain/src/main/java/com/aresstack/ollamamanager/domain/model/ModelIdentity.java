@@ -37,14 +37,20 @@ public final class ModelIdentity {
         return quantization;
     }
 
+    /** Return whether the digest is known, which is required to verify measurements against this model. */
+    public boolean isVerifiable() {
+        return digest != null;
+    }
+
     /**
-     * Return whether both identities denote the same model artifact. Unknown digests match only by name.
+     * Return whether both identities provably denote the same model artifact: same name, both digests known
+     * and equal, and quantization equal where both are known. A missing digest means "not verified".
      */
     public boolean sameArtifactAs(ModelIdentity other) {
-        if (!name.equals(other.name)) {
+        if (!name.equals(other.name) || !isVerifiable() || !other.isVerifiable() || !digest.equals(other.digest)) {
             return false;
         }
-        return digest == null || other.digest == null || digest.equals(other.digest);
+        return quantization == null || other.quantization == null || quantization.equals(other.quantization);
     }
 
     private static String blankToNull(String value) {

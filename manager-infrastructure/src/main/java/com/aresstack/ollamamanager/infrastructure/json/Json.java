@@ -3,6 +3,7 @@ package com.aresstack.ollamamanager.infrastructure.json;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.google.gson.Strictness;
 import com.google.gson.ToNumberPolicy;
 
 /**
@@ -13,6 +14,7 @@ import com.google.gson.ToNumberPolicy;
 public final class Json {
 
     private static final Gson GSON = new GsonBuilder()
+        .setStrictness(Strictness.STRICT)
         .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
         .serializeNulls()
         .disableHtmlEscaping()
@@ -23,11 +25,14 @@ public final class Json {
     }
 
     /**
-     * Parse one JSON value.
+     * Parse exactly one strictly valid JSON value (RFC 8259).
      *
-     * @throws IllegalArgumentException if the text is not valid JSON
+     * @throws IllegalArgumentException if the text is empty or not valid JSON
      */
     public static Object parse(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            throw new IllegalArgumentException("invalid JSON: empty input");
+        }
         try {
             return GSON.fromJson(text, Object.class);
         } catch (JsonParseException e) {

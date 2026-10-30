@@ -40,6 +40,28 @@ public class CancellationTokenTest {
     }
 
     @Test
+    public void toleratesSameExceptionInstanceFromSeveralCallbacks() {
+        CancellationToken token = new CancellationToken();
+        IllegalStateException shared = new IllegalStateException("shared");
+        AtomicInteger calls = new AtomicInteger();
+        token.onCancel(() -> {
+            throw shared;
+        });
+        token.onCancel(() -> {
+            throw shared;
+        });
+        token.onCancel(calls::incrementAndGet);
+
+        try {
+            token.cancel();
+            throw new AssertionError("expected failure");
+        } catch (IllegalStateException expected) {
+            assertEquals(shared, expected);
+            assertEquals(1, calls.get());
+        }
+    }
+
+    @Test
     public void runsLateCallbackImmediately() {
         CancellationToken token = new CancellationToken();
         token.cancel();

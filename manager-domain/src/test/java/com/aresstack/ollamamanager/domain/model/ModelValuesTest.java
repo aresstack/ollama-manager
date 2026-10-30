@@ -16,11 +16,23 @@ public class ModelValuesTest {
     }
 
     @Test
-    public void unknownDigestMatchesByNameOnly() {
-        ModelIdentity known = new ModelIdentity("qwen3:8b", "sha256:1", null);
+    public void sameArtifactRequiresBothDigestsAndEquality() {
+        ModelIdentity known = new ModelIdentity("qwen3:8b", "sha256:1", "Q4_K_M");
 
-        assertTrue(known.sameArtifactAs(ModelIdentity.named("qwen3:8b")));
-        assertFalse(known.sameArtifactAs(new ModelIdentity("qwen3:8b", "sha256:2", null)));
+        assertTrue(known.sameArtifactAs(new ModelIdentity("qwen3:8b", "sha256:1", "Q4_K_M")));
+        assertFalse(known.sameArtifactAs(ModelIdentity.named("qwen3:8b")));
+        assertFalse(ModelIdentity.named("qwen3:8b").sameArtifactAs(known));
+        assertFalse(ModelIdentity.named("qwen3:8b").sameArtifactAs(ModelIdentity.named("qwen3:8b")));
+        assertFalse(known.sameArtifactAs(new ModelIdentity("qwen3:8b", "sha256:2", "Q4_K_M")));
+        assertFalse(known.sameArtifactAs(new ModelIdentity("qwen3:8b", "sha256:1", "Q8_0")));
+    }
+
+    @Test
+    public void latestTagWithChangedDigestIsDifferentArtifact() {
+        ModelIdentity before = new ModelIdentity("gemma3", "sha256:old", null);
+        ModelIdentity after = new ModelIdentity("gemma3:latest", "sha256:new", null);
+
+        assertFalse(before.sameArtifactAs(after));
     }
 
     @Test

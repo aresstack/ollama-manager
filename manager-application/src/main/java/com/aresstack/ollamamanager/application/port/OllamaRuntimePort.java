@@ -21,8 +21,9 @@ public interface OllamaRuntimePort {
         throws OperationException;
 
     /**
-     * Start {@code ollama serve} from the installation's binary directory with the settings' environment and
-     * wait until the API answers. Fails with {@code PORT_IN_USE} if the endpoint is already served.
+     * Start {@code ollama serve} from the installation's binary directory and wait until the API answers.
+     * The child environment is the inherited one with every variable in
+     * {@code ServerSettingCatalog.environmentVariables()} removed and {@code settings.toEnvironment()} applied. Fails with {@code PORT_IN_USE} if the endpoint is already served.
      *
      * @throws IllegalArgumentException if the installation is {@code EXTERNAL_ATTACHED}
      */

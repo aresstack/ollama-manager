@@ -19,11 +19,22 @@ Changes go through a coordinator PR first; feature branches only implement them.
 |---|---|---|
 | `OllamaRuntimePort`, `ManagedServer` | #3 | `discover`, `start`, `stop(server, graceMillis)`, `recentLog` |
 | `OllamaApiPort` | #6 | `version`, `installedModels`, `loadedModels`, `show`, `pull`, `preload`, `unload`, `delete` |
-| `ReleaseCatalogPort` | #4 | `latestStable` (SHA-256 filled from `sha256sum.txt`) |
+| `ReleaseCatalogPort` | #4 | `latestStable`, `findRelease(version)` (SHA-256 filled from `sha256sum.txt`) |
 | `DistributionInstallerPort` | #4 | `install`, `installedVersions`, `uninstall` |
 | `HardwareProbePort` | #5 | `probe` |
 | `ConfigurationRepository` | done (`JsonConfigurationRepository`) | `load`, `save` |
 | `BenchmarkMetricsPort` | #8 | `record`, `findValid` |
+
+Model identity rule: digests come only from `/api/tags` or `/api/ps`. `show()` returns `ModelDetails`
+without a digest. `ModelIdentity.sameArtifactAs` requires both digests to be known and equal, so a profile
+or benchmark result for a model without a digest is never treated as valid.
+
+Environment rule: `ProcessBuilder.environment()` starts as a copy of the parent environment. The runtime
+adapter (#3) removes every name from `ServerSettingCatalog.environmentVariables()` before applying
+`ServerSettings.toEnvironment()`, so an unset setting means Ollama's built-in default.
+
+JSON rule: all JSON goes through `infrastructure.json.Json`, which runs Gson in strict mode and rejects
+empty input, comments, unquoted keys, unescaped control characters and trailing content.
 
 Ownership rule: only a `ManagedServer` handle returned by `start` proves ownership. `stop` on any other
 handle fails with `NOT_OWNED`. External servers are represented only as `OllamaInstallation.external(...)`.
@@ -39,7 +50,7 @@ handle fails with `NOT_OWNED`. External servers are represented only as `OllamaI
   choices, validation, environment variable, restart flag). `server.ServerSettingCatalog` lists all entries.
 - `server.ServerSettings`: `defaults()`, `with(setting, value)`, typed getters, `toEnvironment()`,
   `differencesTo(other)`, `requiresRestartComparedTo(applied)`, `toEncodedMap()` / `fromEncodedMap(...)`
-- `model.ModelIdentity(name, digest, quantization)`, `model.InstalledModel(...)`, `model.LoadedModel(...)`
+- `model.ModelIdentity(name, digest, quantization)`, `model.ModelDetails(...)`, `model.InstalledModel(...)`, `model.LoadedModel(...)`
 - `model.ModelOptions(numCtx, numPredict, temperature, seed)` – per request only
 - `hardware.GpuDescriptor(vendor, name, vramBytes, driverVersion, dedicated)`,
   `hardware.HardwareSnapshot(os, arch, cpuName, logicalProcessors, totalMemoryBytes, gpus)`, `hardware.GpuFingerprint`

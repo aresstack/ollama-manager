@@ -64,6 +64,8 @@ public class ProfileActivationPlanTest {
         assertTrue(scope.isValidFor(scope("sha256:a", "0.12.0")));
         assertEquals(false, scope.isValidFor(scope("sha256:b", "0.12.0")));
         assertEquals(false, scope.isValidFor(scope("sha256:a", "0.13.0")));
+        assertEquals(false, scope.isValidFor(scope(null, "0.12.0")));
+        assertEquals(false, scope(null, "0.12.0").isValidFor(scope(null, "0.12.0")));
     }
 
     private static ModelProfile profile(ServerSettings settings) {

@@ -105,7 +105,8 @@ public final class ServerSettings {
     }
 
     /**
-     * Return the {@code OLLAMA_*} entries for {@code ProcessBuilder.environment()}. Unset settings are omitted.
+     * Return the {@code OLLAMA_*} entries for {@code ProcessBuilder.environment()}. Unset settings are omitted;
+     * callers must first remove {@link ServerSettingCatalog#environmentVariables()} from the inherited environment.
      */
     public Map<String, String> toEnvironment() {
         Map<String, String> environment = new LinkedHashMap<String, String>();

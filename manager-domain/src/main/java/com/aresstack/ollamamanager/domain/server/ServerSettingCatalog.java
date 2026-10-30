@@ -3,7 +3,9 @@ package com.aresstack.ollamamanager.domain.server;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -84,6 +86,19 @@ public final class ServerSettingCatalog {
 
     public static List<ServerSetting<?>> all() {
         return ALL;
+    }
+
+    /**
+     * Return every environment variable the manager controls. A runtime adapter removes these from the
+     * inherited child environment before applying {@link ServerSettings#toEnvironment()}, so "unset" really
+     * means Ollama's built-in default and not a value inherited from the user's environment.
+     */
+    public static Set<String> environmentVariables() {
+        Set<String> names = new LinkedHashSet<String>();
+        for (ServerSetting<?> setting : ALL) {
+            names.add(setting.environmentVariable());
+        }
+        return Collections.unmodifiableSet(names);
     }
 
     /**
