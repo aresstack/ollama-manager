@@ -15,7 +15,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -60,6 +68,32 @@ public class HttpOllamaApiClientTest {
     public void readsVersion() throws Exception {
         server.json("GET", "/api/version", 200, "{\"version\":\"0.12.6\"}");
         assertEquals("0.12.6", client.version(endpoint, CancellationToken.none()));
+    }
+
+    @Test
+    public void ignoresConfiguredProxyForOllamaRequests() throws Exception {
+        server.json("GET", "/api/version", 200, "{\"version\":\"0.12.6\"}");
+        server.json("DELETE", "/api/delete", 200, "");
+        ProxySelector previous = ProxySelector.getDefault();
+        AtomicInteger proxyLookups = new AtomicInteger();
+        ProxySelector.setDefault(new ProxySelector() {
+            @Override
+            public List<Proxy> select(URI uri) {
+                proxyLookups.incrementAndGet();
+                return Collections.singletonList(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 9)));
+            }
+
+            @Override
+            public void connectFailed(URI uri, SocketAddress address, IOException e) {
+            }
+        });
+        try {
+            assertEquals("0.12.6", client.version(endpoint, CancellationToken.none()));
+            client.delete(endpoint, "x", CancellationToken.none());
+        } finally {
+            ProxySelector.setDefault(previous);
+        }
+        assertEquals(0, proxyLookups.get());
     }
 
     @Test

@@ -32,8 +32,10 @@ public final class ModelService {
     }
 
     /**
-     * Return installed models from {@code /api/tags} merged with loaded models from {@code /api/ps} by exact
-     * name and digest. A loaded model whose digest differs from the one on disk appears as its own entry.
+     * Return installed models from {@code /api/tags} merged with loaded models from {@code /api/ps}. They are
+     * merged only if {@link ModelIdentity#sameArtifactAs} holds, so both digests must be known and equal.
+     * A loaded model with a different or unknown digest appears as its own entry, and its placement is never
+     * attributed to the installed artifact.
      */
     public List<ModelEntry> inventory(Endpoint endpoint, CancellationToken cancellation) throws OperationException {
         List<InstalledModel> installed = api.installedModels(endpoint, cancellation);
@@ -92,11 +94,7 @@ public final class ModelService {
 
     private static LoadedModel removeMatch(List<LoadedModel> loaded, ModelIdentity identity) {
         for (int i = 0; i < loaded.size(); i++) {
-            ModelIdentity candidate = loaded.get(i).identity();
-            boolean sameName = candidate.name().equals(identity.name());
-            boolean digestsAgree = candidate.digest() == null || identity.digest() == null
-                || candidate.digest().equals(identity.digest());
-            if (sameName && digestsAgree) {
+            if (loaded.get(i).identity().sameArtifactAs(identity)) {
                 return loaded.remove(i);
             }
         }

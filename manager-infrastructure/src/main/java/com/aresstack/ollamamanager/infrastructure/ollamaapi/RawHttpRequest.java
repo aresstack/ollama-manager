@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -22,6 +23,9 @@ import java.util.Locale;
  * a reader's lock instead of aborting a blocked read. Here cancellation closes the socket, which unblocks
  * any read immediately. Sends {@code Connection: close}; supports fixed-length, chunked and close-delimited
  * responses.
+ * <p>
+ * Connections are always direct ({@link Proxy#NO_PROXY}) because the endpoint is a local Ollama server. If
+ * remote hosts are allowed later, inject a proxy policy here instead of dropping proxy support silently.
  */
 final class RawHttpRequest {
 
@@ -39,7 +43,8 @@ final class RawHttpRequest {
     static Response open(Endpoint endpoint, String method, String path, byte[] body, int connectTimeoutMillis,
                          int readTimeoutMillis, CancellationToken cancellation)
         throws IOException, OperationException {
-        final Socket socket = new Socket();
+        // Bypass any configured proxy: plain Socket() consults ProxySelector for SOCKS.
+        final Socket socket = new Socket(Proxy.NO_PROXY);
         cancellation.onCancel(() -> closeQuietly(socket));
         boolean opened = false;
         try {

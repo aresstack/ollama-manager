@@ -58,6 +58,20 @@ public class ModelServiceTest {
     }
 
     @Test
+    public void unknownDigestIsNeverMerged() throws Exception {
+        api.installed = Arrays.asList(installed("llama3.1:8b", null), installed("qwen3:4b", "bbb"));
+        api.loaded = Arrays.asList(loaded("llama3.1:8b", "aaa", 100, 100), loaded("qwen3:4b", null, 100, 100));
+
+        List<ModelEntry> entries = service.inventory(Endpoint.DEFAULT, CancellationToken.none());
+
+        assertEquals(4, entries.size());
+        assertFalse(entries.get(0).isLoaded());
+        assertFalse(entries.get(1).isLoaded());
+        assertFalse(entries.get(2).isInstalled());
+        assertFalse(entries.get(3).isInstalled());
+    }
+
+    @Test
     public void placementFollowsReportedBytesOnly() {
         assertEquals(ModelPlacement.GPU, ModelPlacement.of(loaded("a", "d", 100, 100)));
         assertEquals(ModelPlacement.SPLIT, ModelPlacement.of(loaded("a", "d", 100, 99)));
