@@ -9,8 +9,11 @@ Changes go through a coordinator PR first; feature branches only implement them.
   or IO exceptions to a kind and never leak them.
 - `CancellationToken`: long-running methods call `throwIfCancelled()` between units of work and register
   `onCancel(Runnable)` to abort blocking IO (close stream, destroy owned process). `onCancel` returns a
-  `CancellationToken.Registration`; close it in `finally` (or try-with-resources) when the guarded work ends,
-  so tokens reused across operations do not accumulate callbacks. After cancellation they throw
+  `CancellationToken.Registration`; close it with an explicit `try { ... } finally { registration.close(); }`
+  when the guarded work ends, so tokens reused across operations do not accumulate callbacks. Close it only
+  after the guarded resource is finished (for example not while an owned child process still runs).
+  Integration duty: #11, #12, #14 and #18 must close the registrations at their existing call sites and test
+  token reuse across several requests. After cancellation they throw
   `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
 - `ProgressListener<T>` is called from background threads; callers dispatch to the EDT themselves.
 - `TransferProgress(phase, completedBytes, totalBytes)`; `totalBytes = -1` when unknown.
@@ -40,9 +43,18 @@ JSON rule: all JSON goes through `infrastructure.json.Json`, which runs Gson in 
 empty input, comments, unquoted keys, unescaped control characters and trailing content.
 
 Configuration rule: every change to settings or profiles goes through
-`application.configuration.ConfigurationService.update(UnaryOperator<ManagerConfiguration>)`, which runs
-load, change and save under one lock. Use cases and the UI never call `ConfigurationRepository.save` directly,
-so concurrent edits are applied in sequence and none is lost. `current()` reads the stored state.
+`application.configuration.ConfigurationService.update(ConfigurationChange)`, which runs load, change and save
+under the lock of the repository instance. `ConfigurationChange.apply` may throw `OperationException` (for
+example `INVALID_STATE` on a revision conflict); validation therefore runs under the lock and nothing is saved
+on rejection. `current()` reads the stored state.
+
+Integration duty (binding before the contract counts as fulfilled): the composition root creates exactly one
+`ConfigurationRepository` and one `ConfigurationService` and passes that service to every use case. #12 must
+migrate every profile and activation write path (`ModelProfileRepository.update`, `ProfileActivationService`)
+to it, and server-settings changes use it as well. No use case or UI component calls
+`ConfigurationRepository.save` directly or keeps its own configuration lock. A second repository instance for the
+same file is not protected and must not be created. This PR provides the mechanism; the guarantee holds only
+after that migration.
 
 GPU rule: the UI reads live GPU statistics only through `GpuTelemetryPort`; it never knows `nvidia-smi` or
 infrastructure classes. `GpuDescriptor.computeCapability()` is optional (`null` = unknown). Unknown hardware

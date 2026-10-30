@@ -66,8 +66,11 @@ public class CancellationTokenTest {
         CancellationToken token = new CancellationToken();
         AtomicInteger calls = new AtomicInteger();
 
-        try (CancellationToken.Registration ignored = token.onCancel(calls::incrementAndGet)) {
+        CancellationToken.Registration registration = token.onCancel(calls::incrementAndGet);
+        try {
             assertEquals(1, token.registeredCallbackCount());
+        } finally {
+            registration.close();
         }
         token.cancel();
 
