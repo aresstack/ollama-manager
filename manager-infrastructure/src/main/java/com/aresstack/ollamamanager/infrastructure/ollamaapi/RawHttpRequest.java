@@ -33,7 +33,15 @@ final class RawHttpRequest {
         final Socket socket = new Socket();
         cancellation.onCancel(() -> closeQuietly(socket));
         try {
-            socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), connectTimeoutMillis);
+            try {
+                socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), connectTimeoutMillis);
+            } catch (IOException e) {
+                if (cancellation.isCancelled()) {
+                    throw e;
+                }
+                throw new OperationException(ErrorKind.CONNECTION_FAILED, "cannot connect to Ollama at "
+                    + endpoint, e);
+            }
             socket.setSoTimeout(readTimeoutMillis);
             OutputStream out = socket.getOutputStream();
             String head = method + " " + path + " HTTP/1.1\r\n"

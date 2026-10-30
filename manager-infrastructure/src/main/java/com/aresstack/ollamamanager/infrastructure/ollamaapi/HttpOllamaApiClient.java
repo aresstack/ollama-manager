@@ -96,7 +96,9 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         cancellation.throwIfCancelled();
         HttpURLConnection connection = open(endpoint, "POST", "/api/pull", longReadTimeoutMillis, cancellation);
         try {
-            send(connection, body);
+            byte[] bytes = prepareBody(connection, body);
+            connect(connection, endpoint, cancellation);
+            writeBody(connection, bytes);
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
                 throw httpFailure(status, readBody(connection.getErrorStream()));
@@ -157,8 +159,10 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         HttpURLConnection connection = open(endpoint, method, path, readTimeout, cancellation);
         String text;
         try {
-            if (body != null) {
-                send(connection, body);
+            byte[] bytes = body == null ? null : prepareBody(connection, body);
+            connect(connection, endpoint, cancellation);
+            if (bytes != null) {
+                writeBody(connection, bytes);
             }
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
@@ -201,11 +205,31 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         }
     }
 
-    private static void send(HttpURLConnection connection, Map<String, Object> body) throws IOException {
+    /**
+     * Connect separately so that a connect timeout, which Windows reports for a closed port after its SYN
+     * retries, counts as {@code CONNECTION_FAILED} rather than a slow answer.
+     */
+    private static void connect(HttpURLConnection connection, Endpoint endpoint, CancellationToken cancellation)
+        throws OperationException {
+        try {
+            connection.connect();
+        } catch (IOException e) {
+            if (cancellation.isCancelled()) {
+                throw new OperationCancelledException("operation cancelled");
+            }
+            throw new OperationException(ErrorKind.CONNECTION_FAILED, "cannot connect to Ollama at " + endpoint, e);
+        }
+    }
+
+    private static byte[] prepareBody(HttpURLConnection connection, Map<String, Object> body) {
         byte[] bytes = Json.write(body).getBytes(StandardCharsets.UTF_8);
         connection.setDoOutput(true);
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setFixedLengthStreamingMode(bytes.length);
+        return bytes;
+    }
+
+    private static void writeBody(HttpURLConnection connection, byte[] bytes) throws IOException {
         OutputStream out = connection.getOutputStream();
         try {
             out.write(bytes);
