@@ -1,0 +1,75 @@
+// Root build owned by the coordinator. Feature branches must not change this file without agreement.
+
+allprojects {
+    group = 'com.aresstack.ollamamanager'
+    version = '0.1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs << '-Xlint:all' << '-Xlint:-options' << '-Werror'
+    }
+
+    dependencies {
+        testImplementation 'junit:junit:4.13.2'
+    }
+
+    test {
+        testLogging {
+            events 'failed'
+            exceptionFormat = 'full'
+        }
+    }
+}
+
+// Verify the dependency direction on source level in addition to the Gradle project graph.
+def forbiddenImports = [
+    'manager-domain'     : ['javax.swing', 'java.awt', 'java.net.HttpURLConnection', 'java.net.URLConnection',
+                            'java.lang.ProcessBuilder', 'com.aresstack.ollamamanager.application',
+                            'com.aresstack.ollamamanager.infrastructure', 'com.aresstack.ollamamanager.swing'],
+    'manager-application': ['javax.swing', 'java.awt', 'java.net.HttpURLConnection', 'java.net.URLConnection',
+                            'com.aresstack.ollamamanager.infrastructure', 'com.aresstack.ollamamanager.swing'],
+    'manager-infrastructure': ['javax.swing', 'java.awt', 'com.aresstack.ollamamanager.swing']
+]
+
+tasks.register('verifyArchitecture') {
+    group = 'verification'
+    description = 'Fails when a module imports a package its layer must not know.'
+    def checks = forbiddenImports.collectEntries { module, prefixes ->
+        [(project(":$module").file('src/main/java')): prefixes]
+    }
+    inputs.files(checks.keySet().collect { fileTree(it) })
+    doLast {
+        def violations = []
+        checks.each { dir, prefixes ->
+            fileTree(dir).include('**/*.java').each { file ->
+                file.readLines().findAll { it.startsWith('import ') }.each { line ->
+                    if (prefixes.any { line.contains(' ' + it) || line.contains('static ' + it) }) {
+                        violations << "${file}: ${line.trim()}"
+                    }
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Architecture violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+subprojects {
+    tasks.matching { it.name == 'check' }.configureEach {
+        dependsOn rootProject.tasks.named('verifyArchitecture')
+    }
+}

@@ -1,0 +1,70 @@
+apply plugin: 'application'
+
+def mainClassName = 'com.aresstack.ollamamanager.swing.OllamaManagerApp'
+
+application {
+    mainClass = mainClassName
+}
+
+dependencies {
+    implementation project(':manager-infrastructure')
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': mainClassName,
+            'Implementation-Title': 'Ollama Manager',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Assembles the executable ollama-manager.jar containing all runtime classes.'
+    archiveFileName = 'ollama-manager.jar'
+    destinationDirectory = layout.buildDirectory.dir('executable')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest.from(jar.manifest)
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from(rootProject.file('LICENSE')) { into 'META-INF' }
+    from(rootProject.file('THIRD-PARTY-NOTICES.md')) { into 'META-INF' }
+    exclude 'module-info.class', 'META-INF/versions/*/module-info.class'
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+}
+
+tasks.register('smokeTest', Exec) {
+    group = 'verification'
+    description = 'Runs java -jar ollama-manager.jar --smoke-test with the JVM running Gradle.'
+    dependsOn tasks.named('fatJar')
+    def javaExe = new File(System.getProperty('java.home'), 'bin/java').absolutePath
+    commandLine javaExe, '-Djava.awt.headless=true', '-jar',
+        tasks.named('fatJar').get().archiveFile.get().asFile.absolutePath, '--smoke-test'
+}
+
+tasks.register('managerZip', Zip) {
+    group = 'distribution'
+    description = 'Packages the executable JAR, launcher, README and LICENSE.'
+    archiveFileName = "ollama-manager-${project.version}.zip"
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    into('ollama-manager') {
+        from tasks.named('fatJar')
+        from rootProject.file('README.md')
+        from rootProject.file('LICENSE')
+        from rootProject.file('THIRD-PARTY-NOTICES.md')
+        from file('src/dist')
+    }
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('managerZip'), tasks.named('smokeTest')
+}
+
+// Ship only the self-contained managerZip; the start-script distributions of the application plugin are not used.
+tasks.named('distTar') { enabled = false }
+tasks.named('distZip') { enabled = false }
