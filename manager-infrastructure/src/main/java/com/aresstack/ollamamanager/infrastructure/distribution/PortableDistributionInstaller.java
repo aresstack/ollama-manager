@@ -153,6 +153,8 @@ public final class PortableDistributionInstaller implements DistributionInstalle
             writeText(new File(staging, NOTICE), notice(release, assets));
             writeText(new File(staging, MARKER), marker(release, ordered, assets, files));
             listener.onProgress(new TransferProgress("activating " + directoryName, totalBytes, totalBytes));
+            // Commit point: cancellation is honoured up to here; once the move starts the install completes.
+            cancellation.throwIfCancelled();
             move(staging, versionDirectory);
             try {
                 writeActive(layout, directoryName);

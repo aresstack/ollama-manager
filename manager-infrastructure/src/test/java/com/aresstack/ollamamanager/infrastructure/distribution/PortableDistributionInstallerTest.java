@@ -256,6 +256,27 @@ public class PortableDistributionInstallerTest {
     }
 
     @Test
+    public void cancellationAtActivationLeavesPreviousVersionActive() throws Exception {
+        PortableDistributionInstaller installer = installer(WINDOWS);
+        OllamaInstallation old = installer.install(publish("v0.12.5", base("v0.12.5")), BASE, root, ignore(),
+            CancellationToken.none());
+        CancellationToken token = new CancellationToken();
+        ProgressListener<TransferProgress> cancelOnActivate = progress -> {
+            if (progress.phase().startsWith("activating")) {
+                token.cancel();
+            }
+        };
+
+        expect(ErrorKind.CANCELLED, () -> installer.install(publish("v0.12.6", base("v0.12.6")), BASE, root,
+            cancelOnActivate, token));
+
+        assertEquals(old, installer.active(root));
+        assertEquals(Arrays.asList(old), installer.installedVersions(root));
+        assertEquals(0, new File(root, "staging").list().length);
+        assertEquals(0, new File(root, "downloads").list().length);
+    }
+
+    @Test
     public void cancellationRemovesPartialResults() throws Exception {
         byte[] zip = base("v0.12.6");
         OllamaRelease release = publish("v0.12.6", zip);

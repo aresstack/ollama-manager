@@ -1,6 +1,8 @@
 package com.aresstack.ollamamanager.application.installation;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
+import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.port.DistributionInstallerPort;
@@ -21,9 +23,11 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class PortableInstallationServiceTest {
 
+    private String running;
     private final List<OllamaInstallation> installed = new ArrayList<OllamaInstallation>();
     private final File root = new File("portable").getAbsoluteFile();
 
@@ -59,7 +63,8 @@ public class PortableInstallationServiceTest {
         }
     };
 
-    private final PortableInstallationService service = new PortableInstallationService(catalog, installer, root);
+    private final PortableInstallationService service = new PortableInstallationService(catalog, installer, root,
+        installation -> installation.version().equals(running));
 
     @Test
     public void reportsUpdateWhenNothingIsInstalled() throws Exception {
@@ -77,6 +82,23 @@ public class PortableInstallationServiceTest {
         UpdateCheck check = service.checkForUpdate(CancellationToken.none());
         assertEquals("v0.12.10", check.active().version());
         assertFalse(check.updateAvailable());
+    }
+
+    @Test
+    public void refusesToUninstallVersionUsedByRunningServer() throws Exception {
+        OllamaInstallation installation = service.installVersion("v0.12.9",
+            Collections.singleton(DistributionPackage.BASE), ProgressListener.<TransferProgress>ignoring(),
+            CancellationToken.none());
+        running = "v0.12.9";
+        try {
+            service.uninstall(installation);
+            fail("expected INVALID_STATE");
+        } catch (OperationException e) {
+            assertEquals(ErrorKind.INVALID_STATE, e.kind());
+        }
+        running = null;
+        service.uninstall(installation);
+        assertTrue(service.installedVersions().isEmpty());
     }
 
     @Test

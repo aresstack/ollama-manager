@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.application.installation;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
+import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
@@ -23,12 +24,14 @@ public final class PortableInstallationService {
     private final ReleaseCatalogPort catalog;
     private final DistributionInstallerPort installer;
     private final File installRoot;
+    private final InstallationUsage usage;
 
     public PortableInstallationService(ReleaseCatalogPort catalog, DistributionInstallerPort installer,
-                                       File installRoot) {
+                                       File installRoot, InstallationUsage usage) {
         this.catalog = catalog;
         this.installer = installer;
         this.installRoot = installRoot;
+        this.usage = usage;
     }
 
     public UpdateCheck checkForUpdate(CancellationToken cancellation) throws OperationException {
@@ -56,7 +59,15 @@ public final class PortableInstallationService {
         return installer.installedVersions(installRoot);
     }
 
+    /**
+     * Remove a version that no manager-owned process uses. Installing or activating another version never
+     * changes existing version directories, so only uninstall needs this check.
+     */
     public void uninstall(OllamaInstallation installation) throws OperationException {
+        if (usage.isInUse(installation)) {
+            throw new OperationException(ErrorKind.INVALID_STATE,
+                installation.version() + " is used by a running Ollama server; stop it first");
+        }
         installer.uninstall(installation, installRoot);
     }
 }
