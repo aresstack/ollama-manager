@@ -70,8 +70,30 @@ public class PackageAdvisorTest {
             rules.assess(nvidia("NVIDIA GeForce RTX 4090", "540.12")).support());
         assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 4090", "550.00")).support());
         assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
-            rules.assess(nvidia("NVIDIA GeForce RTX 5080", "569.99")).support());
-        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 5080", "570.00")).support());
+            rules.assess(nvidia("NVIDIA GeForce GTX 1060", "569.99")).support());
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce GTX 1060", "570.00")).support());
+    }
+
+    @Test
+    public void rtx5080NeedsFirstSupportingDriverComparedOnMinor() {
+        GpuCompatibilityRules rules = new GpuCompatibilityRules();
+        for (String tooOld : new String[] {"570.00", "572.15", "32.0.15.7215"}) {
+            assertEquals(tooOld, GpuSupport.DRIVER_UPDATE_REQUIRED,
+                rules.assess(nvidia("NVIDIA GeForce RTX 5080", tooOld)).support());
+        }
+        for (String ok : new String[] {"572.16", "576.88", "32.0.15.7216", "32.0.15.7688"}) {
+            assertEquals(ok, GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 5080", ok)).support());
+        }
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(nvidia("NVIDIA GeForce RTX 5090", "572.16")).support());
+        assertEquals(Integer.valueOf(57688), GpuCompatibilityRules.driverRelease("32.0.15.7688"));
+        assertEquals("576.88", GpuCompatibilityRules.format(57688));
+    }
+
+    @Test
+    public void otherRtx50ModelsWithoutVerifiedDriverStayUnknown() {
+        GpuCompatibilityRules rules = new GpuCompatibilityRules();
+        assertEquals(GpuSupport.UNKNOWN, rules.assess(nvidia("NVIDIA GeForce RTX 5070 Ti", "576.88")).support());
+        assertEquals(GpuSupport.UNKNOWN, rules.assess(nvidia("NVIDIA GeForce RTX 5060", "580.10")).support());
     }
 
     @Test
