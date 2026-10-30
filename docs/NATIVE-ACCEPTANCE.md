@@ -13,7 +13,10 @@ Without `-PnativeAcceptance=true` the task fails before doing anything.
 
 - The reference server (`127.0.0.1:11434` by default) is only read: `/api/version`, `/api/tags`, `/api/ps`.
   A background watch polls its version every 2 s and fails the run on an outage or version change.
-- The test port must not be 11434. Pull, preload, unload and delete go only to an endpoint whose live
+- Every server start goes through `GuardedRuntime`, which refuses port 11434, the reference port, non-loopback
+  binds and model roots outside the work directory without probing the port first, so a reference server
+  that is down never makes its port usable. The run aborts at startup if `acceptance.port` equals
+  `acceptance.referencePort`. Pull, preload, unload and delete go only to an endpoint whose live
   server this run started itself (`ManagedServer` handle).
 - Everything is written below a fresh work directory named `ollama-acceptance-*` (default
   `%TEMP%\ollama-acceptance-<timestamp>`). It must be new or empty and must not overlap `OLLAMA_MODELS`
@@ -30,9 +33,9 @@ Select with `-Pacceptance.stages=` (comma-separated, or `all`). `readonly` alway
 | Stage | Opt-in effect | Checks |
 |---|---|---|
 | `readonly` | GET on reference | version, tag and ps count, GPU evidence of loaded models |
-| `hardware` | runs `nvidia-smi`, CIM | probe vs `nvidia-smi` (name, driver, VRAM ±64 MiB), advisor = `[BASE]` for NVIDIA |
+| `hardware` | runs `nvidia-smi` (30 s timeout, killed on hang), CIM | probe vs `nvidia-smi` (name, driver, VRAM ±64 MiB), advisor = `[BASE]` for NVIDIA |
 | `install` | downloads official BASE ZIP (~1–2 GB per version) | cancel during download leaves no version, restart from scratch, SHA-256 manifest, extract, `ollama.exe --version`, active version, download time and free space logged, uninstall refused while the version runs (also when it is **not** active), rollback/re-activate; ROCm/MLX reported as SKIP (no download) |
-| `process` | starts `ollama serve` on the test port | start on 11434 refused, stop of foreign handle refused, cancel start, `/api/version`, `isInUse`, second start on same port refused, stop, restart |
+| `process` | starts `ollama serve` on the test port | stop of foreign handle refused (no start is ever attempted on the reference port), cancel start, `/api/version`, `isInUse`, second start on same port refused, stop, restart |
 | `models` | pulls the test model into `<workDir>\models`, loads it on the GPU | cancel pull, resume pull, `/api/tags`, preload + `/api/ps` placement and evidence, unload, guarded delete |
 
 ## Properties

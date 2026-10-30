@@ -19,13 +19,16 @@ final class AcceptanceGuard {
 
     private final File workDir;
     private final List<File> protectedRoots;
+    private final int referencePort;
 
     /**
      * @param workDir        fresh directory that holds everything the run creates
      * @param protectedRoots model and install folders of the user; the run must never write inside them
+     * @param referencePort  port of the read-only reference server; never a target of a start or write
      */
-    AcceptanceGuard(File workDir, Collection<File> protectedRoots) {
+    AcceptanceGuard(File workDir, Collection<File> protectedRoots, int referencePort) {
         this.workDir = canonical(workDir);
+        this.referencePort = referencePort;
         this.protectedRoots = new ArrayList<File>();
         for (File root : protectedRoots) {
             if (root != null) {
@@ -88,14 +91,26 @@ final class AcceptanceGuard {
     }
 
     /**
-     * Require that {@code endpoint} belongs to a live server this run started, on loopback and not on the
-     * default port. Only such an endpoint may receive pull, preload, unload or delete requests.
+     * Require an endpoint that may receive a server start or a write request: loopback, a valid test port,
+     * and neither the default port nor the reference port. Checked without probing, so a reference server
+     * that is currently down or unreachable never makes its port usable.
      */
-    static void requireOwnedTestEndpoint(Endpoint endpoint, ManagedServer owner) {
+    void requireWritableEndpoint(Endpoint endpoint) {
         if (!endpoint.isLoopback()) {
-            throw new IllegalStateException("write requests only go to loopback: " + endpoint);
+            throw new IllegalStateException("test servers and write requests only use loopback: " + endpoint);
         }
         requireTestPort(endpoint.port());
+        if (endpoint.port() == referencePort) {
+            throw new IllegalStateException("port " + endpoint.port() + " is the read-only reference port");
+        }
+    }
+
+    /**
+     * Require that {@code endpoint} is writable and belongs to a live server this run started. Only such an
+     * endpoint may receive pull, preload, unload or delete requests.
+     */
+    void requireOwnedTestEndpoint(Endpoint endpoint, ManagedServer owner) {
+        requireWritableEndpoint(endpoint);
         if (owner == null || !owner.isAlive() || !endpoint.equals(owner.installation().endpoint())) {
             throw new IllegalStateException("no live test server owned by this run listens at " + endpoint);
         }

@@ -32,16 +32,16 @@ public class AcceptanceGuardTest {
     public void setUp() throws IOException {
         userModels = folder.newFolder("home", ".ollama", "models");
         workDir = new File(folder.getRoot(), "ollama-acceptance-1");
-        guard = new AcceptanceGuard(workDir, Collections.singletonList(userModels));
+        guard = new AcceptanceGuard(workDir, Collections.singletonList(userModels), 11434);
     }
 
     @Test
     public void rejectsWorkDirWithoutPrefixOrInsideProtectedFolder() {
-        expectRejected(() -> new AcceptanceGuard(new File(folder.getRoot(), "temp"), Collections.<File>emptyList()));
+        expectRejected(() -> new AcceptanceGuard(new File(folder.getRoot(), "temp"), Collections.<File>emptyList(), 11434));
         expectRejected(() -> new AcceptanceGuard(new File(userModels, "ollama-acceptance-2"),
-            Collections.singletonList(userModels)));
+            Collections.singletonList(userModels), 11434));
         expectRejected(() -> new AcceptanceGuard(new File(folder.getRoot(), "ollama-acceptance-3"),
-            Collections.singletonList(new File(folder.getRoot(), "ollama-acceptance-3/models"))));
+            Collections.singletonList(new File(folder.getRoot(), "ollama-acceptance-3/models")), 11434));
     }
 
     @Test
@@ -59,6 +59,15 @@ public class AcceptanceGuardTest {
     }
 
     @Test
+    public void rejectsReferencePortEvenWhenOverriddenToTestPort() {
+        AcceptanceGuard sameAsTest = new AcceptanceGuard(workDir, Collections.singletonList(userModels), 11534);
+        expectRejected(() -> sameAsTest.requireWritableEndpoint(new Endpoint("127.0.0.1", 11534)));
+        expectRejected(() -> sameAsTest.requireWritableEndpoint(Endpoint.DEFAULT));
+        expectRejected(() -> guard.requireWritableEndpoint(new Endpoint("192.168.1.5", 11534)));
+        guard.requireWritableEndpoint(new Endpoint("127.0.0.1", 11534));
+    }
+
+    @Test
     public void acceptsOnlyFoldersBelowWorkDir() {
         guard.requireInsideWorkDir(new File(workDir, "models"));
         expectRejected(() -> guard.requireInsideWorkDir(workDir));
@@ -69,12 +78,12 @@ public class AcceptanceGuardTest {
     @Test
     public void requiresLiveOwnedServerOnTestEndpoint() {
         Endpoint test = new Endpoint("127.0.0.1", 11534);
-        AcceptanceGuard.requireOwnedTestEndpoint(test, server(test, true));
-        expectRejected(() -> AcceptanceGuard.requireOwnedTestEndpoint(test, null));
-        expectRejected(() -> AcceptanceGuard.requireOwnedTestEndpoint(test, server(test, false)));
-        expectRejected(() -> AcceptanceGuard.requireOwnedTestEndpoint(test,
+        guard.requireOwnedTestEndpoint(test, server(test, true));
+        expectRejected(() -> guard.requireOwnedTestEndpoint(test, null));
+        expectRejected(() -> guard.requireOwnedTestEndpoint(test, server(test, false)));
+        expectRejected(() -> guard.requireOwnedTestEndpoint(test,
             server(new Endpoint("127.0.0.1", 11535), true)));
-        expectRejected(() -> AcceptanceGuard.requireOwnedTestEndpoint(Endpoint.DEFAULT, server(Endpoint.DEFAULT, true)));
+        expectRejected(() -> guard.requireOwnedTestEndpoint(Endpoint.DEFAULT, server(Endpoint.DEFAULT, true)));
     }
 
     @Test

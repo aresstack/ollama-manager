@@ -27,13 +27,13 @@ import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
 import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistributionInstaller;
+import com.aresstack.ollamamanager.infrastructure.hardware.CommandResult;
+import com.aresstack.ollamamanager.infrastructure.hardware.ProcessCommandRunner;
 import com.aresstack.ollamamanager.infrastructure.hardware.SystemHardwareProbe;
 import com.aresstack.ollamamanager.infrastructure.ollamaapi.HttpOllamaApiClient;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,6 +71,7 @@ public final class NativeAcceptanceMain {
     private final HttpOllamaApiClient api = new HttpOllamaApiClient();
     private final ModelService models = new ModelService(api);
     private final ProcessOllamaRuntime runtime;
+    private final GuardedRuntime starter;
     private final File installRoot;
     private final File modelRoot;
     private OllamaInstallation binary;
@@ -88,24 +89,26 @@ public final class NativeAcceptanceMain {
         this.installRoot = guard.requireInsideWorkDir(new File(guard.workDir(), "install"));
         this.modelRoot = guard.requireInsideWorkDir(new File(guard.workDir(), "models"));
         this.runtime = new ProcessOllamaRuntime(installRoot);
+        this.starter = new GuardedRuntime(runtime, guard);
     }
 
     public static void main(String[] args) throws Exception {
         File workDir = new File(required("acceptance.workDir"));
-        AcceptanceGuard guard = new AcceptanceGuard(workDir,
-            AcceptanceGuard.defaultProtectedRoots(System.getenv("OLLAMA_MODELS"), System.getProperty("user.home")));
-        guard.requireFreshWorkDir();
+        int referencePort = Integer.parseInt(
+            System.getProperty("acceptance.referencePort", String.valueOf(Endpoint.DEFAULT_PORT)));
         int testPort = Integer.parseInt(System.getProperty("acceptance.port", "11534"));
-        AcceptanceGuard.requireTestPort(testPort);
+        AcceptanceGuard guard = new AcceptanceGuard(workDir,
+            AcceptanceGuard.defaultProtectedRoots(System.getenv("OLLAMA_MODELS"), System.getProperty("user.home")),
+            referencePort);
+        guard.requireFreshWorkDir();
+        guard.requireWritableEndpoint(new Endpoint("127.0.0.1", testPort));
         Set<String> stages = parseStages(System.getProperty("acceptance.stages", "readonly,hardware"));
         if (!guard.workDir().mkdirs() && !guard.workDir().isDirectory()) {
             throw new IllegalStateException("cannot create " + guard.workDir());
         }
         int exitCode;
         try (AcceptanceReport report = new AcceptanceReport(new File(guard.workDir(), "report.txt"))) {
-            NativeAcceptanceMain run = new NativeAcceptanceMain(report, guard, stages,
-                Integer.parseInt(System.getProperty("acceptance.referencePort", String.valueOf(Endpoint.DEFAULT_PORT))),
-                testPort, System.getProperty("acceptance.testModel", "smollm2:135m"),
+            NativeAcceptanceMain run = new NativeAcceptanceMain(report, guard, stages, referencePort, testPort, System.getProperty("acceptance.testModel", "smollm2:135m"),
                 Long.parseLong(System.getProperty("acceptance.minFreeGb", "5")) * 1024L * 1024L * 1024L);
             run.execute();
             report.info("summary " + report.summary() + " report=" + new File(guard.workDir(), "report.txt"));
@@ -199,8 +202,17 @@ public final class NativeAcceptanceMain {
                 nvidia.add(gpu);
             }
         }
-        List<String> smi = nvidiaSmi();
-        if (smi == null) {
+        List<String> smi;
+        try {
+            smi = nvidiaSmi();
+        } catch (OperationException e) {
+            report.fail("nvidia-smi agrees with probe", "nvidia-smi did not complete: " + e.kind() + " " + e.getMessage());
+            smi = Collections.emptyList();
+            nvidia = null;
+        }
+        if (nvidia == null) {
+            report.info("nvidia-smi comparison not counted as GPU evidence");
+        } else if (smi == null) {
             report.skip("nvidia-smi agrees with probe", "nvidia-smi not available");
         } else {
             for (String line : smi) {
@@ -213,7 +225,7 @@ public final class NativeAcceptanceMain {
             .recommend(snapshot, SupportOverrides.none(), false);
         report.info("advisor packages=" + recommendation.packages() + " confidence=" + recommendation.confidence()
             + " reasons=" + recommendation.reasons());
-        if (!nvidia.isEmpty()) {
+        if (nvidia != null && !nvidia.isEmpty()) {
             report.check(recommendation.packages().equals(EnumSet.of(DistributionPackage.BASE)),
                 "advisor selects BASE only for NVIDIA", "packages=" + recommendation.packages());
         } else {
@@ -237,26 +249,27 @@ public final class NativeAcceptanceMain {
         return true;
     }
 
-    private static List<String> nvidiaSmi() {
-        try {
-            Process process = new ProcessBuilder("nvidia-smi", "--query-gpu=name,driver_version,memory.total",
-                "--format=csv,noheader,nounits").redirectErrorStream(true).start();
-            List<String> lines = new ArrayList<String>();
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-                    if (!line.trim().isEmpty()) {
-                        lines.add(line.trim());
-                    }
-                }
-            }
-            if (!process.waitFor(30, TimeUnit.SECONDS) || process.exitValue() != 0) {
-                return null;
-            }
-            return lines;
-        } catch (Exception e) {
+    /**
+     * Run {@code nvidia-smi} with an enforced timeout; the runner kills the process when it hangs.
+     * Returns {@code null} when the tool is missing.
+     */
+    private static List<String> nvidiaSmi() throws OperationException {
+        CommandResult result = new ProcessCommandRunner(StandardCharsets.UTF_8).run(Arrays.asList("nvidia-smi",
+            "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader,nounits"), 30000,
+            CancellationToken.none());
+        if (!result.isFound()) {
             return null;
         }
+        if (!result.isSuccess()) {
+            throw new OperationException(ErrorKind.PROCESS_FAILED, "nvidia-smi exited with " + result.exitCode());
+        }
+        List<String> lines = new ArrayList<String>();
+        for (String line : result.stdout().split("\\r?\\n")) {
+            if (!line.trim().isEmpty()) {
+                lines.add(line.trim());
+            }
+        }
+        return lines;
     }
 
     // Stage install: official BASE ZIP into the test install root, optional second version for rollback.
@@ -376,8 +389,6 @@ public final class NativeAcceptanceMain {
             return;
         }
         binary = installation;
-        expectFailure("start on reference port is refused", ErrorKind.PORT_IN_USE, () -> runtime.start(installation,
-            ServerSettings.defaults().with(ServerSettingCatalog.BIND, reference), CancellationToken.none()));
         expectFailure("stop of a foreign server is refused", ErrorKind.NOT_OWNED,
             () -> runtime.stop(foreignHandle(), 0));
 
@@ -388,7 +399,7 @@ public final class NativeAcceptanceMain {
         report.pass("own server answers /api/version", "version=" + version + " endpoint=" + testEndpoint);
         report.check(runtime.isInUse(installation), "runtime reports installation in use", installation.toString());
         expectFailure("second start on same port is refused", ErrorKind.PORT_IN_USE,
-            () -> runtime.start(installation, testSettings(), CancellationToken.none()));
+            () -> starter.start(installation, testSettings(), CancellationToken.none()));
 
         runtime.stop(server, GRACE_MILLIS);
         report.check(!server.isAlive() && !reachable(testEndpoint), "stop own server",
@@ -403,7 +414,7 @@ public final class NativeAcceptanceMain {
         CancellationToken token = new CancellationToken();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<ManagedServer> start = executor.submit(() -> runtime.start(installation, testSettings(), token));
+            Future<ManagedServer> start = executor.submit(() -> starter.start(installation, testSettings(), token));
             Thread.sleep(300);
             token.cancel();
             try {
@@ -445,7 +456,7 @@ public final class NativeAcceptanceMain {
             }
             testServer = startTestServer(installation);
         }
-        AcceptanceGuard.requireOwnedTestEndpoint(testEndpoint, testServer);
+        guard.requireOwnedTestEndpoint(testEndpoint, testServer);
         long free = modelRoot.getUsableSpace();
         if (free < minFreeBytes) {
             report.skip("stage models", "only " + free + " bytes free in " + modelRoot + ", need " + minFreeBytes);
@@ -488,7 +499,7 @@ public final class NativeAcceptanceMain {
         report.check(waitUntilUnloaded(), "unload", "ps after unload=" + api.loadedModels(testEndpoint,
             CancellationToken.none()).size());
 
-        AcceptanceGuard.requireOwnedTestEndpoint(testEndpoint, testServer);
+        guard.requireOwnedTestEndpoint(testEndpoint, testServer);
         guard.requireDeletableTestModel(testModel, before, testServer.appliedSettings().modelRoot());
         models.delete(testEndpoint, testModel, testModel, CancellationToken.none());
         boolean stillListed = false;
@@ -517,8 +528,7 @@ public final class NativeAcceptanceMain {
 
     private ManagedServer startTestServer(OllamaInstallation installation) throws OperationException {
         ServerSettings settings = testSettings();
-        guard.requireInsideWorkDir(settings.modelRoot());
-        ManagedServer server = runtime.start(installation, settings, CancellationToken.none());
+        ManagedServer server = starter.start(installation, settings, CancellationToken.none());
         report.info("started own server " + server.installation() + " modelRoot=" + settings.modelRoot());
         return server;
     }
