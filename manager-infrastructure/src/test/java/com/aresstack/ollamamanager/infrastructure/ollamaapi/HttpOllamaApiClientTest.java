@@ -22,6 +22,8 @@ import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.net.ServerSocket;
@@ -30,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -242,6 +247,101 @@ public class HttpOllamaApiClientTest {
         }
         canceller.join(5000);
         assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) < 5000);
+    }
+
+    @Test
+    public void pullStreamsManyLinesWithoutBufferingLimit() throws Exception {
+        int lines = 20000;
+        server.on("POST", "/api/pull", (exchange, body) -> {
+            exchange.sendResponseHeaders(200, 0);
+            OutputStream out = exchange.getResponseBody();
+            for (int i = 1; i <= lines; i++) {
+                out.write(("{\"status\":\"pulling abc\",\"total\":" + lines + ",\"completed\":" + i + "}\n")
+                    .getBytes(StandardCharsets.UTF_8));
+            }
+            out.write("{\"status\":\"success\"}\n".getBytes(StandardCharsets.UTF_8));
+            out.close();
+        });
+        AtomicInteger updates = new AtomicInteger();
+        client.pull(endpoint, "x", progress -> updates.incrementAndGet(), CancellationToken.none());
+        assertEquals(lines + 1, updates.get());
+    }
+
+    @Test
+    public void overlongPullLineIsRejected() {
+        server.on("POST", "/api/pull", (exchange, body) -> {
+            exchange.sendResponseHeaders(200, 0);
+            OutputStream out = exchange.getResponseBody();
+            byte[] filler = new byte[64 * 1024];
+            Arrays.fill(filler, (byte) 'a');
+            for (int i = 0; i < 20; i++) {
+                out.write(filler);
+            }
+            out.close();
+        });
+        assertKind(ErrorKind.NOT_OLLAMA, () -> client.pull(endpoint, "x", p -> { }, CancellationToken.none()));
+    }
+
+    @Test
+    public void oversizedBodyIsRejected() {
+        server.on("GET", "/api/tags", (exchange, body) -> {
+            exchange.sendResponseHeaders(200, 0);
+            OutputStream out = exchange.getResponseBody();
+            byte[] filler = new byte[1024 * 1024];
+            try {
+                for (int i = 0; i < 20; i++) {
+                    out.write(filler);
+                }
+                out.close();
+            } catch (IOException ignored) {
+                // The client stops reading at the limit.
+            }
+        });
+        assertKind(ErrorKind.NOT_OLLAMA, () -> client.installedModels(endpoint, CancellationToken.none()));
+    }
+
+    @Test
+    public void parallelRequestsAreIndependent() throws Exception {
+        server.on("GET", "/api/version", (exchange, body) -> {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            FakeOllamaServer.respond(exchange, 200, "{\"version\":\"0.12.6\"}");
+        });
+        server.on("POST", "/api/pull", (exchange, body) -> {
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().flush();
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        CancellationToken pullToken = new CancellationToken();
+        ExecutorService pool = Executors.newFixedThreadPool(9);
+        try {
+            Future<?> pull = pool.submit(() -> {
+                try {
+                    client.pull(endpoint, "x", p -> { }, pullToken);
+                    return null;
+                } catch (OperationException e) {
+                    return e.kind();
+                }
+            });
+            List<Future<String>> versions = new ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                versions.add(pool.submit(() -> client.version(endpoint, CancellationToken.none())));
+            }
+            for (Future<String> version : versions) {
+                assertEquals("0.12.6", version.get(5, TimeUnit.SECONDS));
+            }
+            pullToken.cancel();
+            assertEquals(ErrorKind.CANCELLED, pull.get(5, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test
