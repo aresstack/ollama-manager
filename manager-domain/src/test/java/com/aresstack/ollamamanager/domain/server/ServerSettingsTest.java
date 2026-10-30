@@ -106,6 +106,15 @@ public class ServerSettingsTest {
     }
 
     @Test
+    public void equalSettingsHaveEqualHashCodes() {
+        ServerSettings upper = ServerSettings.defaults().with(ServerSettingCatalog.BIND, Endpoint.parse("LOCALHOST:11434"));
+        ServerSettings lower = ServerSettings.defaults().with(ServerSettingCatalog.BIND, Endpoint.parse("localhost:11434"));
+
+        assertEquals(upper, lower);
+        assertEquals(upper.hashCode(), lower.hashCode());
+    }
+
+    @Test
     public void decodingIgnoresUnknownIdsButRejectsInvalidValues() {
         Map<String, String> encoded = new LinkedHashMap<String, String>();
         encoded.put("futureSetting", "x");

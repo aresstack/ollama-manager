@@ -42,9 +42,10 @@ public final class AtomicFileStore {
 
     /**
      * Write to a temporary file in the same directory, flush it to disk, keep the old file as backup and
-     * move the new file into place.
+     * move the new file into place. Pass {@code rotateBackup = false} when the current primary is damaged, so
+     * the last valid backup survives.
      */
-    public void write(String content) throws IOException {
+    public void write(String content, boolean rotateBackup) throws IOException {
         File directory = file.getParentFile();
         if (!directory.isDirectory() && !directory.mkdirs()) {
             throw new IOException("cannot create directory " + directory);
@@ -52,7 +53,7 @@ public final class AtomicFileStore {
         File temp = File.createTempFile(file.getName(), ".tmp", directory);
         try {
             writeSynced(temp, content);
-            if (file.exists()) {
+            if (rotateBackup && file.exists()) {
                 Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
             }
             move(temp, file);

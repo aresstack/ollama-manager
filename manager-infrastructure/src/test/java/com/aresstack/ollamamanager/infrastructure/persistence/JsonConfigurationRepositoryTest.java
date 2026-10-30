@@ -71,6 +71,19 @@ public class JsonConfigurationRepositoryTest {
     }
 
     @Test
+    public void keepsValidBackupWhenSavingOverDamagedPrimary() throws Exception {
+        repository().save(sample());
+        repository().save(sample());
+        Files.write(configFile().toPath(), "{broken".getBytes(StandardCharsets.UTF_8));
+
+        repository().save(sample().withActiveProfileId(null));
+
+        assertEquals("p1", ConfigurationDocumentMapper.fromDocument(
+            com.aresstack.ollamamanager.infrastructure.json.Json.parse(read(
+                new File(configFile().getPath() + ".bak")))).activeProfileId());
+    }
+
+    @Test
     public void rejectsUnsupportedFormatVersionWithoutBackup() throws Exception {
         Files.write(configFile().toPath(), "{\"formatVersion\": 2}".getBytes(StandardCharsets.UTF_8));
         try {

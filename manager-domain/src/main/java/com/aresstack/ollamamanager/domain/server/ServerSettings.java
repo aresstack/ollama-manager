@@ -172,7 +172,11 @@ public final class ServerSettings {
 
     @Override
     public int hashCode() {
-        return toEnvironment().hashCode();
+        List<Object> effectiveValues = new ArrayList<Object>();
+        for (ServerSetting<?> setting : ServerSettingCatalog.all()) {
+            effectiveValues.add(get(setting));
+        }
+        return effectiveValues.hashCode();
     }
 
     @Override

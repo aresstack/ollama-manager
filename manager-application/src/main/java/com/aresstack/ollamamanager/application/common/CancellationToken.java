@@ -21,7 +21,10 @@ public final class CancellationToken {
         return new CancellationToken();
     }
 
-    /** Cancel and run registered callbacks once. Further calls have no effect. */
+    /**
+     * Cancel and run registered callbacks once. Every callback runs even if an earlier one fails; the first
+     * failure is rethrown afterwards with later ones suppressed. Further calls have no effect.
+     */
     public void cancel() {
         List<Runnable> toRun;
         synchronized (this) {
@@ -32,8 +35,20 @@ public final class CancellationToken {
             toRun = new ArrayList<Runnable>(callbacks);
             callbacks.clear();
         }
+        RuntimeException failure = null;
         for (Runnable callback : toRun) {
-            callback.run();
+            try {
+                callback.run();
+            } catch (RuntimeException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 

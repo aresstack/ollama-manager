@@ -23,6 +23,23 @@ public class CancellationTokenTest {
     }
 
     @Test
+    public void runsRemainingCallbacksWhenOneFails() {
+        CancellationToken token = new CancellationToken();
+        AtomicInteger calls = new AtomicInteger();
+        token.onCancel(() -> {
+            throw new IllegalStateException("close failed");
+        });
+        token.onCancel(calls::incrementAndGet);
+
+        try {
+            token.cancel();
+            throw new AssertionError("expected failure");
+        } catch (IllegalStateException expected) {
+            assertEquals(1, calls.get());
+        }
+    }
+
+    @Test
     public void runsLateCallbackImmediately() {
         CancellationToken token = new CancellationToken();
         token.cancel();

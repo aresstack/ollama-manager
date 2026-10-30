@@ -39,7 +39,7 @@ public final class JsonConfigurationRepository implements ConfigurationRepositor
     @Override
     public synchronized void save(ManagerConfiguration configuration) throws OperationException {
         try {
-            store.write(Json.write(ConfigurationDocumentMapper.toDocument(configuration)) + "\n");
+            store.write(Json.write(ConfigurationDocumentMapper.toDocument(configuration)) + "\n", isPrimaryValid());
         } catch (IOException e) {
             throw new OperationException(ErrorKind.IO, "cannot save configuration to " + store.file(), e);
         }
@@ -53,6 +53,15 @@ public final class JsonConfigurationRepository implements ConfigurationRepositor
             throw new OperationException(ErrorKind.INVALID_CONFIGURATION,
                 "configuration " + store.file() + " is damaged and no valid backup exists: "
                     + primaryFailure.getMessage(), primaryFailure);
+        }
+    }
+
+    private boolean isPrimaryValid() throws OperationException {
+        try {
+            decode(read(true));
+            return true;
+        } catch (RuntimeException damagedOrMissing) {
+            return false;
         }
     }
 
