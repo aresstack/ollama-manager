@@ -118,20 +118,24 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         running.removeIf(previous -> !previous.isAlive());
         running.add(server);
 
-        AtomicBoolean startupFinished = new AtomicBoolean();
+        // Whoever flips this first wins: a cancel kills the process, a successful start keeps it.
+        AtomicBoolean handedOver = new AtomicBoolean();
         cancellation.onCancel(() -> {
-            if (!startupFinished.get()) {
+            if (handedOver.compareAndSet(false, true)) {
                 process.destroyForcibly();
             }
         });
         boolean ready = false;
         try {
             awaitReady(server, endpoint, pump, cancellation);
+            if (!handedOver.compareAndSet(false, true)) {
+                throw new OperationCancelledException("server start cancelled");
+            }
             ready = true;
             return server;
         } finally {
-            startupFinished.set(true);
             if (!ready) {
+                handedOver.set(true);
                 terminate(server, 0);
             }
         }

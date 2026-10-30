@@ -60,10 +60,10 @@ final class BinaryLocator {
             if (!executable.isFile()) {
                 continue;
             }
-            File canonical = canonical(executable);
-            String key = windows ? canonical.getPath().toLowerCase(Locale.ROOT) : canonical.getPath();
-            if (seen.add(key)) {
-                result.add(canonical);
+            // Deduplicate by target but keep the found path: a symlink named ollama may point to another file name.
+            String key = canonical(executable).getPath();
+            if (seen.add(windows ? key.toLowerCase(Locale.ROOT) : key)) {
+                result.add(executable.getAbsoluteFile());
             }
         }
         return result;

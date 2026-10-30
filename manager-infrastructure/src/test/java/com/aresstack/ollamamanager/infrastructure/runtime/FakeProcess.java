@@ -12,7 +12,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Controllable process whose output pipe closes when it exits. */
-final class FakeProcess extends Process {
+class FakeProcess extends Process {
 
     private final PipedInputStream output = new PipedInputStream(64 * 1024);
     private final PipedOutputStream writer;

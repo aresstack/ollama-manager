@@ -166,6 +166,34 @@ public class ProcessOllamaRuntimeTest {
     }
 
     @Test
+    public void cancellationDuringSuccessfulProbeStillCancels() {
+        FakeProcess process = new FakeProcess(true) {
+            @Override
+            public Process destroyForcibly() {
+                forcedDestroyCalls++;
+                return this;
+            }
+        };
+        processes.add(process);
+        probes.addAll(Arrays.asList(ProbeResult.free(), ProbeResult.ollama("0.12.3")));
+        CancellationToken token = new CancellationToken();
+        onProbe = () -> {
+            if (launched.size() == 1) {
+                token.cancel();
+            }
+        };
+
+        try {
+            runtime.start(installation, ServerSettings.defaults(), token);
+            fail("expected cancellation");
+        } catch (OperationException e) {
+            assertEquals(ErrorKind.CANCELLED, e.kind());
+        }
+        assertTrue(process.forcedDestroyCalls > 0);
+        process.exit(137);
+    }
+
+    @Test
     public void laterCancellationDoesNotKillAStartedServer() throws Exception {
         FakeProcess process = new FakeProcess(false);
         processes.add(process);
@@ -292,9 +320,27 @@ public class ProcessOllamaRuntimeTest {
         assertEquals("0.12.3", found.get(0).version());
         assertEquals(InstallationKind.MANAGED_INSTALLED, found.get(1).kind());
         assertEquals("0.11.10", found.get(1).version());
-        assertEquals(Arrays.asList(new File(portableBin, "ollama").getCanonicalPath(), "--version"),
+        assertEquals(Arrays.asList(new File(portableBin, "ollama").getAbsolutePath(), "--version"),
             launched.get(0).command());
         assertEquals(3, launched.size());
+    }
+
+    @Test
+    public void keepsSymlinkPathThatStartCanLaunch() throws Exception {
+        File target = new File(folder.newFolder("versions"), "ollama-v1");
+        assertTrue(target.createNewFile());
+        File linkDirectory = folder.newFolder("linked");
+        try {
+            java.nio.file.Files.createSymbolicLink(new File(linkDirectory, "ollama").toPath(), target.toPath());
+        } catch (UnsupportedOperationException | IOException e) {
+            org.junit.Assume.assumeNoException(e);
+        }
+        processes.add(versionProcess("ollama version is 0.12.3"));
+
+        List<OllamaInstallation> found = runtime.discover(Collections.singletonList(linkDirectory),
+            CancellationToken.none());
+
+        assertEquals(linkDirectory.getAbsoluteFile(), found.get(0).binaryDirectory());
     }
 
     @Test
