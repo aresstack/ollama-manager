@@ -1,0 +1,13 @@
+.gradle/
+build/
+out/
+*.class
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+local.properties
+# Machine-specific installation data must never be committed.
+ollama-portable/

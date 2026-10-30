@@ -1,0 +1,6 @@
+rootProject.name = 'ollama-manager'
+
+include 'manager-domain'
+include 'manager-application'
+include 'manager-infrastructure'
+include 'manager-swing'
