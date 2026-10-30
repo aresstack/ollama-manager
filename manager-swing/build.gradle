@@ -33,6 +33,8 @@ tasks.register('fatJar', Jar) {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
     from(rootProject.file('LICENSE')) { into 'META-INF' }
+    from(rootProject.file('THIRD-PARTY-NOTICES.md')) { into 'META-INF' }
+    exclude 'module-info.class', 'META-INF/versions/*/module-info.class'
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
 }
 
@@ -54,6 +56,7 @@ tasks.register('managerZip', Zip) {
         from tasks.named('fatJar')
         from rootProject.file('README.md')
         from rootProject.file('LICENSE')
+        from rootProject.file('THIRD-PARTY-NOTICES.md')
         from file('src/dist')
     }
 }

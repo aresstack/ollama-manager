@@ -30,7 +30,7 @@ without opening a window.
 
 Run Gradle with a **JDK 8** (`JAVA_HOME`) so tests execute on a real Java 8 runtime. The build
 deliberately stays on Gradle 8.x, the last line that can run on Java 8; its deprecation notice about
-Java 8 is expected.
+Java 8 is expected. The wrapper distribution is pinned by SHA-256.
 
 Outputs:
 
@@ -71,4 +71,5 @@ checks named in each issue and are not claimed by CI.
 
 ## License
 
-MIT © 2026 AresStack. Ollama is a separate project under its own license.
+MIT © 2026 AresStack. Bundled libraries: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Ollama is a separate project under its own license.

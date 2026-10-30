@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.swing;
 
 import com.aresstack.ollamamanager.application.port.ConfigurationRepository;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
+import com.aresstack.ollamamanager.infrastructure.json.Json;
 import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationRepository;
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
 
@@ -35,7 +36,8 @@ public final class OllamaManagerApp {
         return "Ollama Manager smoke test OK"
             + " | java.version=" + System.getProperty("java.version")
             + " | default environment=" + ServerSettings.defaults().toEnvironment()
-            + " | repository=" + JsonConfigurationRepository.class.getSimpleName();
+            + " | repository=" + JsonConfigurationRepository.class.getSimpleName()
+            + " | json=" + Json.parse(Json.write(ServerSettings.defaults().toEncodedMap()));
     }
 
     private static void openMainFrame(ConfigurationRepository repository) {
