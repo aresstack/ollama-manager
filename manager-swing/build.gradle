@@ -34,6 +34,7 @@ tasks.register('fatJar', Jar) {
     }
     from(rootProject.file('LICENSE')) { into 'META-INF' }
     from(rootProject.file('THIRD-PARTY-NOTICES.md')) { into 'META-INF' }
+    from(rootProject.file('licenses')) { into 'META-INF/licenses' }
     exclude 'module-info.class', 'META-INF/versions/*/module-info.class'
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
 }
@@ -58,11 +59,37 @@ tasks.register('managerZip', Zip) {
         from rootProject.file('LICENSE')
         from rootProject.file('THIRD-PARTY-NOTICES.md')
         from file('src/dist')
+        from(rootProject.file('licenses')) { into 'licenses' }
+    }
+}
+
+// Fail the build if a required license or attribution file is missing from the shipped archives.
+def requiredJarEntries = ['META-INF/LICENSE', 'META-INF/THIRD-PARTY-NOTICES.md', 'META-INF/licenses/Apache-2.0.txt',
+                          'META-INF/licenses/MPL-2.0.txt', 'okhttp3/internal/publicsuffix/NOTICE']
+def requiredZipEntries = ['ollama-manager/ollama-manager.jar', 'ollama-manager/LICENSE',
+                          'ollama-manager/THIRD-PARTY-NOTICES.md', 'ollama-manager/licenses/Apache-2.0.txt',
+                          'ollama-manager/licenses/MPL-2.0.txt']
+
+tasks.register('verifyDistributionContents') {
+    group = 'verification'
+    description = 'Checks that the fat JAR and ZIP contain all license and notice files.'
+    def jarFile = tasks.named('fatJar').flatMap { it.archiveFile }
+    def zipFile = tasks.named('managerZip').flatMap { it.archiveFile }
+    inputs.files(jarFile, zipFile)
+    doLast {
+        def missing = []
+        [[jarFile.get().asFile, requiredJarEntries], [zipFile.get().asFile, requiredZipEntries]].each { pair ->
+            def names = new java.util.zip.ZipFile(pair[0]).withCloseable { zip -> zip.entries().collect { it.name } as Set }
+            pair[1].findAll { !names.contains(it) }.each { missing << "${pair[0].name}: ${it}" }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing distribution entries:\n" + missing.join('\n'))
+        }
     }
 }
 
 tasks.named('build') {
-    dependsOn tasks.named('managerZip'), tasks.named('smokeTest')
+    dependsOn tasks.named('managerZip'), tasks.named('smokeTest'), tasks.named('verifyDistributionContents')
 }
 
 // Ship only the self-contained managerZip; the start-script distributions of the application plugin are not used.
