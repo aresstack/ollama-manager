@@ -8,13 +8,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Probes {@code GET /api/version} directly, bypassing any configured proxy, and classifies the answer.
+ * Checks that something listens, then probes {@code GET /api/version} directly, bypassing any configured proxy, and classifies the answer.
  */
 public final class HttpEndpointProbe implements EndpointProbe {
 
@@ -22,6 +25,10 @@ public final class HttpEndpointProbe implements EndpointProbe {
 
     @Override
     public ProbeResult probe(Endpoint endpoint, int timeoutMillis) {
+        ProbeResult listening = checkListening(endpoint, timeoutMillis);
+        if (listening != null) {
+            return listening;
+        }
         HttpURLConnection connection = null;
         try {
             URL url = new URL(endpoint.baseUrl() + "/api/version");
@@ -43,6 +50,24 @@ public final class HttpEndpointProbe implements EndpointProbe {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    /**
+     * Return {@link ProbeResult#free()} if nothing accepts connections, or {@code null} if something listens.
+     * Windows retries a refused loopback connect for about two seconds instead of failing fast, so a connect
+     * timeout on a loopback address also means that nothing listens there.
+     */
+    private static ProbeResult checkListening(Endpoint endpoint, int timeoutMillis) {
+        try (Socket socket = new Socket(Proxy.NO_PROXY)) {
+            socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), timeoutMillis);
+            return null;
+        } catch (ConnectException e) {
+            return ProbeResult.free();
+        } catch (SocketTimeoutException e) {
+            return endpoint.isLoopback() ? ProbeResult.free() : ProbeResult.foreign("connect timed out");
+        } catch (IOException e) {
+            return ProbeResult.foreign(e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
