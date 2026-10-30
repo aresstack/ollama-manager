@@ -234,6 +234,19 @@ public class ProcessOllamaRuntimeTest {
         assertFalse(server.isAlive());
     }
 
+    @Test
+    public void forgetsCrashedServersWhenStartingAgain() throws Exception {
+        FakeProcess crashed = startedProcess(false);
+        runtime.start(installation, ServerSettings.defaults(), CancellationToken.none());
+        crashed.exit(1);
+        FakeProcess replacement = startedProcess(false);
+
+        runtime.start(installation, ServerSettings.defaults(), CancellationToken.none());
+
+        assertEquals(1, runtime.runningCount());
+        replacement.exit(0);
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void refusesToStartExternalInstallation() throws Exception {
         runtime.start(OllamaInstallation.external("0.12.3", Endpoint.DEFAULT), ServerSettings.defaults(),

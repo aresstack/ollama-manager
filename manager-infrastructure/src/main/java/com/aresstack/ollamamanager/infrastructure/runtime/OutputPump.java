@@ -4,10 +4,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 
 /**
  * Drains a process output stream on a daemon thread so the child never blocks on a full pipe.
+ * Characters beyond {@link BoundedLog#MAX_LINE_LENGTH} are drained but not kept, so a line without a newline
+ * cannot exhaust memory.
  * The thread ends when the stream closes, which happens when the process exits or is destroyed.
  */
 final class OutputPump implements Runnable {
@@ -29,10 +32,30 @@ final class OutputPump implements Runnable {
 
     @Override
     public void run() {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                log.append(line);
+        try (Reader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            StringBuilder line = new StringBuilder();
+            boolean truncated = false;
+            boolean afterCarriageReturn = false;
+            int next;
+            while ((next = reader.read()) != -1) {
+                char c = (char) next;
+                if (c == '\n' && afterCarriageReturn) {
+                    afterCarriageReturn = false;
+                    continue;
+                }
+                afterCarriageReturn = c == '\r';
+                if (c == '\n' || c == '\r') {
+                    log.append(truncated ? line + " [...]" : line.toString());
+                    line.setLength(0);
+                    truncated = false;
+                } else if (line.length() < BoundedLog.MAX_LINE_LENGTH) {
+                    line.append(c);
+                } else {
+                    truncated = true;
+                }
+            }
+            if (line.length() > 0 || truncated) {
+                log.append(truncated ? line + " [...]" : line.toString());
             }
         } catch (IOException e) {
             // Destroying the process closes the pipe; nothing remains to read.

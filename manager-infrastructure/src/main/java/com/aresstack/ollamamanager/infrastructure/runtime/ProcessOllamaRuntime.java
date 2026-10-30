@@ -115,6 +115,7 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         BoundedLog log = new BoundedLog(logLines);
         Thread pump = OutputPump.start(process.getInputStream(), log, "ollama-serve-output " + endpoint);
         OwnedServer server = new OwnedServer(this, installation.withEndpoint(endpoint), settings, process, log);
+        running.removeIf(previous -> !previous.isAlive());
         running.add(server);
 
         AtomicBoolean startupFinished = new AtomicBoolean();
