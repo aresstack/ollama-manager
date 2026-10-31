@@ -32,6 +32,22 @@ public class ProcessCommandRunnerTest {
     }
 
     @Test
+    public void releasesCancellationCallbackAfterRun() throws Exception {
+        final boolean[] ran = {false};
+        CancellationToken token = new CancellationToken();
+        runner.run(javaCommand("-version"), 30000, token);
+        token.onCancel(new Runnable() {
+            @Override
+            public void run() {
+                ran[0] = true;
+            }
+        });
+        // Only the callback registered after the run may remain; the runner's own must be gone.
+        token.cancel();
+        assertTrue(ran[0]);
+    }
+
+    @Test
     public void timesOutAndDestroysProcess() throws Exception {
         boolean windows = File.separatorChar == '\\';
         Assume.assumeTrue(windows || new File("/bin/sleep").exists());

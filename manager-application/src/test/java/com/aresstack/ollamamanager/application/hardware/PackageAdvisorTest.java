@@ -97,6 +97,26 @@ public class PackageAdvisorTest {
     }
 
     @Test
+    public void prefersReportedComputeCapabilityOverNameHeuristic() {
+        GpuCompatibilityRules rules = new GpuCompatibilityRules();
+        GpuDescriptor quadroPascal = new GpuDescriptor(GpuVendor.NVIDIA, "NVIDIA Quadro P4000", 8 * GIB, "560.94",
+            true, "6.1");
+        assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED, rules.assess(quadroPascal).support());
+        GpuDescriptor quadroTuring = new GpuDescriptor(GpuVendor.NVIDIA, "NVIDIA Quadro T1000", 4 * GIB, "550.00",
+            true, "7.5");
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(quadroTuring).support());
+        GpuDescriptor kepler = new GpuDescriptor(GpuVendor.NVIDIA, "NVIDIA Tesla K80", 12 * GIB, "570.00", true,
+            "3.7");
+        assertEquals(GpuSupport.UNSUPPORTED, rules.assess(kepler).support());
+        GpuDescriptor rtx5080 = new GpuDescriptor(GpuVendor.NVIDIA, "NVIDIA GeForce RTX 5080", 16 * GIB, "610.88",
+            true, "12.0");
+        assertEquals(GpuSupport.SUPPORTED, rules.assess(rtx5080).support());
+        GpuDescriptor rtx5070 = new GpuDescriptor(GpuVendor.NVIDIA, "NVIDIA GeForce RTX 5070", 12 * GIB, "610.88",
+            true, "12.0");
+        assertEquals(GpuSupport.UNKNOWN, rules.assess(rtx5070).support());
+    }
+
+    @Test
     public void olderNvidiaGenerations() {
         GpuCompatibilityRules rules = new GpuCompatibilityRules();
         assertEquals(GpuSupport.DRIVER_UPDATE_REQUIRED,
