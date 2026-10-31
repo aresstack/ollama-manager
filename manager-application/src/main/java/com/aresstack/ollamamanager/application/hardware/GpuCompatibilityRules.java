@@ -26,6 +26,8 @@ import java.util.regex.Pattern;
  * unmatched names stay UNKNOWN and can be overridden manually. Versions are compared on major and minor;
  * Windows driver versions such as {@code 32.0.15.7688} are normalised to the NVIDIA release {@code 576.88}.
  * <p>
+ * Other vendors and integrated AMD graphics get {@link GpuBackend#VULKAN} with UNKNOWN support: Ollama
+ * documents Vulkan on Windows, but these rules do not assess it.
  * AMD: only the Windows ROCm list (not the longer Linux list) counts as supported; other Radeon models stay
  * UNKNOWN and can be enabled through a manual override.
  */
@@ -57,8 +59,7 @@ public final class GpuCompatibilityRules {
         if (gpu.vendor() == GpuVendor.AMD) {
             return assessAmd(gpu);
         }
-        return new GpuAssessment(gpu, GpuBackend.NONE, GpuSupport.UNSUPPORTED, false,
-            "Ollama on Windows has no backend for " + gpu.vendor() + " GPUs; CPU is used.");
+        return vulkanNotAssessed(gpu, "No CUDA or ROCm backend for " + gpu.vendor() + " GPUs.");
     }
 
     private static Map<Pattern, Integer> deviceFirstDrivers() {
@@ -101,6 +102,15 @@ public final class GpuCompatibilityRules {
         }
         return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.SUPPORTED, false,
             "Supported NVIDIA GPU with driver " + format(driver) + " (" + requirement + ").");
+    }
+
+    /**
+     * Ollama documents Vulkan GPU support on Windows (https://docs.ollama.com/gpu#vulkan-gpu-support), but these
+     * rules do not assess Vulkan, so the result is UNKNOWN rather than unsupported or CPU-only.
+     */
+    private static GpuAssessment vulkanNotAssessed(GpuDescriptor gpu, String context) {
+        return new GpuAssessment(gpu, GpuBackend.VULKAN, GpuSupport.UNKNOWN, false,
+            context + " Ollama may use it through Vulkan; this advisor does not assess Vulkan support.");
     }
 
     /** Map a reported compute capability such as {@code 8.9} to the Ollama minimum driver. */
@@ -158,8 +168,7 @@ public final class GpuCompatibilityRules {
             }
         }
         if (!gpu.isDedicated()) {
-            return new GpuAssessment(gpu, GpuBackend.ROCM, GpuSupport.UNSUPPORTED, false,
-                "Integrated AMD graphics are not supported by Ollama ROCm on Windows.");
+            return vulkanNotAssessed(gpu, "Integrated AMD graphics are not on the Windows ROCm list.");
         }
         return new GpuAssessment(gpu, GpuBackend.ROCM, GpuSupport.UNKNOWN, false,
             "AMD GPU is not on the Windows ROCm list of rules " + VERSION
