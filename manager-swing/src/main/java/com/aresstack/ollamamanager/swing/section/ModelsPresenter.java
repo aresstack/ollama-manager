@@ -24,6 +24,8 @@ public final class ModelsPresenter {
     private final JobManager jobs;
     private ModelsView view;
     private boolean busy;
+    /** Incremented per refresh so that a slower, older inventory response cannot overwrite a newer one. */
+    private long refreshGeneration;
 
     public ModelsPresenter(ConsoleServices services, JobManager jobs) {
         this.services = services;
@@ -55,8 +57,17 @@ public final class ModelsPresenter {
         if (endpoint == null) {
             return;
         }
+        final long generation = ++refreshGeneration;
         jobs.submit("Load models", true, context -> services.models().inventory(endpoint, context.cancellation()),
-            view::showModels, error -> view.showFailure("Load models", error));
+            entries -> {
+                if (generation == refreshGeneration) {
+                    view.showModels(entries);
+                }
+            }, error -> {
+                if (generation == refreshGeneration) {
+                    view.showFailure("Load models", error);
+                }
+            });
     }
 
     public void pull(String modelName) {

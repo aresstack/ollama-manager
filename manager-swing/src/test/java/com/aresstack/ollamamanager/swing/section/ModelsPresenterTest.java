@@ -72,6 +72,19 @@ public class ModelsPresenterTest {
     }
 
     @Test
+    public void olderInventoryResponseDoesNotOverwriteNewerOne() throws Exception {
+        List<Runnable> pending = new ArrayList<Runnable>();
+        ModelsPresenter presenter = presenter(new JobManager(pending::add, UiDispatcher.inline()));
+
+        presenter.refresh();
+        presenter.refresh();
+        pending.get(1).run();
+        pending.get(0).run();
+
+        assertEquals(1, Collections.frequency(view.events, "models:0"));
+    }
+
+    @Test
     public void cancelledDeleteDialogSendsNothing() throws Exception {
         ModelsPresenter presenter = presenter(new JobManager(Runnable::run, UiDispatcher.inline()));
         view.confirmation = null;
