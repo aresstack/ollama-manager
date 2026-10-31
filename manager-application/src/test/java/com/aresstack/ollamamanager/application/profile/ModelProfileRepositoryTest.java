@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.application.profile;
 
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
@@ -14,7 +15,7 @@ import static org.junit.Assert.fail;
 public class ModelProfileRepositoryTest {
 
     private final InMemoryConfigurationRepository configurations = new InMemoryConfigurationRepository();
-    private final ModelProfileRepository repository = new ModelProfileRepository(configurations);
+    private final ModelProfileRepository repository = new ModelProfileRepository(new ConfigurationService(configurations));
 
     @Test
     public void savesNewProfileAndRevisions() throws Exception {

@@ -2,7 +2,7 @@ package com.aresstack.ollamamanager.application.profile;
 
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
-import com.aresstack.ollamamanager.application.port.ConfigurationRepository;
+import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.profile.ActivationMode;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
@@ -19,18 +19,16 @@ import com.aresstack.ollamamanager.domain.server.ServerSettings;
  */
 public final class ProfileActivationService {
 
-    private final ModelProfileRepository profiles;
-    private final ConfigurationRepository configurations;
+    private final ConfigurationService configurations;
 
     /**
-     * @param profiles the repository whose lock serializes activation with profile saves and deletions
+     * @param configurations the single service instance the composition root hands to every use case
      */
-    public ProfileActivationService(ModelProfileRepository profiles) {
-        if (profiles == null) {
-            throw new IllegalArgumentException("profiles must not be null");
+    public ProfileActivationService(ConfigurationService configurations) {
+        if (configurations == null) {
+            throw new IllegalArgumentException("configurations must not be null");
         }
-        this.profiles = profiles;
-        this.configurations = profiles.configurations();
+        this.configurations = configurations;
     }
 
     /**
@@ -39,7 +37,7 @@ public final class ProfileActivationService {
      */
     public ProfileActivationPlan plan(String profileId, ServerSettings applied, RuntimeOwnership ownership)
         throws OperationException {
-        return ProfileActivationPlan.plan(requireProfile(configurations.load(), profileId), applied, ownership);
+        return ProfileActivationPlan.plan(requireProfile(configurations.current(), profileId), applied, ownership);
     }
 
     /**
@@ -54,7 +52,7 @@ public final class ProfileActivationService {
                                                        RuntimeOwnership ownership, boolean restartConfirmed)
         throws OperationException {
         ProfileActivationPlan[] plan = new ProfileActivationPlan[1];
-        profiles.update(configuration -> {
+        configurations.update(configuration -> {
             ModelProfile profile = requireProfile(configuration, profileId);
             plan[0] = ProfileActivationPlan.plan(profile, applied, ownership);
             if (plan[0].mode() == ActivationMode.RESTART_OWNED_SERVER && !restartConfirmed) {
