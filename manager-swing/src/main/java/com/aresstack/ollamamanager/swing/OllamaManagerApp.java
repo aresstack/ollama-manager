@@ -8,6 +8,7 @@ import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
+import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
 import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistributionInstaller;
@@ -71,10 +72,17 @@ public final class OllamaManagerApp {
             .build();
     }
 
-    /** Treat an installation as in use while the manager's own server runs from its binary directory. */
+    /**
+     * Treat an installation as in use while the manager's own server runs from its binary directory. While a
+     * start or stop is in progress the running binary is not reliably known, so every installation counts as in
+     * use until the transition has finished.
+     */
     static InstallationUsage usedByOwnedServer(ServerLifecycleService lifecycle) {
         return installation -> {
             ServerStatus status = lifecycle.status();
+            if (status.state() == ServerState.STARTING || status.state() == ServerState.STOPPING) {
+                return true;
+            }
             OllamaInstallation running = status.installation();
             return status.canBeStoppedByManager() && running != null && running.binaryDirectory() != null
                 && running.binaryDirectory().equals(installation.binaryDirectory());
