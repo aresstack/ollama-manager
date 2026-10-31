@@ -24,6 +24,9 @@ public interface DashboardView {
     /** @param samples GPU usage; {@code null} when no telemetry port is wired, empty when no tool reports data */
     void showGpuUsage(List<GpuUsageSample> samples);
 
+    /** Enable or disable the Stop action; called immediately when a stop starts and when it ends. */
+    void setStopEnabled(boolean enabled);
+
     void showFailure(String action, Exception error);
 
     void trackJob(Job job);
