@@ -13,7 +13,9 @@ import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
+import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobContext;
+import com.aresstack.ollamamanager.swing.job.JobState;
 import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
@@ -103,7 +105,8 @@ public final class ProfilesPresenter {
                     restart(row, plan);
                 } else {
                     setBusy(false);
-                    view.showNotice(noticeFor(plan.mode()));
+                    // Applied settings of an external server are unknown; never report them as matching.
+                    view.showNotice(ownership == RuntimeOwnership.EXTERNAL ? EXTERNAL_NOTICE : noticeFor(plan.mode()));
                     refresh();
                 }
             }, error -> {
@@ -115,19 +118,33 @@ public final class ProfilesPresenter {
 
     private void restart(ProfileRow row, ProfileActivationPlan plan) {
         final ServerLifecycleService lifecycle = services.serverLifecycle();
-        view.trackJob(jobs.submit("Restart server for " + row.profile().name(), true,
+        Job job = jobs.submit("Restart server for " + row.profile().name(), true,
             (JobContext context) -> lifecycle.restart(plan.targetSettings(), context.cancellation()), status -> {
                 setBusy(false);
                 view.showNotice("Profile active. The server was restarted with the profile's settings.");
                 refresh();
             }, error -> {
                 setBusy(false);
-                view.showNotice("Profile stored as active, but the restart failed. The server does not use the"
-                    + " profile's settings yet.");
+                view.showNotice(RESTART_FAILED);
                 view.showFailure("Restart server", error);
                 refresh();
-            }));
+            });
+        job.addListener(current -> {
+            if (current.state() == JobState.CANCELLED && busy) {
+                setBusy(false);
+                view.showNotice(RESTART_CANCELLED);
+                refresh();
+            }
+        });
+        view.trackJob(job);
     }
+
+    static final String RESTART_FAILED = "Profile stored as active, but the restart failed. The server does not"
+        + " use the profile's settings yet.";
+    static final String RESTART_CANCELLED = "Restart cancelled. The profile is stored as active, but the server"
+        + " may be stopped and does not use the profile's settings. Check the dashboard.";
+    static final String EXTERNAL_NOTICE = "Profile stored as active. The external server is not changed, and its"
+        + " actual settings are unknown, so the manager cannot apply or verify the profile's server settings.";
 
     static String noticeFor(ActivationMode mode) {
         switch (mode) {

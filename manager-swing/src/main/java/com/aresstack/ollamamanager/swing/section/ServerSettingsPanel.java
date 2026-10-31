@@ -164,6 +164,10 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
 
     @Override
     public void setBusy(boolean busy) {
+        // Lock the editors too, so edits made during a save cannot be overwritten by its result.
+        for (Editor editor : editors.values()) {
+            editor.component().setEnabled(!busy);
+        }
         save.setEnabled(!busy);
         revert.setEnabled(!busy);
         reload.setEnabled(!busy);

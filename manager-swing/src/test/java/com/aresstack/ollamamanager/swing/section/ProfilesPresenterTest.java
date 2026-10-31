@@ -122,6 +122,40 @@ public class ProfilesPresenterTest {
         assertEquals(0, view.restartQuestions);
         assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
         assertEquals("p1", services.configuration().current().activeProfileId());
+        assertEquals(ProfilesPresenter.EXTERNAL_NOTICE, view.notices.get(view.notices.size() - 1));
+    }
+
+    @Test
+    public void externalServerWithDefaultProfileIsNotReportedAsMatching() throws Exception {
+        ConsoleServices services = services(TestServices.externalLifecycle(), ServerSettings.defaults());
+        ProfilesPresenter presenter = presenter(services);
+
+        presenter.activate("p1");
+
+        assertEquals(ProfilesPresenter.EXTERNAL_NOTICE, view.notices.get(view.notices.size() - 1));
+    }
+
+    @Test
+    public void cancelledRestartReleasesBusyState() throws Exception {
+        List<Runnable> pending = new ArrayList<Runnable>();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ConsoleServices services = services(lifecycle,
+            ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
+        ProfilesPresenter presenter = new ProfilesPresenter(services,
+            new JobManager(pending::add, UiDispatcher.inline()));
+        presenter.bind(view);
+        presenter.refresh();
+        pending.remove(0).run();
+
+        presenter.activate("p1");
+        pending.remove(0).run();
+        pending.remove(0).run();
+        assertTrue(presenter.isBusy());
+        view.tracked.cancel();
+        pending.remove(0).run();
+
+        assertFalse(presenter.isBusy());
+        assertTrue(view.notices.contains(ProfilesPresenter.RESTART_CANCELLED));
     }
 
     private ProfilesPresenter presenter(ConsoleServices services) {
@@ -151,6 +185,7 @@ public class ProfilesPresenterTest {
         boolean acceptRestart = true;
         int unverifiedQuestions;
         int restartQuestions;
+        Job tracked;
 
         @Override
         public void showProfiles(List<ProfileRow> value) {
@@ -173,6 +208,7 @@ public class ProfilesPresenterTest {
 
         @Override
         public void trackJob(Job job) {
+            tracked = job;
         }
 
         @Override
