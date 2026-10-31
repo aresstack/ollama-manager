@@ -144,6 +144,18 @@ public class ProfileActivationServiceTest {
     }
 
     @Test
+    public void approvalForAnotherInstalledArtifactIsRejected() throws Exception {
+        snapshot = new ProfileEnvironment.Snapshot(GpuFingerprint.CPU_ONLY, "0.12.6",
+            Collections.singletonList(new ModelIdentity("llama3.1:8b", "bbb", "Q4_K_M")));
+        ProfileValidity seen = service.validity("batch", NONE);
+        assertEquals(ProfileValidity.Result.OUTDATED, seen.result());
+        snapshot = new ProfileEnvironment.Snapshot(GpuFingerprint.CPU_ONLY, "0.12.6",
+            Collections.singletonList(new ModelIdentity("llama3.1:8b", "ccc", "Q4_K_M")));
+
+        assertRejected(new ValidityApproval("batch", 1, seen.result(), seen.findings()));
+    }
+
+    @Test
     public void approvalForOlderRevisionIsRejected() throws Exception {
         snapshot = new ProfileEnvironment.Snapshot(GpuFingerprint.CPU_ONLY, "0.13.0",
             Collections.singletonList(ProfileTestData.SCOPE.model()));

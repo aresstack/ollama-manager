@@ -59,7 +59,7 @@ public final class ProfileValidity {
 
         ModelIdentity current = null;
         if (installed == null) {
-            unknown.add("model " + scope.model().name() + " cannot be checked without a running server");
+            unknown.add("model " + scope.model().name() + " could not be verified (no running server or API not reachable)");
         } else {
             for (ModelIdentity identity : installed) {
                 if (identity.name().equals(scope.model().name())) {
@@ -69,9 +69,11 @@ public final class ProfileValidity {
             if (current == null) {
                 outdated.add("model " + scope.model().name() + " is not installed");
             } else if (!scope.model().isVerifiable() || !current.isVerifiable()) {
-                unknown.add("model digest of " + scope.model().name() + " is not known");
+                unknown.add("model digest of " + scope.model().name() + " is not known (profile " + artifact(scope.model())
+                    + ", installed " + artifact(current) + ")");
             } else if (!scope.model().sameArtifactAs(current)) {
-                outdated.add("model " + scope.model().name() + " has a different digest or quantization");
+                outdated.add("model " + scope.model().name() + " has a different digest or quantization ("
+                    + artifact(scope.model()) + " → " + artifact(current) + ")");
             }
         }
         if (fingerprint == null) {
@@ -80,7 +82,7 @@ public final class ProfileValidity {
             outdated.add("GPU configuration changed (" + scope.gpuFingerprint() + " → " + fingerprint + ")");
         }
         if (version == null) {
-            unknown.add("Ollama version cannot be checked without a running server");
+            unknown.add("Ollama version could not be verified (no running server or API not reachable)");
         } else if (!version.equals(scope.ollamaVersion())) {
             outdated.add("Ollama version changed (" + scope.ollamaVersion() + " → " + version + ")");
         }
@@ -97,6 +99,12 @@ public final class ProfileValidity {
         ProfileScope now = new ProfileScope(current, fingerprint, version, scope.workload());
         return scope.isValidFor(now) ? new ProfileValidity(Result.VALID, findings)
             : new ProfileValidity(Result.OUTDATED, Collections.singletonList("profile scope does not match"));
+    }
+
+    /** Describe the artifact precisely, so an approval for one artifact never matches another one. */
+    private static String artifact(ModelIdentity identity) {
+        return "digest " + (identity.digest() == null ? "unknown" : identity.digest()) + ", quantization "
+            + (identity.quantization() == null ? "unknown" : identity.quantization());
     }
 
     public Result result() {
