@@ -47,6 +47,8 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final JButton delete = new JButton("Delete…");
     private final JobProgressPanel progress = new JobProgressPanel();
     private boolean actionsEnabled = true;
+    private boolean mutationsAllowed;
+    private final JLabel readOnly = new JLabel(" ");
 
     public ModelsPanel(ModelsPresenter presenter) {
         super(Section.MODELS.title(), Section.MODELS.description());
@@ -92,7 +94,10 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         selectionRow.add(delete);
 
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
-        south.add(selectionRow, BorderLayout.NORTH);
+        JPanel actions = new JPanel(new BorderLayout());
+        actions.add(readOnly, BorderLayout.NORTH);
+        actions.add(selectionRow, BorderLayout.CENTER);
+        south.add(actions, BorderLayout.NORTH);
         south.add(pullRow, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
@@ -129,7 +134,16 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     }
 
     @Override
+    public void setMutationsAllowed(boolean allowed, String reason) {
+        mutationsAllowed = allowed;
+        readOnly.setText(allowed || reason == null ? " " : reason);
+        updateButtons();
+    }
+
+    @Override
     public void showUnavailable(String reason) {
+        mutationsAllowed = false;
+        readOnly.setText(" ");
         notice.setText(reason);
         model.setRows(new ArrayList<ModelEntry>());
         updateButtons();
@@ -167,10 +181,12 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private void updateButtons() {
         int row = table.getSelectedRow();
         ModelEntry entry = row < 0 ? null : model.entry(table.convertRowIndexToModel(row));
-        pull.setEnabled(actionsEnabled);
-        load.setEnabled(actionsEnabled && entry != null && entry.isInstalled());
-        unload.setEnabled(actionsEnabled && entry != null && entry.isLoaded());
-        delete.setEnabled(actionsEnabled && entry != null && entry.isInstalled());
+        boolean enabled = actionsEnabled && mutationsAllowed;
+        pull.setEnabled(enabled);
+        pullName.setEnabled(enabled);
+        load.setEnabled(enabled && entry != null && entry.isInstalled());
+        unload.setEnabled(enabled && entry != null && entry.isLoaded());
+        delete.setEnabled(enabled && entry != null && entry.isInstalled());
     }
 
     private void fitRowHeight() {

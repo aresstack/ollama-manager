@@ -4,6 +4,7 @@ import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
 import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
@@ -12,8 +13,10 @@ import com.aresstack.ollamamanager.swing.job.JobWork;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 /**
- * Model inventory and model operations through {@link ModelService}. Operations target only the server the
+ * Model inventory and model operations through {@link ModelService}. Requests target only the server the
  * lifecycle service currently reports as running; there is no fallback to a configured or default address.
+ * The inventory of an attached external server is shown read-only: pull, load, unload and delete require a
+ * server owned by the manager, because attaching to a server does not authorise changing it.
  */
 public final class ModelsPresenter {
 
@@ -52,12 +55,31 @@ public final class ModelsPresenter {
         return status.installation().endpoint();
     }
 
+    /** Endpoint of the running owned server, or {@code null} when mutations are not allowed. */
+    Endpoint ownedEndpoint() {
+        Endpoint endpoint = runningEndpoint();
+        if (endpoint == null) {
+            return null;
+        }
+        if (services.serverLifecycle().status().ownership() != RuntimeOwnership.OWNED) {
+            view.setMutationsAllowed(false, EXTERNAL_READ_ONLY);
+            return null;
+        }
+        return endpoint;
+    }
+
+    static final String EXTERNAL_READ_ONLY =
+        "External server: read-only. Pull, load, unload and delete are only available for the manager's own server.";
+
     public void refresh() {
+        // Invalidate any pending response first, also when no server is available any more.
+        final long generation = ++refreshGeneration;
         final Endpoint endpoint = runningEndpoint();
         if (endpoint == null) {
             return;
         }
-        final long generation = ++refreshGeneration;
+        boolean owned = services.serverLifecycle().status().ownership() == RuntimeOwnership.OWNED;
+        view.setMutationsAllowed(owned, owned ? null : EXTERNAL_READ_ONLY);
         jobs.submit("Load models", true, context -> services.models().inventory(endpoint, context.cancellation()),
             entries -> {
                 if (generation == refreshGeneration) {
@@ -75,7 +97,7 @@ public final class ModelsPresenter {
         if (name.isEmpty()) {
             return;
         }
-        final Endpoint endpoint = runningEndpoint();
+        final Endpoint endpoint = ownedEndpoint();
         if (endpoint != null) {
             mutate("Pull " + name, true, context -> {
                 services.models().pull(endpoint, name, (TransferProgress progress) -> {
@@ -91,7 +113,7 @@ public final class ModelsPresenter {
     }
 
     public void load(String modelName) {
-        final Endpoint endpoint = runningEndpoint();
+        final Endpoint endpoint = ownedEndpoint();
         if (endpoint != null) {
             mutate("Load " + modelName, true, context -> services.models().preloadAndVerify(endpoint, modelName,
                 null, PRELOAD_KEEP_ALIVE, context.cancellation()));
@@ -99,7 +121,7 @@ public final class ModelsPresenter {
     }
 
     public void unload(String modelName) {
-        final Endpoint endpoint = runningEndpoint();
+        final Endpoint endpoint = ownedEndpoint();
         if (endpoint != null) {
             mutate("Unload " + modelName, false, context -> {
                 services.models().unload(endpoint, modelName, context.cancellation());
@@ -110,7 +132,7 @@ public final class ModelsPresenter {
 
     /** Delete after the user typed the model name; the service checks the confirmation again. */
     public void delete(String modelName) {
-        final Endpoint endpoint = runningEndpoint();
+        final Endpoint endpoint = ownedEndpoint();
         if (endpoint == null || busy) {
             return;
         }

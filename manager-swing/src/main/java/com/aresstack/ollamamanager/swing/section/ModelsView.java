@@ -18,6 +18,13 @@ public interface ModelsView {
     /** Enable or disable all mutating actions; disabled while one of them runs. */
     void setActionsEnabled(boolean enabled);
 
+    /**
+     * Allow or forbid pull, load, unload and delete for the current server.
+     *
+     * @param reason shown while forbidden, {@code null} when allowed
+     */
+    void setMutationsAllowed(boolean allowed, String reason);
+
     void showFailure(String action, Exception error);
 
     void trackJob(Job job);

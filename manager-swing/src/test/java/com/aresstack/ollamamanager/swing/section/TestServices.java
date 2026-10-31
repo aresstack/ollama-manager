@@ -59,6 +59,13 @@ final class TestServices {
         return lifecycle;
     }
 
+    /** Lifecycle service attached to a fake external server on {@link #ENDPOINT}. */
+    static ServerLifecycleService externalLifecycle() throws OperationException {
+        ServerLifecycleService lifecycle = stoppedLifecycle();
+        lifecycle.attachExternal(OllamaInstallation.external("0.1.0", ENDPOINT), "0.1.0");
+        return lifecycle;
+    }
+
     private static final class FakeRuntime implements OllamaRuntimePort {
         @Override
         public List<OllamaInstallation> discover(List<File> directories, CancellationToken cancellation) {
