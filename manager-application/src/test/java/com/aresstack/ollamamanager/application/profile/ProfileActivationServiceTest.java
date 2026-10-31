@@ -54,9 +54,11 @@ public class ProfileActivationServiceTest {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ProfileEnvironment.Snapshot snapshot = new ProfileEnvironment.Snapshot(GpuFingerprint.CPU_ONLY,
         "0.12.6", Collections.singletonList(ProfileTestData.SCOPE.model()));
+    private Runnable duringCapture = () -> { };
     private final ProfileActivationService service = new ProfileActivationService(configurationService,
         cancellation -> {
             captures.incrementAndGet();
+            duringCapture.run();
             return snapshot;
         }, lifecycle, lock);
 
@@ -144,6 +146,29 @@ public class ProfileActivationServiceTest {
 
         assertInvalidState(() -> service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE));
         assertNull(configurations.stored.activeProfileId());
+    }
+
+    @Test
+    public void serverCannotBeSwappedBetweenCaptureAndCommit() throws Exception {
+        lifecycle.attachExternal(OllamaInstallation.external("0.12.6", Endpoint.DEFAULT), "0.12.6");
+        Throwable[] reattach = new Throwable[1];
+        duringCapture = () -> {
+            try {
+                executor.submit(() -> {
+                    lifecycle.attachExternal(OllamaInstallation.external("0.13.0", Endpoint.DEFAULT), "0.13.0");
+                    return null;
+                }).get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                reattach[0] = e.getCause();
+            }
+        };
+
+        service.activate("batch", ActivationMode.CANNOT_APPLY_TO_EXTERNAL, false, null, NONE);
+
+        assertTrue("a re-attach during activation must fail fast", reattach[0] instanceof OperationException);
+        assertEquals(ErrorKind.INVALID_STATE, ((OperationException) reattach[0]).kind());
+        assertEquals("0.12.6", lifecycle.status().reportedVersion());
+        assertEquals("batch", configurations.stored.activeProfileId());
     }
 
     @Test

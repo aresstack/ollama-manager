@@ -98,8 +98,9 @@ public final class ProfileActivationService {
         if (expectedMode == null) {
             throw new IllegalArgumentException("expectedMode must not be null");
         }
-        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
         return lock.run("activate profile " + profileId, () -> {
+            // Capture under the lock, so no restart or re-attach can swap the server between check and commit.
+            ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
             ServerStatus status = lifecycle.status();
             ServerSettings applied = lifecycle.appliedSettings();
             ProfileActivationPlan[] plan = new ProfileActivationPlan[1];
