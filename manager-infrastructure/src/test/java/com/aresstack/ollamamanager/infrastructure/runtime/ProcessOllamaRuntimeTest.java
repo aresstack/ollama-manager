@@ -102,6 +102,18 @@ public class ProcessOllamaRuntimeTest {
     }
 
     @Test
+    public void namesOwnServerWhenItAlreadyUsesTheEndpoint() throws Exception {
+        FakeProcess process = startedProcess(false);
+        runtime.start(installation, ServerSettings.defaults(), CancellationToken.none());
+        probes.add(ProbeResult.ollama("0.12.3"));
+
+        OperationException failure = assertStartFails(ErrorKind.PORT_IN_USE);
+
+        assertTrue(failure.getMessage(), failure.getMessage().contains("this manager already runs"));
+        process.exit(0);
+    }
+
+    @Test
     public void killsProcessWhenStartupTimesOut() {
         FakeProcess process = new FakeProcess(false);
         processes.add(process);

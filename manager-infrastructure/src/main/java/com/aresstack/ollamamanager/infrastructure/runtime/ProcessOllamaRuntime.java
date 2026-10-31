@@ -73,6 +73,12 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         this.logLines = logLines;
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * The endpoint of a discovered installation is only a placeholder ({@link Endpoint#DEFAULT}); the endpoint a
+     * started server really uses comes from {@code ServerSettings.bind()}.
+     */
     @Override
     public List<OllamaInstallation> discover(List<File> additionalDirectories, CancellationToken cancellation)
         throws OperationException {
@@ -174,6 +180,12 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
             case FREE:
                 return;
             case OLLAMA:
+                for (OwnedServer server : running) {
+                    if (server.isAlive() && server.installation().endpoint().equals(endpoint)) {
+                        throw new OperationException(ErrorKind.PORT_IN_USE,
+                            "this manager already runs an Ollama server at " + endpoint);
+                    }
+                }
                 throw new OperationException(ErrorKind.PORT_IN_USE,
                     "an Ollama server (version " + result.version() + ") already runs at " + endpoint
                         + "; it is not owned by this manager and will not be stopped");
@@ -221,7 +233,11 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         return new OperationException(ErrorKind.PROCESS_FAILED, message);
     }
 
-    /** Request termination, force it after the grace period, and return whether the process is gone. */
+    /**
+     * Request termination, force it after the grace period, and return whether the process is gone. On Windows,
+     * Java 8's {@link Process#destroy()} already calls {@code TerminateProcess}, so the grace period has no effect
+     * there and the exit code is 1.
+     */
     private boolean terminate(OwnedServer server, long gracePeriodMillis) {
         Process process = server.process();
         try {
