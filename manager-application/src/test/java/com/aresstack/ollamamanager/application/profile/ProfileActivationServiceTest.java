@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.application.profile;
 
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.domain.profile.ActivationMode;
 import com.aresstack.ollamamanager.domain.profile.ProfileActivationPlan;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
@@ -18,8 +19,9 @@ import static org.junit.Assert.fail;
 public class ProfileActivationServiceTest {
 
     private final InMemoryConfigurationRepository configurations = new InMemoryConfigurationRepository();
-    private final ModelProfileRepository repository = new ModelProfileRepository(configurations);
-    private final ProfileActivationService service = new ProfileActivationService(repository);
+    private final ConfigurationService configurationService = new ConfigurationService(configurations);
+    private final ModelProfileRepository repository = new ModelProfileRepository(configurationService);
+    private final ProfileActivationService service = new ProfileActivationService(configurationService);
 
     @Before
     public void setUp() throws Exception {

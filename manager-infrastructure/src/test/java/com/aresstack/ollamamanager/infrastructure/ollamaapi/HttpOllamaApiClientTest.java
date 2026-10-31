@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -345,6 +346,21 @@ public class HttpOllamaApiClientTest {
     }
 
     @Test
+    public void reusedTokenKeepsNoCallbacksAfterRequests() throws Exception {
+        server.json("GET", "/api/version", 200, "{\"version\":\"0.12.6\"}");
+        server.json("GET", "/api/tags", 404, "{\"error\":\"gone\"}");
+        server.on("POST", "/api/pull", (exchange, body) -> FakeOllamaServer.streamChunks(exchange,
+            "{\"status\":\"success\"}\n"));
+        CancellationToken token = new CancellationToken();
+        for (int i = 0; i < 50; i++) {
+            assertEquals("0.12.6", client.version(endpoint, token));
+            assertKind(ErrorKind.NOT_FOUND, () -> client.installedModels(endpoint, token));
+            client.pull(endpoint, "x", progress -> { }, token);
+        }
+        assertEquals(0, registeredCallbacks(token));
+    }
+
+    @Test
     public void cancelledTokenSendsNoRequest() {
         CancellationToken token = new CancellationToken();
         token.cancel();
@@ -441,6 +457,13 @@ public class HttpOllamaApiClientTest {
             return e;
         }
         throw new AssertionError("expected " + kind);
+    }
+
+    /** Read the package-private callback count of the coordinator-owned token. */
+    private static int registeredCallbacks(CancellationToken token) throws Exception {
+        Method count = CancellationToken.class.getDeclaredMethod("registeredCallbackCount");
+        count.setAccessible(true);
+        return (Integer) count.invoke(token);
     }
 
     @SuppressWarnings("unchecked")

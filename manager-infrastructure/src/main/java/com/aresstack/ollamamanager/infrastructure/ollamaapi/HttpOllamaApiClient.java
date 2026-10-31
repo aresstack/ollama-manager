@@ -35,7 +35,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link OllamaApiPort} on OkHttp. Bodies are read incrementally and bounded, so a pull never buffers the
- * whole response. Cancellation calls {@link Call#cancel()}, which also aborts a blocked read. Loopback
+ * whole response. Cancellation calls {@link Call#cancel()}, which also aborts a blocked read; the registration
+ * is closed when the request ends, so a reused token keeps no stale callbacks. Loopback
  * endpoints bypass every proxy (see {@link LoopbackDirectProxySelector}).
  */
 public final class HttpOllamaApiClient implements OllamaApiPort {
@@ -115,6 +116,7 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         body.put("stream", Boolean.TRUE);
         ConnectionState state = new ConnectionState();
         Call call = newCall(longClient, endpoint, "POST", "/api/pull", body, state, cancellation);
+        CancellationToken.Registration registration = cancellation.onCancel(call::cancel);
         try (Response response = call.execute()) {
             ResponseBody responseBody = response.body();
             if (!response.isSuccessful()) {
@@ -123,6 +125,8 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
             readPullStream(responseBody.byteStream(), listener, cancellation);
         } catch (IOException e) {
             throw ioFailure(e, state, cancellation);
+        } finally {
+            registration.close();
         }
     }
 
@@ -162,6 +166,7 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         ConnectionState state = new ConnectionState();
         Call call = newCall(httpClient, endpoint, method, path, body, state, cancellation);
         String text;
+        CancellationToken.Registration registration = cancellation.onCancel(call::cancel);
         try (Response response = call.execute()) {
             text = readBody(response.body());
             if (!response.isSuccessful()) {
@@ -169,6 +174,8 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
             }
         } catch (IOException e) {
             throw ioFailure(e, state, cancellation);
+        } finally {
+            registration.close();
         }
         cancellation.throwIfCancelled();
         if (!expectJson) {
@@ -193,9 +200,7 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
             .method(method, requestBody)
             .tag(ConnectionState.class, state)
             .build();
-        Call call = httpClient.newCall(request);
-        cancellation.onCancel(call::cancel);
-        return call;
+        return httpClient.newCall(request);
     }
 
     private static void readPullStream(InputStream in, ProgressListener<TransferProgress> listener,
