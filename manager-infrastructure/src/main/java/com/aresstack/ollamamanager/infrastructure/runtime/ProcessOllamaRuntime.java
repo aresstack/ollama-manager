@@ -128,7 +128,7 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
 
         // Whoever flips this first wins: a cancel kills the process, a successful start keeps it.
         AtomicBoolean handedOver = new AtomicBoolean();
-        cancellation.onCancel(() -> {
+        CancellationToken.Registration registration = cancellation.onCancel(() -> {
             if (handedOver.compareAndSet(false, true)) {
                 process.destroyForcibly();
             }
@@ -146,6 +146,8 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
                 handedOver.set(true);
                 terminate(server, 0);
             }
+            // Startup is over: either the process ended above or it now belongs to the returned handle.
+            registration.close();
         }
     }
 
@@ -302,7 +304,7 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
         }
         BoundedLog output = new BoundedLog(20);
         Thread pump = OutputPump.start(process.getInputStream(), output, "ollama-version " + executable);
-        cancellation.onCancel(process::destroyForcibly);
+        CancellationToken.Registration registration = cancellation.onCancel(process::destroyForcibly);
         try {
             if (!waitFor(process, VERSION_TIMEOUT_MILLIS)) {
                 return null;
@@ -314,6 +316,7 @@ public final class ProcessOllamaRuntime implements OllamaRuntimePort {
             if (process.isAlive()) {
                 process.destroyForcibly();
             }
+            registration.close();
         }
     }
 

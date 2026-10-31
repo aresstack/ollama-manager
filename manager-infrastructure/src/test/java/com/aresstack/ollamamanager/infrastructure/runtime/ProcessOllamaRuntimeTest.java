@@ -206,6 +206,27 @@ public class ProcessOllamaRuntimeTest {
     }
 
     @Test
+    public void releasesCallbacksSoOneTokenCanBeReused() throws Exception {
+        CancellationToken token = new CancellationToken();
+        FakeProcess version = versionProcess("ollama version is 0.12.3");
+        processes.add(version);
+        runtime.discover(Collections.singletonList(binaryDirectory), token);
+        FakeProcess first = startedProcess(false);
+        ManagedServer firstServer = runtime.start(installation, ServerSettings.defaults(), token);
+        runtime.stop(firstServer, 10);
+        FakeProcess second = startedProcess(false);
+        ManagedServer secondServer = runtime.start(installation, ServerSettings.defaults(), token);
+        int forcedBefore = first.forcedDestroyCalls + version.forcedDestroyCalls;
+
+        token.cancel();
+
+        assertEquals(forcedBefore, first.forcedDestroyCalls + version.forcedDestroyCalls);
+        assertEquals(0, second.forcedDestroyCalls);
+        assertTrue(secondServer.isAlive());
+        second.exit(0);
+    }
+
+    @Test
     public void laterCancellationDoesNotKillAStartedServer() throws Exception {
         FakeProcess process = new FakeProcess(false);
         processes.add(process);
