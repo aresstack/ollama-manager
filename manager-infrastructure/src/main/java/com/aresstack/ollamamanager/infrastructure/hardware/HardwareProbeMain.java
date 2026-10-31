@@ -28,7 +28,7 @@ public final class HardwareProbeMain {
             + " memoryBytes=" + snapshot.totalMemoryBytes());
         for (GpuDescriptor gpu : snapshot.gpus()) {
             System.out.println("gpu vendor=" + gpu.vendor() + " name=" + gpu.name() + " vramBytes="
-                + gpu.vramBytes() + " driver=" + gpu.driverVersion() + " dedicated=" + gpu.isDedicated());
+                + gpu.vramBytes() + " driver=" + gpu.driverVersion() + " dedicated=" + gpu.isDedicated() + " computeCapability=" + gpu.computeCapability());
         }
         System.out.println("fingerprint=" + snapshot.gpuFingerprint());
         PackageRecommendation recommendation = new PackageAdvisor(new GpuCompatibilityRules())

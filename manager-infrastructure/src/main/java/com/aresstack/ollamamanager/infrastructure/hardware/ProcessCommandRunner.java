@@ -38,7 +38,7 @@ public final class ProcessCommandRunner implements CommandRunner {
             // Tool absence (ENOENT, CreateProcess error=2/3) is expected and not an error.
             return CommandResult.notFound();
         }
-        cancellation.onCancel(new Runnable() {
+        CancellationToken.Registration registration = cancellation.onCancel(new Runnable() {
             @Override
             public void run() {
                 process.destroyForcibly();
@@ -63,6 +63,8 @@ public final class ProcessCommandRunner implements CommandRunner {
             process.destroyForcibly();
             Thread.currentThread().interrupt();
             throw new OperationCancelledException("interrupted: " + command.get(0));
+        } finally {
+            registration.close();
         }
     }
 

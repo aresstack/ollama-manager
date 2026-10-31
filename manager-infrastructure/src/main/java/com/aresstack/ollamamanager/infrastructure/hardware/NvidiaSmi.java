@@ -3,9 +3,9 @@ package com.aresstack.ollamamanager.infrastructure.hardware;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
-import com.aresstack.ollamamanager.application.hardware.GpuStatistics;
-import com.aresstack.ollamamanager.application.hardware.GpuStatisticsSource;
+import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.domain.hardware.GpuDescriptor;
+import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.hardware.GpuVendor;
 
 import java.util.ArrayList;
@@ -17,9 +17,11 @@ import java.util.List;
  * Queries {@code nvidia-smi} in CSV mode. Missing tool, non-zero exit or malformed output yields an empty
  * result so callers fall back to the OS view; only timeouts and cancellation propagate.
  */
-public final class NvidiaSmi implements GpuStatisticsSource {
+public final class NvidiaSmi implements GpuTelemetryPort {
 
     static final String INVENTORY_QUERY = "--query-gpu=name,memory.total,driver_version";
+    /** {@code compute_cap} needs a recent driver; older drivers reject the field and the plain query is used. */
+    static final String INVENTORY_WITH_CC_QUERY = "--query-gpu=name,memory.total,driver_version,compute_cap";
     static final String STATISTICS_QUERY = "--query-gpu=index,name,utilization.gpu,memory.used,memory.total";
     private static final long MIB = 1024L * 1024L;
 
@@ -50,21 +52,29 @@ public final class NvidiaSmi implements GpuStatisticsSource {
 
     /** Return detected NVIDIA GPUs, or an empty list if nvidia-smi is unavailable or unusable. */
     public List<GpuDescriptor> inventory(CancellationToken cancellation) throws OperationException {
-        String output = query(INVENTORY_QUERY, cancellation);
-        return output == null ? Collections.<GpuDescriptor>emptyList() : parseInventory(output);
+        String output = query(INVENTORY_WITH_CC_QUERY, cancellation);
+        if (output != null) {
+            List<GpuDescriptor> gpus = parseInventory(output, true);
+            if (!gpus.isEmpty()) {
+                return gpus;
+            }
+        }
+        output = query(INVENTORY_QUERY, cancellation);
+        return output == null ? Collections.<GpuDescriptor>emptyList() : parseInventory(output, false);
     }
 
     @Override
-    public List<GpuStatistics> read(CancellationToken cancellation) throws OperationException {
+    public List<GpuUsageSample> sample(CancellationToken cancellation) throws OperationException {
         String output;
         try {
             output = query(STATISTICS_QUERY, cancellation);
         } catch (OperationCancelledException e) {
             throw e;
         } catch (OperationException e) {
-            return Collections.emptyList();
+            return Collections.<GpuUsageSample>emptyList();
         }
-        return output == null ? Collections.<GpuStatistics>emptyList() : parseStatistics(output);
+        return output == null ? Collections.<GpuUsageSample>emptyList()
+            : parseStatistics(output, System.currentTimeMillis());
     }
 
     private String query(String fields, CancellationToken cancellation) throws OperationException {
@@ -80,10 +90,10 @@ public final class NvidiaSmi implements GpuStatisticsSource {
     }
 
     /** Parse inventory CSV; any malformed line discards the whole output. */
-    static List<GpuDescriptor> parseInventory(String output) {
+    static List<GpuDescriptor> parseInventory(String output, boolean withComputeCapability) {
         List<GpuDescriptor> gpus = new ArrayList<GpuDescriptor>();
         for (String line : lines(output)) {
-            String[] fields = splitFromRight(line, 3);
+            String[] fields = splitFromRight(line, withComputeCapability ? 4 : 3);
             if (fields == null || fields[0].isEmpty()) {
                 return Collections.emptyList();
             }
@@ -92,23 +102,40 @@ public final class NvidiaSmi implements GpuStatisticsSource {
                 return Collections.emptyList();
             }
             String driver = isNotAvailable(fields[2]) || fields[2].isEmpty() ? null : fields[2];
-            gpus.add(new GpuDescriptor(GpuVendor.NVIDIA, fields[0], vram, driver, true));
+            String computeCapability = null;
+            if (withComputeCapability) {
+                if (fields[3].matches("\\d+\\.\\d+")) {
+                    computeCapability = fields[3];
+                } else if (!isNotAvailable(fields[3])) {
+                    return Collections.emptyList();
+                }
+            }
+            gpus.add(new GpuDescriptor(GpuVendor.NVIDIA, fields[0], vram, driver, true, computeCapability));
         }
         return gpus;
     }
 
-    static List<GpuStatistics> parseStatistics(String output) {
-        List<GpuStatistics> stats = new ArrayList<GpuStatistics>();
+    /** Parse statistics CSV; implausible values become {@code null} instead of being guessed or clamped. */
+    static List<GpuUsageSample> parseStatistics(String output, long sampledAtEpochMillis) {
+        List<GpuUsageSample> samples = new ArrayList<GpuUsageSample>();
         for (String line : lines(output)) {
             String[] head = line.split(",", 2);
             String[] tail = head.length == 2 ? splitFromRight(head[1], 4) : null;
-            Integer index = integer(head[0]);
-            if (tail == null || index == null || tail[0].isEmpty()) {
+            if (tail == null || integer(head[0]) == null || tail[0].isEmpty()) {
                 return Collections.emptyList();
             }
-            stats.add(new GpuStatistics(index, tail[0], integer(tail[1]), mebibytes(tail[2]), mebibytes(tail[3])));
+            Integer utilization = integer(tail[1]);
+            if (utilization != null && (utilization < 0 || utilization > 100)) {
+                utilization = null;
+            }
+            Long used = mebibytes(tail[2]);
+            Long total = mebibytes(tail[3]);
+            if (used != null && total != null && used > total) {
+                used = null;
+            }
+            samples.add(new GpuUsageSample(tail[0], used, total, utilization, sampledAtEpochMillis));
         }
-        return stats;
+        return samples;
     }
 
     private static List<String> lines(String output) {

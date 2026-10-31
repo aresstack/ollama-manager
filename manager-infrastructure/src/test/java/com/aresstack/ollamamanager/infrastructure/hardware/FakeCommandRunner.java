@@ -25,6 +25,11 @@ final class FakeCommandRunner implements CommandRunner {
         return this;
     }
 
+    /** Match exactly, or by prefix when the key ends with '='. */
+    private static boolean matches(String argument, String key) {
+        return argument.equals(key) || (key.endsWith("=") && argument.startsWith(key));
+    }
+
     @Override
     public CommandResult run(List<String> command, long timeoutMillis, CancellationToken cancellation)
         throws OperationException {
@@ -32,7 +37,7 @@ final class FakeCommandRunner implements CommandRunner {
         calls.add(command);
         for (Map.Entry<String, Object> entry : responses.entrySet()) {
             String[] key = entry.getKey().split(" ", 2);
-            if (command.get(0).equals(key[0]) && command.get(1).startsWith(key[1])) {
+            if (command.get(0).equals(key[0]) && matches(command.get(1), key[1])) {
                 if (entry.getValue() == ErrorKind.TIMEOUT) {
                     throw new OperationException(ErrorKind.TIMEOUT, "timed out");
                 }

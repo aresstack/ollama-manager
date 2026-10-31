@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
  *   <li><b>Device-specific NVIDIA support</b>: the first driver that supports the product at all
  *   (RTX 5080/5090: 572.16). RTX 50 models without a verified entry stay {@link GpuSupport#UNKNOWN}.</li>
  * </ul>
- * Compute capability is inferred from the product name. This heuristic is a fallback with limited reliability;
+ * Compute capability comes from {@link GpuDescriptor#computeCapability()} when the probe reports it. Only when
+ * it is unknown is it inferred from the product name; this heuristic is a fallback with limited reliability and
  * unmatched names stay UNKNOWN and can be overridden manually. Versions are compared on major and minor;
  * Windows driver versions such as {@code 32.0.15.7688} are normalised to the NVIDIA release {@code 576.88}.
  * <p>
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
  */
 public final class GpuCompatibilityRules {
 
-    public static final String VERSION = "ollama-docs-gpu-2026-10-30b-windows";
+    public static final String VERSION = "ollama-docs-gpu-2026-10-31-windows";
 
     /** Driver releases encoded as {@code major * 100 + minor}. */
     static final int OLLAMA_MIN_DRIVER = 55000;
@@ -69,7 +70,8 @@ public final class GpuCompatibilityRules {
 
     private GpuAssessment assessNvidia(GpuDescriptor gpu) {
         String name = gpu.name().toLowerCase(Locale.ROOT);
-        Integer ollamaMinimum = ollamaMinDriver(name);
+        Integer ollamaMinimum = gpu.computeCapability() != null
+            ? ollamaMinDriverForComputeCapability(gpu.computeCapability()) : ollamaMinDriver(name);
         if (ollamaMinimum == null) {
             return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.UNKNOWN, false,
                 "Compute capability of this NVIDIA model is not known to rules " + VERSION + ".");
@@ -99,6 +101,16 @@ public final class GpuCompatibilityRules {
         }
         return new GpuAssessment(gpu, GpuBackend.CUDA, GpuSupport.SUPPORTED, false,
             "Supported NVIDIA GPU with driver " + format(driver) + " (" + requirement + ").");
+    }
+
+    /** Map a reported compute capability such as {@code 8.9} to the Ollama minimum driver. */
+    private static Integer ollamaMinDriverForComputeCapability(String computeCapability) {
+        String[] parts = computeCapability.split("\\.");
+        int major = Integer.parseInt(parts[0]);
+        if (major < 5) {
+            return UNSUPPORTED_GENERATION;
+        }
+        return major < 7 ? OLLAMA_LEGACY_MIN_DRIVER : OLLAMA_MIN_DRIVER;
     }
 
     private static Integer deviceFirstDriver(String name) {
