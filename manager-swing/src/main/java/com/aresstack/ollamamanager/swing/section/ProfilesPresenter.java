@@ -1,17 +1,15 @@
 package com.aresstack.ollamamanager.swing.section;
 
-import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
+import com.aresstack.ollamamanager.application.profile.ProfileValidity;
+import com.aresstack.ollamamanager.application.profile.ValidityApproval;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
-import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
-import com.aresstack.ollamamanager.domain.model.ModelIdentity;
 import com.aresstack.ollamamanager.domain.profile.ActivationMode;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.domain.profile.ProfileActivationPlan;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
-import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobContext;
@@ -23,9 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Lists profiles with a validity check against the current model digest, GPU fingerprint and Ollama version,
- * and activates them through {@link ProfileActivationService}. Outdated or unverifiable profiles are activated
- * only after an explicit confirmation that lists every finding. The owned server is restarted only after the
+ * Lists profiles with the application layer's validity evaluation (model digest, GPU fingerprint, Ollama
+ * version) and activates them through {@link ProfileActivationService}. Outdated or unverifiable profiles are
+ * activated only after an explicit confirmation that lists every finding; the confirmation is passed to the
+ * service as a {@link ValidityApproval}, which re-checks it at activation time. The owned server is restarted only after the
  * user confirmed it; an external server's lifecycle is never touched.
  */
 public final class ProfilesPresenter {
@@ -75,9 +74,17 @@ public final class ProfilesPresenter {
         if (row == null) {
             return;
         }
-        if (row.check().result() != ProfileCheck.Result.VALID && !view.confirmUnverifiedActivation(row)) {
-            return;
+        ValidityApproval approval = null;
+        ProfileValidity validity = row.validity();
+        if (validity == null || validity.result() != ProfileValidity.Result.VALID) {
+            if (validity == null || !view.confirmUnverifiedActivation(row)) {
+                return;
+            }
+            // The service re-evaluates at activation time and accepts this only if nothing changed meanwhile.
+            approval = new ValidityApproval(row.profile().id(), row.profile().revision(), validity.result(),
+                validity.findings());
         }
+        final ValidityApproval confirmed = approval;
         final ServerStatus status = currentStatus();
         final ServerSettings applied = appliedSettings(status);
         final RuntimeOwnership ownership = status == null ? RuntimeOwnership.NONE : status.ownership();
@@ -90,17 +97,19 @@ public final class ProfilesPresenter {
                     view.showNotice("Not activated: the profile needs a server restart, which was not confirmed.");
                     return;
                 }
-                store(row, applied, ownership, restart);
+                store(row, applied, ownership, restart, confirmed);
             }, error -> {
                 setBusy(false);
                 view.showFailure("Plan profile", error);
             });
     }
 
-    private void store(ProfileRow row, ServerSettings applied, RuntimeOwnership ownership, boolean restartConfirmed) {
+    private void store(ProfileRow row, ServerSettings applied, RuntimeOwnership ownership, boolean restartConfirmed,
+                       ValidityApproval approval) {
         final String id = row.profile().id();
         jobs.submit("Activate profile " + row.profile().name(), false,
-            context -> services.profiles().activate(id, applied, ownership, restartConfirmed), plan -> {
+            context -> services.profiles().activate(id, applied, ownership, restartConfirmed, approval,
+                context.cancellation()), plan -> {
                 if (plan.mode() == ActivationMode.RESTART_OWNED_SERVER) {
                     restart(row, plan);
                 } else {
@@ -160,28 +169,16 @@ public final class ProfilesPresenter {
         }
     }
 
+    /** Ask the application layer for each profile's validity; the UI does not judge validity itself. */
     private List<ProfileRow> loadRows(JobContext context) throws Exception {
         ManagerConfiguration configuration = services.configuration().current();
-        context.cancellation().throwIfCancelled();
-        GpuFingerprint fingerprint = services.hardwareProbe() == null ? null
-            : GpuFingerprint.of(services.hardwareProbe().probe(context.cancellation()).gpus());
-        ServerStatus status = currentStatus();
-        boolean running = status != null && status.state() == ServerState.RUNNING && status.installation() != null;
-        String version = running ? status.reportedVersion() : null;
-        List<ModelIdentity> installed = null;
-        if (running && services.models() != null) {
-            installed = new ArrayList<ModelIdentity>();
-            for (ModelEntry entry : services.models().inventory(status.installation().endpoint(),
-                context.cancellation())) {
-                if (entry.isInstalled()) {
-                    installed.add(entry.identity());
-                }
-            }
-        }
+        ProfileActivationService profiles = services.profiles();
         List<ProfileRow> result = new ArrayList<ProfileRow>();
         for (ModelProfile profile : configuration.profiles()) {
-            result.add(new ProfileRow(profile, ProfileCheck.of(profile, fingerprint, version, installed),
-                profile.id().equals(configuration.activeProfileId())));
+            context.cancellation().throwIfCancelled();
+            ProfileValidity validity = profiles == null ? null
+                : profiles.validity(profile.id(), context.cancellation());
+            result.add(new ProfileRow(profile, validity, profile.id().equals(configuration.activeProfileId())));
         }
         return result;
     }

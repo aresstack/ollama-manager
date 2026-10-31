@@ -1,6 +1,8 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
+import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
+import com.aresstack.ollamamanager.application.profile.ProfileValidity;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
 import com.aresstack.ollamamanager.domain.model.ModelIdentity;
@@ -34,27 +36,64 @@ public class ProfilesPresenterTest {
     private static final GpuFingerprint GPU = new GpuFingerprint("nvidia:rtx5080:16gb");
 
     private final JobManager jobs = new JobManager(Runnable::run, UiDispatcher.inline());
+    private static final ProfileEnvironment.Snapshot MATCHING =
+        new ProfileEnvironment.Snapshot(GPU, "0.1.0", Collections.singletonList(MODEL));
+    private static final ProfileEnvironment.Snapshot OUTDATED =
+        new ProfileEnvironment.Snapshot(GPU, "0.2.0", Collections.singletonList(MODEL));
+    private static final ProfileEnvironment.Snapshot UNKNOWN = new ProfileEnvironment.Snapshot(null, null, null);
+
     private final RecordingView view = new RecordingView();
+    private ProfileEnvironment.Snapshot environment = MATCHING;
 
     @Test
-    public void checkIsValidOnlyWhenModelGpuAndVersionMatch() {
-        ModelProfile profile = profile(ServerSettings.defaults());
+    public void rowsCarryTheApplicationLayersValidity() throws Exception {
+        ProfilesPresenter presenter = presenter(services(TestServices.stoppedLifecycle(), ServerSettings.defaults()));
 
-        assertEquals(ProfileCheck.Result.VALID,
-            ProfileCheck.of(profile, GPU, "0.1.0", Collections.singletonList(MODEL)).result());
-        assertEquals(ProfileCheck.Result.OUTDATED, ProfileCheck.of(profile, GPU, "0.1.0",
-            Collections.singletonList(new ModelIdentity("llama3.2:3b", "sha256:bbb", "Q4_K_M"))).result());
-        assertEquals(ProfileCheck.Result.OUTDATED, ProfileCheck.of(profile, new GpuFingerprint("cpu-only"),
-            "0.1.0", Collections.singletonList(MODEL)).result());
-        assertEquals(ProfileCheck.Result.OUTDATED,
-            ProfileCheck.of(profile, GPU, "0.2.0", Collections.singletonList(MODEL)).result());
-        assertEquals(ProfileCheck.Result.UNVERIFIED, ProfileCheck.of(profile, GPU, null, null).result());
-        assertEquals(ProfileCheck.Result.UNVERIFIED, ProfileCheck.of(profile, GPU, "0.1.0",
-            Collections.singletonList(ModelIdentity.named("llama3.2:3b"))).result());
+        assertEquals(ProfileValidity.Result.VALID, view.rows.get(0).validity().result());
+
+        environment = OUTDATED;
+        presenter.refresh();
+
+        assertEquals(ProfileValidity.Result.OUTDATED, view.rows.get(0).validity().result());
+        assertFalse(view.rows.get(0).validity().findings().isEmpty());
+    }
+
+    @Test
+    public void validProfileIsActivatedWithoutValidityQuestion() throws Exception {
+        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        presenter(services).activate("p1");
+
+        assertEquals(0, view.unverifiedQuestions);
+        assertEquals("p1", services.configuration().current().activeProfileId());
+    }
+
+    @Test
+    public void confirmedOutdatedProfileIsActivatedWithApproval() throws Exception {
+        environment = OUTDATED;
+        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        presenter(services).activate("p1");
+
+        assertEquals(1, view.unverifiedQuestions);
+        assertEquals("p1", services.configuration().current().activeProfileId());
+    }
+
+    @Test
+    public void approvalIsRejectedWhenEnvironmentChangedSinceConfirmation() throws Exception {
+        environment = OUTDATED;
+        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        ProfilesPresenter presenter = presenter(services);
+        environment = UNKNOWN;
+
+        presenter.activate("p1");
+
+        assertNull(services.configuration().current().activeProfileId());
+        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("failure:"));
+        assertFalse(presenter.isBusy());
     }
 
     @Test
     public void unverifiedProfileIsNotActivatedWithoutConfirmation() throws Exception {
+        environment = UNKNOWN;
         ConsoleServices services = services(null, ServerSettings.defaults());
         ProfilesPresenter presenter = presenter(services);
         view.acceptUnverified = false;
@@ -165,12 +204,13 @@ public class ProfilesPresenterTest {
         return presenter;
     }
 
-    private static ConsoleServices services(ServerLifecycleService lifecycle, ServerSettings profileSettings)
+    private ConsoleServices services(ServerLifecycleService lifecycle, ServerSettings profileSettings)
         throws Exception {
         ConsoleServices base = TestServices.builder().build();
         base.configuration().update(current -> current.withProfile(profile(profileSettings)));
         return ConsoleServices.builder(base.configuration()).serverLifecycle(lifecycle)
-            .profiles(new ProfileActivationService(base.configuration())).build();
+            .profiles(new ProfileActivationService(base.configuration(),
+                cancellation -> environment)).build();
     }
 
     private static ModelProfile profile(ServerSettings settings) {

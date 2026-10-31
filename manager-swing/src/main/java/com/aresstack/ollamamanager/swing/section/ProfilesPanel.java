@@ -136,8 +136,8 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
     @Override
     public boolean confirmUnverifiedActivation(ProfileRow row) {
         StringBuilder text = new StringBuilder("The profile \"").append(row.profile().name()).append("\" is ")
-            .append(row.check().result().label()).append(":\n");
-        for (String finding : row.check().findings()) {
+            .append(label(row)).append(":\n");
+        for (String finding : findings(row)) {
             text.append("  • ").append(finding).append('\n');
         }
         text.append("\nIts settings were tuned for a different situation and may not fit.\nActivate it anyway?");
@@ -156,6 +156,14 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         return Dialogs.confirm(this, "Restart server", text.toString());
     }
 
+    private static String label(ProfileRow row) {
+        return row.validity() == null ? "not checked" : row.validity().result().label();
+    }
+
+    private static List<String> findings(ProfileRow row) {
+        return row.validity() == null ? new ArrayList<String>() : row.validity().findings();
+    }
+
     private ProfileRow selected() {
         int row = table.getSelectedRow();
         return row < 0 ? null : model.row(table.convertRowIndexToModel(row));
@@ -169,8 +177,8 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
             return;
         }
         StringBuilder text = new StringBuilder(row.profile().name()).append(": ")
-            .append(row.check().result().label());
-        for (String finding : row.check().findings()) {
+            .append(label(row));
+        for (String finding : findings(row)) {
             text.append("\n• ").append(finding);
         }
         text.append("\nScope: ").append(row.profile().scope());
@@ -231,7 +239,7 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
                 case 3:
                     return row.profile().scope().ollamaVersion();
                 case 4:
-                    return row.check().result().label();
+                    return label(row);
                 default:
                     return row.isActive() ? "yes" : "";
             }
