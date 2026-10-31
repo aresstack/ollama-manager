@@ -155,6 +155,11 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
     }
 
     @Override
+    public void setStopEnabled(boolean enabled) {
+        stop.setEnabled(enabled);
+    }
+
+    @Override
     public void showFailure(String action, Exception error) {
         Dialogs.showError(this, action, error);
     }

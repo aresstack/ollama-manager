@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Test;
 
 import java.awt.Rectangle;
+import java.util.Arrays;
 import java.util.prefs.Preferences;
 
 import static org.junit.Assert.assertEquals;
@@ -26,8 +27,20 @@ public class WindowStateStoreTest {
         node.putInt("window.width", 800);
         node.putInt("window.height", 600);
 
-        assertNull(store.bounds(new Rectangle(0, 0, 1920, 1080)));
-        assertEquals(new Rectangle(5000, 5000, 800, 600), store.bounds(new Rectangle(0, 0, 8000, 8000)));
+        assertNull(store.bounds(Arrays.asList(new Rectangle(0, 0, 1920, 1080))));
+        assertEquals(new Rectangle(5000, 5000, 800, 600),
+            store.bounds(Arrays.asList(new Rectangle(0, 0, 1920, 1080), new Rectangle(4800, 4800, 1920, 1080))));
+    }
+
+    @Test
+    public void ignoresBoundsInTheGapBetweenScreens() {
+        node.putInt("window.x", 100);
+        node.putInt("window.y", 1200);
+        node.putInt("window.width", 1024);
+        node.putInt("window.height", 700);
+
+        assertNull(store.bounds(Arrays.asList(new Rectangle(0, 0, 1920, 1080),
+            new Rectangle(1920, 1080, 1920, 1080))));
     }
 
     @Test

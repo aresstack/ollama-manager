@@ -14,6 +14,7 @@ import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
+import javax.swing.UIManager;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
 import java.awt.Font;
@@ -58,6 +59,24 @@ public final class JobsPanel extends SectionPanel {
         split.setResizeWeight(0.5);
         setBody(split);
         loadLog(services.serverLifecycle(), jobs);
+        fitRowHeight();
+    }
+
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        if (table != null) {
+            fitRowHeight();
+        }
+    }
+
+    /** Size table rows to the current (possibly scaled) table font. */
+    private void fitRowHeight() {
+        Font font = UIManager.getFont("Table.font");
+        if (font == null) {
+            font = table.getFont();
+        }
+        table.setRowHeight(table.getFontMetrics(font).getHeight() + 4);
     }
 
     private void loadLog(ServerLifecycleService lifecycle, JobManager jobs) {

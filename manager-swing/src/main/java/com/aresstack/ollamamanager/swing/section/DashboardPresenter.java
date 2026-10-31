@@ -14,6 +14,7 @@ public final class DashboardPresenter {
     private final ConsoleServices services;
     private final JobManager jobs;
     private DashboardView view;
+    private boolean stopping;
 
     public DashboardPresenter(ConsoleServices services, JobManager jobs) {
         this.services = services;
@@ -54,7 +55,7 @@ public final class DashboardPresenter {
 
     /** Whether the Stop action may be offered for {@code status}. */
     public boolean canStop(ServerStatus status) {
-        return services.serverLifecycle() != null && status != null && status.canBeStoppedByManager();
+        return !stopping && services.serverLifecycle() != null && status != null && status.canBeStoppedByManager();
     }
 
     /** Stop the owned server after the user confirmed the hard-kill warning. */
@@ -63,11 +64,17 @@ public final class DashboardPresenter {
         if (lifecycle == null || !canStop(lifecycle.status()) || !view.confirmStop()) {
             return;
         }
-        Job job = jobs.submit("Stop server", false, context -> lifecycle.stop(),
-            view::showServerStatus, error -> {
-                view.showFailure("Stop server", error);
-                view.showServerStatus(lifecycle.status());
-            });
+        // Disable at once so a second click cannot queue a second stop while this one runs.
+        stopping = true;
+        view.setStopEnabled(false);
+        Job job = jobs.submit("Stop server", false, context -> lifecycle.stop(), status -> {
+            stopping = false;
+            view.showServerStatus(status);
+        }, error -> {
+            stopping = false;
+            view.showFailure("Stop server", error);
+            view.showServerStatus(lifecycle.status());
+        });
         view.trackJob(job);
     }
 }
