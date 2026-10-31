@@ -56,7 +56,8 @@ public final class SetupService {
 
     /**
      * Return the version reported by an Ollama server at {@code endpoint}, or {@code null} if nothing answers
-     * there. Any other failure, for example a non-Ollama service on the port, propagates.
+     * there (connection refused or not established in time). Any other failure propagates, including {@code TIMEOUT},
+     * which means a service accepted the connection but did not answer.
      */
     public String detectRunning(Endpoint endpoint, CancellationToken cancellation) throws OperationException {
         try {
@@ -64,7 +65,7 @@ public final class SetupService {
         } catch (OperationCancelledException e) {
             throw e;
         } catch (OperationException e) {
-            if (e.kind() == ErrorKind.CONNECTION_FAILED || e.kind() == ErrorKind.TIMEOUT) {
+            if (e.kind() == ErrorKind.CONNECTION_FAILED) {
                 return null;
             }
             throw e;

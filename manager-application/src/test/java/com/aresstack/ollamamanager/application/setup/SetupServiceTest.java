@@ -61,6 +61,17 @@ public class SetupServiceTest {
     }
 
     @Test
+    public void detectRunningPropagatesTimeoutOfAcceptedConnection() {
+        versionFailure = new OperationException(ErrorKind.TIMEOUT, "no answer");
+        try {
+            setup.detectRunning(Endpoint.DEFAULT, CancellationToken.none());
+            fail("a service that accepted the connection must not look like a free endpoint");
+        } catch (OperationException e) {
+            assertEquals(ErrorKind.TIMEOUT, e.kind());
+        }
+    }
+
+    @Test
     public void attachExistingVerifiesThroughApiAndAttachesAsExternal() throws Exception {
         ServerStatus status = setup.attachExisting(Endpoint.DEFAULT, CancellationToken.none());
 

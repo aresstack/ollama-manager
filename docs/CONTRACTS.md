@@ -26,7 +26,7 @@ Changes go through a coordinator PR first; feature branches only implement them.
 ## Setup assistant (`application.setup`)
 
 - `SetupService` only coordinates and delegates: `detectExisting` (runtime discovery),
-  `detectRunning` (API version, `null` when nothing answers), `attachExisting` (verify via API, then
+  `detectRunning` (API version, `null` only on `CONNECTION_FAILED`; `TIMEOUT` propagates), `attachExisting` (verify via API, then
   `attachExternal`), `recommendPackages` (hardware probe plus `PackageAdvisor`), `installLatest` and
   `uninstall` (portable installation use cases). It holds no lock of its own, so the lifecycle safety also
   applies to callers that use the underlying services directly. The UI gets it via `ConsoleServices.setup()`.
