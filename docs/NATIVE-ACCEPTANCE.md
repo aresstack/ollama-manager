@@ -62,7 +62,9 @@ gradlew :manager-acceptance:nativeAcceptance -PnativeAcceptance=true ^
   -Pacceptance.stages=all -Pacceptance.ollamaVersion=v0.40.13 -Pacceptance.rollbackVersion=<older tag>
 ```
 
-The Gradle daemon JVM runs the harness, so `JAVA_HOME` must point to the Java 8 JDK. Before and after,
+The harness runs on Gradle's own JVM and fails the check `harness runs on Java 8` otherwise. `org.gradle.java.home`
+in `%USERPROFILE%\.gradle\gradle.properties` overrides `JAVA_HOME`; pass `-Dorg.gradle.java.home=<Java 8 JDK>` to be
+sure. In PowerShell, quote every `-P...=a,b` argument (`"-Pacceptance.stages=readonly,hardware"`). Before and after,
 `ollama ps` and `ollama list` against 11434 should show the same state. Each run writes
 `<workDir>\report.txt` with OS, Java, GPU, driver and Ollama versions and every PASS/FAIL/SKIP line; attach it
 to the affected PRs as evidence. The exit code is non-zero if any check failed. The work directory is kept for

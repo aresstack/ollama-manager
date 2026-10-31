@@ -138,6 +138,9 @@ public final class NativeAcceptanceMain {
         report.info("java.version=" + System.getProperty("java.version") + " os=" + System.getProperty("os.name")
             + " " + System.getProperty("os.arch") + " stages=" + stages + " workDir=" + guard.workDir()
             + " testEndpoint=" + testEndpoint + " reference=" + reference);
+        String javaVersion = System.getProperty("java.version");
+        report.check(javaVersion.startsWith("1.8."), "harness runs on Java 8",
+            "java.version=" + javaVersion + " java.home=" + System.getProperty("java.home"));
         ReferenceWatch watch = new ReferenceWatch();
         watch.start();
         try {
