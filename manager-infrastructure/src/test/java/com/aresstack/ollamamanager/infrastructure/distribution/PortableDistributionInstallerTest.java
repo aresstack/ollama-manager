@@ -277,6 +277,28 @@ public class PortableDistributionInstallerTest {
     }
 
     @Test
+    public void reusedTokenKeepsNoStaleCancelCallbacks() throws Exception {
+        CancellationToken token = new CancellationToken();
+        PortableDistributionInstaller installer = installer(WINDOWS);
+        installer.install(publish("v0.12.5", base("v0.12.5")), BASE, root, ignore(), token);
+        installer.install(publish("v0.12.6", base("v0.12.6")), BASE, root, ignore(), token);
+        expect(ErrorKind.CHECKSUM_MISMATCH, () -> installer.install(new OllamaRelease("v0.12.7", Arrays.asList(
+            serve("v0.12.7", "ollama-windows-amd64.zip", base("v0.12.7")).withSha256(sha(bytes("x"))))),
+            BASE, root, ignore(), token));
+        GitHubReleaseCatalogTest.expect(ErrorKind.NOT_FOUND, () -> new GitHubReleaseCatalog(
+            new HttpTransport(server.resolver(), 2000, 2000), GitHubReleaseCatalog.DEFAULT_API)
+            .findRelease("v404", token));
+
+        assertEquals(0, registeredCallbacks(token));
+    }
+
+    static int registeredCallbacks(CancellationToken token) throws Exception {
+        java.lang.reflect.Method count = CancellationToken.class.getDeclaredMethod("registeredCallbackCount");
+        count.setAccessible(true);
+        return (Integer) count.invoke(token);
+    }
+
+    @Test
     public void cancellationRemovesPartialResults() throws Exception {
         byte[] zip = base("v0.12.6");
         OllamaRelease release = publish("v0.12.6", zip);
