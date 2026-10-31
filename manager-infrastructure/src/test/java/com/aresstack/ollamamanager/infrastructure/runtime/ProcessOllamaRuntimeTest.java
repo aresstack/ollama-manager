@@ -102,6 +102,18 @@ public class ProcessOllamaRuntimeTest {
     }
 
     @Test
+    public void namesOwnServerWhenItAlreadyUsesTheEndpoint() throws Exception {
+        FakeProcess process = startedProcess(false);
+        runtime.start(installation, ServerSettings.defaults(), CancellationToken.none());
+        probes.add(ProbeResult.ollama("0.12.3"));
+
+        OperationException failure = assertStartFails(ErrorKind.PORT_IN_USE);
+
+        assertTrue(failure.getMessage(), failure.getMessage().contains("this manager already runs"));
+        process.exit(0);
+    }
+
+    @Test
     public void killsProcessWhenStartupTimesOut() {
         FakeProcess process = new FakeProcess(false);
         processes.add(process);
@@ -323,6 +335,7 @@ public class ProcessOllamaRuntimeTest {
         assertEquals(Arrays.asList(new File(portableBin, "ollama").getAbsolutePath(), "--version"),
             launched.get(0).command());
         assertEquals(3, launched.size());
+        assertEquals("127.0.0.1:1", launched.get(0).environment().get("OLLAMA_HOST"));
     }
 
     @Test
@@ -363,6 +376,8 @@ public class ProcessOllamaRuntimeTest {
     public void parsesVersionOutput() {
         assertEquals("0.12.3", ProcessOllamaRuntime.parseVersion(Collections.singletonList("ollama version is 0.12.3")));
         assertNull(ProcessOllamaRuntime.parseVersion(Collections.singletonList("command not found")));
+        assertEquals("0.40.12", ProcessOllamaRuntime.parseVersion(Arrays.asList("ollama version is 0.40.13",
+            "Warning: client version is 0.40.12")));
     }
 
     private FakeProcess startedProcess(boolean ignoresGracefulStop) {
