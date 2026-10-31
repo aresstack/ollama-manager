@@ -1,10 +1,10 @@
-package com.aresstack.ollamamanager.swing;
+package com.aresstack.ollamamanager.application.server;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.installation.InstallationUsage;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
 import com.aresstack.ollamamanager.application.port.OllamaRuntimePort;
-import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.InstallationKind;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
@@ -29,14 +29,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class InstallationUsageTest {
+public class OwnedServerUsageTest {
 
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
 
     private final GatedRuntime runtime = new GatedRuntime();
-    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0);
-    private final InstallationUsage usage = OllamaManagerApp.usedByOwnedServer(lifecycle);
+    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0, new LifecycleLock());
+    private final InstallationUsage usage = new OwnedServerUsage(lifecycle);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private OllamaInstallation active;
     private OllamaInstallation other;

@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.application.installation;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
@@ -25,9 +26,30 @@ public final class PortableInstallationService {
     private final DistributionInstallerPort installer;
     private final File installRoot;
     private final InstallationUsage usage;
+    private final LifecycleLock lock;
 
+    /**
+     * Create a service with its own private lock.
+     *
+     * @deprecated a private lock does not protect against a concurrent server start; pass the process-wide
+     *             {@link LifecycleLock} that {@code ServerLifecycleService} also uses
+     */
+    @Deprecated
     public PortableInstallationService(ReleaseCatalogPort catalog, DistributionInstallerPort installer,
                                        File installRoot, InstallationUsage usage) {
+        this(catalog, installer, installRoot, usage, new LifecycleLock());
+    }
+
+    /**
+     * @param lock the process-wide lock shared with the server lifecycle; uninstall checks usage and deletes under
+     *             it, downloads and installs never take it
+     */
+    public PortableInstallationService(ReleaseCatalogPort catalog, DistributionInstallerPort installer,
+                                       File installRoot, InstallationUsage usage, LifecycleLock lock) {
+        if (lock == null) {
+            throw new IllegalArgumentException("lock must not be null");
+        }
+        this.lock = lock;
         this.catalog = catalog;
         this.installer = installer;
         this.installRoot = installRoot;
@@ -64,10 +86,13 @@ public final class PortableInstallationService {
      * changes existing version directories, so only uninstall needs this check.
      */
     public void uninstall(OllamaInstallation installation) throws OperationException {
-        if (usage.isInUse(installation)) {
-            throw new OperationException(ErrorKind.INVALID_STATE,
-                installation.version() + " is used by a running Ollama server; stop it first");
-        }
-        installer.uninstall(installation, installRoot);
+        lock.run("uninstall " + installation.version(), () -> {
+            if (usage.isInUse(installation)) {
+                throw new OperationException(ErrorKind.INVALID_STATE,
+                    installation.version() + " is used by a running Ollama server; stop it first");
+            }
+            installer.uninstall(installation, installRoot);
+            return null;
+        });
     }
 }
