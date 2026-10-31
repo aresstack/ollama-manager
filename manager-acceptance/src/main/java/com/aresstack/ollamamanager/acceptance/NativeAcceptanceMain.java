@@ -144,23 +144,34 @@ public final class NativeAcceptanceMain {
         ReferenceWatch watch = new ReferenceWatch();
         watch.start();
         try {
-            runStage("readonly", this::readOnlyReference);
-            runStage("hardware", this::hardware);
-            runStage("install", () -> {
-                try {
-                    install();
-                } finally {
-                    cleanUpInstallRoot();
-                }
-            });
-            runStage("process", this::process);
-            runStage("models", this::models);
+            // Keep the install root until process and models have used its binary.
+            runThenCleanUp(Arrays.<Runnable>asList(
+                () -> runStage("readonly", this::readOnlyReference),
+                () -> runStage("hardware", this::hardware),
+                () -> runStage("install", this::install),
+                () -> runStage("process", this::process),
+                () -> runStage("models", this::models)), () -> {
+                    if (testServer != null && testServer.isAlive()) {
+                        stopQuietly(testServer);
+                    }
+                    if (stages.contains("install")) {
+                        cleanUpInstallRoot();
+                    }
+                });
         } finally {
-            if (testServer != null && testServer.isAlive()) {
-                stopQuietly(testServer);
-            }
             runtime.stopAll(GRACE_MILLIS);
             watch.finish();
+        }
+    }
+
+    /** Run all stages in order and the clean-up once afterwards, also when a stage throws. */
+    static void runThenCleanUp(List<Runnable> stagesInOrder, Runnable cleanUp) {
+        try {
+            for (Runnable stage : stagesInOrder) {
+                stage.run();
+            }
+        } finally {
+            cleanUp.run();
         }
     }
 

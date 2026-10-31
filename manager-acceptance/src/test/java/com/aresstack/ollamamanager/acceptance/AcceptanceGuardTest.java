@@ -12,8 +12,10 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -99,6 +101,41 @@ public class AcceptanceGuardTest {
 
         expectRejected(() -> guard.requireDeletableTestModel("smollm2:135m", Arrays.asList("smollm2:135m"), modelRoot));
         expectRejected(() -> guard.requireDeletableTestModel("smollm2:135m", Collections.<String>emptyList(), userModels));
+    }
+
+    @Test
+    public void failsClosedWhenCanonicalPathCannotBeResolved() {
+        File invalid = new File(workDir, "models\u0000evil");
+        expectRejected(() -> guard.requireInsideWorkDir(invalid));
+        expectRejected(() -> new AcceptanceGuard(workDir, Collections.singletonList(invalid), 11434));
+    }
+
+    @Test
+    public void keepsInstalledBinaryUntilAllStagesRanInCombinedRun() throws IOException {
+        File binary = folder.newFolder("ollama-acceptance-9", "install", "versions", "v0.40.13");
+        List<String> events = new ArrayList<String>();
+        NativeAcceptanceMain.runThenCleanUp(Arrays.<Runnable>asList(
+            () -> events.add("install"),
+            () -> events.add("process sees binary=" + binary.isDirectory()),
+            () -> events.add("models sees binary=" + binary.isDirectory())),
+            () -> {
+                events.add("cleanup");
+                assertTrue(binary.delete());
+            });
+        assertEquals(Arrays.asList("install", "process sees binary=true", "models sees binary=true", "cleanup"), events);
+    }
+
+    @Test
+    public void cleansUpWhenAStageThrows() {
+        List<String> events = new ArrayList<String>();
+        try {
+            NativeAcceptanceMain.runThenCleanUp(Arrays.<Runnable>asList(() -> {
+                throw new IllegalStateException("guard");
+            }), () -> events.add("cleanup"));
+            fail("stage failure swallowed");
+        } catch (IllegalStateException expected) {
+            assertEquals(Collections.singletonList("cleanup"), events);
+        }
     }
 
     @Test

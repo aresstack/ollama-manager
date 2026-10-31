@@ -171,11 +171,12 @@ final class AcceptanceGuard {
         return false;
     }
 
+    /** Resolve symlinks; fail closed, because an unresolved path would weaken every containment check. */
     static File canonical(File file) {
         try {
             return file.getCanonicalFile();
         } catch (IOException e) {
-            return file.getAbsoluteFile();
+            throw new IllegalStateException("cannot resolve the canonical path of " + file + ": " + e.getMessage(), e);
         }
     }
 }
