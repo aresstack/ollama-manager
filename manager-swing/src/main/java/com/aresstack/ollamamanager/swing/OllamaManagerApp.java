@@ -71,7 +71,7 @@ public final class OllamaManagerApp {
         SetupService setup = new SetupService(runtime, api, lifecycle, hardwareProbe,
             new PackageAdvisor(new GpuCompatibilityRules()), installations);
         ModelService models = new ModelService(api);
-        ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models);
+        ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models, api);
         return ConsoleServices.builder(configuration)
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
