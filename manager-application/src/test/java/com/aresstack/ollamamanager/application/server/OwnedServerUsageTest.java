@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.application.server;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.installation.InstallationUsage;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
@@ -34,7 +35,7 @@ public class OwnedServerUsageTest {
     public TemporaryFolder folder = new TemporaryFolder();
 
     private final GatedRuntime runtime = new GatedRuntime();
-    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0);
+    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0, new LifecycleLock());
     private final InstallationUsage usage = new OwnedServerUsage(lifecycle);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private OllamaInstallation active;

@@ -36,6 +36,13 @@ public final class ServerLifecycleService {
     private String externalVersion;
     private ServerStatus lastFailure;
 
+    /**
+     * Create a service with its own private lock.
+     *
+     * @deprecated a private lock does not protect against a concurrent uninstall; pass the process-wide
+     *             {@link LifecycleLock} that {@code PortableInstallationService} also uses
+     */
+    @Deprecated
     public ServerLifecycleService(OllamaRuntimePort runtime, long gracePeriodMillis) {
         this(runtime, gracePeriodMillis, new LifecycleLock());
     }

@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.application.server;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
@@ -35,7 +36,7 @@ public class ServerLifecycleServiceTest {
     private static final OllamaInstallation EXTERNAL = OllamaInstallation.external("0.12.3", Endpoint.DEFAULT);
 
     private final FakeRuntime runtime = new FakeRuntime();
-    private final ServerLifecycleService service = new ServerLifecycleService(runtime, 1000);
+    private final ServerLifecycleService service = new ServerLifecycleService(runtime, 1000, new LifecycleLock());
 
     @Test
     public void startsStopsAndReportsStatus() throws Exception {

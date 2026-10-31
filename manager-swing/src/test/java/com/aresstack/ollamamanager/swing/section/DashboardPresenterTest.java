@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.port.ConfigurationRepository;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
@@ -76,7 +77,7 @@ public class DashboardPresenterTest {
     public void stopDisablesButtonAtOnceAndIgnoresSecondClick() throws Exception {
         List<Runnable> pending = new ArrayList<Runnable>();
         JobManager deferred = new JobManager(pending::add, UiDispatcher.inline());
-        ServerLifecycleService lifecycle = new ServerLifecycleService(new FakeRuntime(), 0);
+        ServerLifecycleService lifecycle = new ServerLifecycleService(new FakeRuntime(), 0, new LifecycleLock());
         lifecycle.start(new OllamaInstallation(InstallationKind.MANAGED_PORTABLE, "0.1.0", new File("ollama").getAbsoluteFile(),
             ServerSettings.defaults().bind()), ServerSettings.defaults(), CancellationToken.none());
         DashboardPresenter presenter = new DashboardPresenter(services().serverLifecycle(lifecycle).build(), deferred);

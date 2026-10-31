@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.application.setup;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
@@ -35,12 +36,12 @@ public class SetupServiceTest {
         return "0.12.1";
     });
     private final OllamaRuntimePort runtime = stub(OllamaRuntimePort.class, null);
-    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0);
+    private final ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0, new LifecycleLock());
     private final SetupService setup = new SetupService(runtime, api, lifecycle,
         stub(HardwareProbePort.class, null), new PackageAdvisor(new GpuCompatibilityRules()),
         new PortableInstallationService(stub(ReleaseCatalogPort.class, null),
             stub(DistributionInstallerPort.class, null), new File("portable").getAbsoluteFile(),
-            installation -> false));
+            installation -> false, new LifecycleLock()));
 
     @Test
     public void detectRunningReportsNothingWhenNoServerAnswers() throws Exception {

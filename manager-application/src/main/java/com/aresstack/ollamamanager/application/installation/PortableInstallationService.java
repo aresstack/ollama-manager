@@ -28,6 +28,13 @@ public final class PortableInstallationService {
     private final InstallationUsage usage;
     private final LifecycleLock lock;
 
+    /**
+     * Create a service with its own private lock.
+     *
+     * @deprecated a private lock does not protect against a concurrent server start; pass the process-wide
+     *             {@link LifecycleLock} that {@code ServerLifecycleService} also uses
+     */
+    @Deprecated
     public PortableInstallationService(ReleaseCatalogPort catalog, DistributionInstallerPort installer,
                                        File installRoot, InstallationUsage usage) {
         this(catalog, installer, installRoot, usage, new LifecycleLock());
