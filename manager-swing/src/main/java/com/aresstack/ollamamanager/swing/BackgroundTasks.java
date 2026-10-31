@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.swing;
 
 import javax.swing.SwingUtilities;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -13,7 +14,7 @@ import java.util.function.Consumer;
 /**
  * Runs blocking work off the event dispatch thread and delivers results back on it.
  */
-public final class BackgroundTasks implements AutoCloseable {
+public final class BackgroundTasks implements Executor, AutoCloseable {
 
     private final ExecutorService executor;
 
@@ -33,6 +34,12 @@ public final class BackgroundTasks implements AutoCloseable {
                 SwingUtilities.invokeLater(() -> onFailure.accept(e));
             }
         });
+    }
+
+    /** Run {@code command} on a daemon worker thread. */
+    @Override
+    public void execute(Runnable command) {
+        executor.execute(command);
     }
 
     /** Stop accepting work and wait briefly for running tasks. */
