@@ -6,7 +6,9 @@ import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
 import com.aresstack.ollamamanager.application.hardware.PackageAdvisor;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
+import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
+import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
@@ -68,13 +70,16 @@ public final class OllamaManagerApp {
             new OwnedServerUsage(lifecycle), lifecycleLock);
         SetupService setup = new SetupService(runtime, api, lifecycle, hardwareProbe,
             new PackageAdvisor(new GpuCompatibilityRules()), installations);
+        ModelService models = new ModelService(api);
+        ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models);
         return ConsoleServices.builder(configuration)
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
-            .models(new ModelService(api))
+            .models(models)
             .installations(installations)
-            .profiles(new ProfileActivationService(configuration))
+            .profiles(new ProfileActivationService(configuration, profileEnvironment))
+            .profileRepository(new ModelProfileRepository(configuration))
             .setup(setup)
             .build();
     }
