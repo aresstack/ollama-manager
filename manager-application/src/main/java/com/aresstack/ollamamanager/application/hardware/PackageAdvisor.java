@@ -73,8 +73,14 @@ public final class PackageAdvisor {
                 reasons.add("MLX add-on not suggested: it needs a supported NVIDIA GPU.");
             }
         }
+        for (GpuAssessment assessment : assessments) {
+            if (assessment.backend() == GpuBackend.VULKAN) {
+                reasons.add(assessment.gpu().name() + ": Vulkan support is not assessed; GPU use is possible but"
+                    + " unconfirmed.");
+            }
+        }
         if (assessments.isEmpty()) {
-            reasons.add("No dedicated GPU detected; Ollama runs on the CPU.");
+            reasons.add("No GPU detected; Ollama runs on the CPU.");
         }
         reasons.add(RUNTIME_NOTE);
         return new PackageRecommendation(true, packages, confidence, assessments, reasons);
@@ -111,9 +117,7 @@ public final class PackageAdvisor {
                 assessment = new GpuAssessment(gpu, assessment.backend(), forced, true,
                     "Manually set to " + forced + " (rules said " + assessment.support() + ").");
             }
-            if (gpu.isDedicated() || assessment.support() == GpuSupport.SUPPORTED) {
-                assessments.add(assessment);
-            }
+            assessments.add(assessment);
         }
         return assessments;
     }

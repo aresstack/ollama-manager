@@ -6,5 +6,7 @@ package com.aresstack.ollamamanager.application.hardware;
 public enum GpuBackend {
     CUDA,
     ROCM,
+    /** Vulkan backend; documented by Ollama but not assessed by these rules. */
+    VULKAN,
     NONE
 }

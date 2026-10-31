@@ -161,13 +161,32 @@ public class PackageAdvisorTest {
     }
 
     @Test
-    public void integratedGraphicsOnlyIsCpu() {
+    public void integratedGraphicsAreReportedAsVulkanUnknownNotCpuOnly() {
         PackageRecommendation r = recommend(windows(
             new GpuDescriptor(GpuVendor.INTEL, "Intel(R) UHD Graphics 770", null, "31.0", false),
             amd("AMD Radeon(TM) Graphics", false)));
         assertEquals(EnumSet.of(DistributionPackage.BASE), r.packages());
-        assertTrue(r.assessments().isEmpty());
-        assertEquals(Confidence.HIGH, r.confidence());
+        assertEquals(2, r.assessments().size());
+        for (GpuAssessment assessment : r.assessments()) {
+            assertEquals(GpuBackend.VULKAN, assessment.backend());
+            assertEquals(GpuSupport.UNKNOWN, assessment.support());
+        }
+        assertEquals(Confidence.LOW, r.confidence());
+        for (String reason : r.reasons()) {
+            assertFalse(reason, reason.contains("runs on the CPU"));
+        }
+    }
+
+    @Test
+    public void intelArcIsVulkanUnknown() {
+        GpuAssessment arc = new GpuCompatibilityRules().assess(
+            new GpuDescriptor(GpuVendor.INTEL, "Intel(R) Arc(TM) A770 Graphics", 16 * GIB, "32.0.101.6078", true));
+        assertEquals(GpuBackend.VULKAN, arc.backend());
+        assertEquals(GpuSupport.UNKNOWN, arc.support());
+        assertTrue(arc.reason().contains("Vulkan"));
+        PackageRecommendation r = recommend(windows(arc.gpu()));
+        assertEquals(EnumSet.of(DistributionPackage.BASE), r.packages());
+        assertEquals(Confidence.LOW, r.confidence());
     }
 
     @Test
