@@ -13,6 +13,8 @@ import org.junit.Test;
 import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class SystemHardwareProbeTest {
@@ -69,6 +71,17 @@ public class SystemHardwareProbeTest {
         assertTrue(snapshot.gpus().isEmpty());
         assertEquals(GpuFingerprint.CPU_ONLY, snapshot.gpuFingerprint());
         assertEquals(28, snapshot.logicalProcessors());
+        assertFalse("failed CIM must not count as a verified CPU-only system", snapshot.isGpuDiscoveryComplete());
+        assertNull(snapshot.verifiedGpuFingerprint());
+    }
+
+    @Test
+    public void workingCimMarksDiscoveryComplete() throws Exception {
+        FakeCommandRunner runner = new FakeCommandRunner()
+            .respond("powershell.exe", "-NoProfile", CommandResult.completed(0, CIM));
+        HardwareSnapshot snapshot = probe(runner).probe(CancellationToken.none());
+        assertTrue(snapshot.isGpuDiscoveryComplete());
+        assertEquals(snapshot.gpuFingerprint(), snapshot.verifiedGpuFingerprint());
     }
 
     @Test(expected = OperationCancelledException.class)

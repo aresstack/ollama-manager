@@ -56,8 +56,13 @@ public final class SystemHardwareProbe implements HardwareProbePort {
 
     @Override
     public HardwareSnapshot probe(CancellationToken cancellation) throws OperationException {
-        List<GpuDescriptor> nvidia = nvidiaInventory(cancellation);
+        boolean[] complete = {true};
+        List<GpuDescriptor> nvidia = nvidiaInventory(cancellation, complete);
         WindowsCimInventory.Inventory inventory = cimInventory(cancellation);
+        if (inventory == null) {
+            // Without the CIM view (failed, or not Windows) non-NVIDIA GPUs cannot be ruled out.
+            complete[0] = false;
+        }
         cancellation.throwIfCancelled();
         String cpuName = inventory == null ? null : inventory.cpuName();
         Long memory = inventory == null ? null : inventory.totalMemoryBytes();
@@ -69,7 +74,7 @@ public final class SystemHardwareProbe implements HardwareProbePort {
             cpuName = identifier == null || identifier.trim().isEmpty() ? null : identifier.trim();
         }
         return new HardwareSnapshot(operatingSystem, architecture, cpuName, logicalProcessors, memory,
-            merge(nvidia, inventory == null ? Collections.<GpuDescriptor>emptyList() : inventory.gpus()));
+            merge(nvidia, inventory == null ? Collections.<GpuDescriptor>emptyList() : inventory.gpus()), complete[0]);
     }
 
     /** Prefer nvidia-smi entries for NVIDIA GPUs; keep CIM entries when nvidia-smi gave nothing. */
@@ -83,12 +88,14 @@ public final class SystemHardwareProbe implements HardwareProbePort {
         return merged;
     }
 
-    private List<GpuDescriptor> nvidiaInventory(CancellationToken cancellation) throws OperationException {
+    private List<GpuDescriptor> nvidiaInventory(CancellationToken cancellation, boolean[] complete)
+        throws OperationException {
         try {
             return nvidiaSmi.inventory(cancellation);
         } catch (OperationCancelledException e) {
             throw e;
         } catch (OperationException e) {
+            complete[0] = false;
             return Collections.emptyList();
         }
     }
