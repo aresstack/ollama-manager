@@ -46,6 +46,23 @@ public final class ProfileActivationPlan {
             profile.modelOptions());
     }
 
+    /**
+     * Plan the activation on an external server whose applied settings are unknown. Server-wide settings are
+     * never assumed to match, so the mode is always {@link ActivationMode#CANNOT_APPLY_TO_EXTERNAL}; the listed
+     * changes are the restart-required settings the profile sets differently from the defaults.
+     */
+    public static ProfileActivationPlan planForExternal(ModelProfile profile) {
+        Preconditions.requireNonNull(profile, "profile");
+        List<ServerSetting<?>> changes = new ArrayList<ServerSetting<?>>();
+        for (ServerSetting<?> setting : profile.serverSettings().differencesTo(ServerSettings.defaults())) {
+            if (setting.isRestartRequired()) {
+                changes.add(setting);
+            }
+        }
+        return new ProfileActivationPlan(ActivationMode.CANNOT_APPLY_TO_EXTERNAL, profile.serverSettings(), changes,
+            profile.modelOptions());
+    }
+
     private static ActivationMode modeFor(boolean serverUnchanged, RuntimeOwnership ownership) {
         if (ownership == RuntimeOwnership.NONE) {
             return ActivationMode.APPLY_ON_NEXT_START;
