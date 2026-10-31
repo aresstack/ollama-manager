@@ -6,9 +6,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 import java.awt.BorderLayout;
-import java.awt.Font;
 
 /**
  * Common frame for every section: title, one-line description, optional toolbar and content.
@@ -64,10 +62,8 @@ public class SectionPanel extends JPanel {
     }
 
     private void applyFonts() {
-        Font base = UIManager.getFont("Label.font");
-        if (base != null) {
-            title.setFont(base.deriveFont(Font.BOLD, base.getSize2D() * 1.5f));
-            description.setFont(base);
-        }
+        title.setFont(Theme.derived(1.5f, true));
+        description.setFont(Theme.baseFont());
+        description.setForeground(Theme.mutedForeground());
     }
 }
