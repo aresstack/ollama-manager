@@ -197,6 +197,42 @@ public class ProfilesPresenterTest {
         assertTrue(view.notices.contains(ProfilesPresenter.RESTART_CANCELLED));
     }
 
+    @Test
+    public void failedOwnedServerCountsAsNotRunning() throws Exception {
+        ServerLifecycleService lifecycle = TestServices.crashedLifecycle();
+        ConsoleServices services = services(lifecycle,
+            ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
+        presenter(services).activate("p1");
+
+        assertEquals(0, view.restartQuestions);
+        assertEquals("p1", services.configuration().current().activeProfileId());
+        assertTrue(view.notices.contains(ProfilesPresenter.noticeFor(
+            com.aresstack.ollamamanager.domain.profile.ActivationMode.APPLY_ON_NEXT_START)));
+    }
+
+    @Test
+    public void lifecycleChangeAfterPlanningStoresNothing() throws Exception {
+        List<Runnable> pending = new ArrayList<Runnable>();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ConsoleServices services = services(lifecycle,
+            ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
+        ProfilesPresenter presenter = new ProfilesPresenter(services,
+            new JobManager(pending::add, UiDispatcher.inline()));
+        presenter.bind(view);
+        presenter.refresh();
+        pending.remove(0).run();
+
+        presenter.activate("p1");
+        pending.remove(0).run();
+        assertEquals(1, view.restartQuestions);
+        lifecycle.stop();
+        pending.remove(0).run();
+
+        assertNull(services.configuration().current().activeProfileId());
+        assertTrue(view.notices.get(view.notices.size() - 1).contains(ProfilesPresenter.SERVER_CHANGED));
+        assertFalse(presenter.isBusy());
+    }
+
     private ProfilesPresenter presenter(ConsoleServices services) {
         ProfilesPresenter presenter = new ProfilesPresenter(services, jobs);
         presenter.bind(view);

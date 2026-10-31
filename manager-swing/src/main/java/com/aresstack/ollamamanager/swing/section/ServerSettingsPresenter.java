@@ -29,6 +29,10 @@ public final class ServerSettingsPresenter {
         + " the next start.";
     static final String EXTERNAL_UNKNOWN = "External server: its actual settings are unknown and are not changed"
         + " by the manager.";
+    static final String SERVER_FAILED = "The server started by the manager is not running (it exited"
+        + " unexpectedly); stored values apply on the next start.";
+    static final String SERVER_TRANSITION = "The server is starting or stopping; its running values are shown once"
+        + " it runs.";
     static final String CHANGED_MEANWHILE = "The server settings were changed elsewhere since they were loaded."
         + " Reload and apply your changes again.";
 
@@ -114,9 +118,8 @@ public final class ServerSettingsPresenter {
         ServerLifecycleService lifecycle = services.serverLifecycle();
         ServerStatus status = lifecycle == null ? null : lifecycle.status();
         ServerSettings applied = lifecycle == null ? null : lifecycle.appliedSettings();
-        if (status == null || status.ownership() != RuntimeOwnership.OWNED || applied == null) {
-            String source = status != null && status.ownership() == RuntimeOwnership.EXTERNAL
-                ? EXTERNAL_UNKNOWN : NO_OWNED_SERVER;
+        String source = sourceFor(status, applied);
+        if (source != RUNNING_OWNED) {
             view.showApplied(null, Collections.<ServerSetting<?>>emptySet(), source);
             return;
         }
@@ -127,6 +130,31 @@ public final class ServerSettingsPresenter {
             }
         }
         view.showApplied(SettingsDraft.texts(applied), pending, RUNNING_OWNED);
+    }
+
+    /**
+     * Running values are shown only for a RUNNING owned server. A FAILED process keeps its ownership and last
+     * settings, but nothing runs with them any more.
+     */
+    private static String sourceFor(ServerStatus status, ServerSettings applied) {
+        if (status == null) {
+            return NO_OWNED_SERVER;
+        }
+        switch (status.state()) {
+            case STARTING:
+            case STOPPING:
+                return SERVER_TRANSITION;
+            case FAILED:
+                return status.ownership() == RuntimeOwnership.OWNED ? SERVER_FAILED : NO_OWNED_SERVER;
+            case RUNNING:
+                if (status.ownership() == RuntimeOwnership.EXTERNAL) {
+                    return EXTERNAL_UNKNOWN;
+                }
+                return status.ownership() == RuntimeOwnership.OWNED && applied != null
+                    ? RUNNING_OWNED : NO_OWNED_SERVER;
+            default:
+                return NO_OWNED_SERVER;
+        }
     }
 
     private void setBusy(boolean value) {

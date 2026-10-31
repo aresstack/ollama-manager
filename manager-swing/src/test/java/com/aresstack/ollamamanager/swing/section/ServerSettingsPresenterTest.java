@@ -98,6 +98,15 @@ public class ServerSettingsPresenterTest {
         assertEquals(ServerSettingsPresenter.EXTERNAL_UNKNOWN, view.appliedSource);
     }
 
+    @Test
+    public void failedOwnedServerIsNotShownAsRunning() throws Exception {
+        ConsoleServices services = TestServices.builder().serverLifecycle(TestServices.crashedLifecycle()).build();
+        presenter(services);
+
+        assertNull(view.applied);
+        assertEquals(ServerSettingsPresenter.SERVER_FAILED, view.appliedSource);
+    }
+
     private ServerSettingsPresenter presenter(ConsoleServices services) {
         ServerSettingsPresenter presenter = new ServerSettingsPresenter(services, jobs);
         presenter.bind(view);

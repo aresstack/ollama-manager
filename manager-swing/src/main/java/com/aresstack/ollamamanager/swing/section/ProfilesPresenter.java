@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileValidity;
 import com.aresstack.ollamamanager.application.profile.ValidityApproval;
@@ -8,7 +10,9 @@ import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.profile.ActivationMode;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.domain.profile.ProfileActivationPlan;
+import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
+import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
@@ -30,6 +34,10 @@ import java.util.List;
 public final class ProfilesPresenter {
 
     static final String NOT_WIRED = "Profiles are not connected in this build.";
+    static final String SERVER_IN_TRANSITION = "The server is starting or stopping. Activate the profile once it"
+        + " is running or stopped.";
+    static final String SERVER_CHANGED = "The server changed while the activation was being planned. Nothing was"
+        + " stored; activate the profile again.";
 
     private final ConsoleServices services;
     private final JobManager jobs;
@@ -85,9 +93,13 @@ public final class ProfilesPresenter {
                 validity.findings());
         }
         final ValidityApproval confirmed = approval;
-        final ServerStatus status = currentStatus();
-        final ServerSettings applied = appliedSettings(status);
-        final RuntimeOwnership ownership = status == null ? RuntimeOwnership.NONE : status.ownership();
+        final LifecycleSnapshot snapshot = LifecycleSnapshot.capture(services.serverLifecycle());
+        if (snapshot.inTransition()) {
+            view.showNotice(SERVER_IN_TRANSITION);
+            return;
+        }
+        final ServerSettings applied = snapshot.applied();
+        final RuntimeOwnership ownership = snapshot.ownership();
         setBusy(true);
         jobs.submit("Plan profile " + row.profile().name(), false,
             context -> profiles.plan(profileId, applied, ownership), plan -> {
@@ -97,19 +109,25 @@ public final class ProfilesPresenter {
                     view.showNotice("Not activated: the profile needs a server restart, which was not confirmed.");
                     return;
                 }
-                store(row, applied, ownership, restart, confirmed);
+                store(row, snapshot, restart, confirmed);
             }, error -> {
                 setBusy(false);
                 view.showFailure("Plan profile", error);
             });
     }
 
-    private void store(ProfileRow row, ServerSettings applied, RuntimeOwnership ownership, boolean restartConfirmed,
+    private void store(ProfileRow row, LifecycleSnapshot planned, boolean restartConfirmed,
                        ValidityApproval approval) {
         final String id = row.profile().id();
-        jobs.submit("Activate profile " + row.profile().name(), false,
-            context -> services.profiles().activate(id, applied, ownership, restartConfirmed, approval,
-                context.cancellation()), plan -> {
+        final RuntimeOwnership ownership = planned.ownership();
+        jobs.submit("Activate profile " + row.profile().name(), false, context -> {
+            // The plan and the confirmations were based on this lifecycle state; never commit against another one.
+            if (!planned.equals(LifecycleSnapshot.capture(services.serverLifecycle()))) {
+                throw new OperationException(ErrorKind.INVALID_STATE, SERVER_CHANGED);
+            }
+            return services.profiles().activate(id, planned.applied(), ownership, restartConfirmed, approval,
+                context.cancellation());
+        }, plan -> {
                 if (plan.mode() == ActivationMode.RESTART_OWNED_SERVER) {
                     restart(row, plan);
                 } else {
@@ -183,21 +201,6 @@ public final class ProfilesPresenter {
         return result;
     }
 
-    private ServerStatus currentStatus() {
-        return services.serverLifecycle() == null ? null : services.serverLifecycle().status();
-    }
-
-    /**
-     * Settings the plan compares against: those of the running owned server. For an external or no server the
-     * applied settings are unknown, so Ollama's defaults stand in; the plan mode for those cases never restarts.
-     */
-    private ServerSettings appliedSettings(ServerStatus status) {
-        ServerLifecycleService lifecycle = services.serverLifecycle();
-        ServerSettings applied = lifecycle == null ? null : lifecycle.appliedSettings();
-        return status != null && status.ownership() == RuntimeOwnership.OWNED && applied != null
-            ? applied : ServerSettings.defaults();
-    }
-
     private ProfileRow find(String profileId) {
         for (ProfileRow row : rows) {
             if (row.profile().id().equals(profileId)) {
@@ -214,5 +217,66 @@ public final class ProfilesPresenter {
     private void setBusy(boolean value) {
         busy = value;
         view.setBusy(value);
+    }
+
+    /**
+     * The lifecycle state an activation is planned against. A FAILED owned process no longer runs, so it counts
+     * as no server; its last settings are not the applied ones. For an external or no server the applied settings
+     * are unknown, so Ollama's defaults stand in; the plan mode for those cases never restarts.
+     */
+    static final class LifecycleSnapshot {
+        private final ServerState state;
+        private final RuntimeOwnership ownership;
+        private final ServerSettings applied;
+        private final OllamaInstallation installation;
+
+        private LifecycleSnapshot(ServerState state, RuntimeOwnership ownership, ServerSettings applied,
+                                  OllamaInstallation installation) {
+            this.state = state;
+            this.ownership = ownership;
+            this.applied = applied;
+            this.installation = installation;
+        }
+
+        static LifecycleSnapshot capture(ServerLifecycleService lifecycle) {
+            if (lifecycle == null) {
+                return new LifecycleSnapshot(ServerState.STOPPED, RuntimeOwnership.NONE, ServerSettings.defaults(),
+                    null);
+            }
+            ServerStatus status = lifecycle.status();
+            ServerSettings settings = lifecycle.appliedSettings();
+            boolean running = status.state() == ServerState.RUNNING;
+            RuntimeOwnership ownership = running ? status.ownership() : RuntimeOwnership.NONE;
+            ServerSettings applied = running && ownership == RuntimeOwnership.OWNED && settings != null
+                ? settings : ServerSettings.defaults();
+            return new LifecycleSnapshot(status.state(), ownership, applied, status.installation());
+        }
+
+        boolean inTransition() {
+            return state == ServerState.STARTING || state == ServerState.STOPPING;
+        }
+
+        RuntimeOwnership ownership() {
+            return ownership;
+        }
+
+        ServerSettings applied() {
+            return applied;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof LifecycleSnapshot)) {
+                return false;
+            }
+            LifecycleSnapshot that = (LifecycleSnapshot) other;
+            return state == that.state && ownership == that.ownership && applied.equals(that.applied)
+                && (installation == null ? that.installation == null : installation.equals(that.installation));
+        }
+
+        @Override
+        public int hashCode() {
+            return state.hashCode() * 31 + ownership.hashCode();
+        }
     }
 }
