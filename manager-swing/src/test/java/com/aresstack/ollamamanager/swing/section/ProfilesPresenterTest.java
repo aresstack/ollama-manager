@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.application.profile.ProfileValidity;
@@ -43,11 +44,13 @@ public class ProfilesPresenterTest {
     private static final ProfileEnvironment.Snapshot UNKNOWN = new ProfileEnvironment.Snapshot(null, null, null);
 
     private final RecordingView view = new RecordingView();
+    private final LifecycleLock lock = new LifecycleLock();
     private ProfileEnvironment.Snapshot environment = MATCHING;
+    private int captures;
 
     @Test
     public void rowsCarryTheApplicationLayersValidity() throws Exception {
-        ProfilesPresenter presenter = presenter(services(TestServices.stoppedLifecycle(), ServerSettings.defaults()));
+        ProfilesPresenter presenter = presenter(services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults()));
 
         assertEquals(ProfileValidity.Result.VALID, view.rows.get(0).validity().result());
 
@@ -60,7 +63,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void validProfileIsActivatedWithoutValidityQuestion() throws Exception {
-        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
         presenter(services).activate("p1");
 
         assertEquals(0, view.unverifiedQuestions);
@@ -70,7 +73,7 @@ public class ProfilesPresenterTest {
     @Test
     public void confirmedOutdatedProfileIsActivatedWithApproval() throws Exception {
         environment = OUTDATED;
-        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
         presenter(services).activate("p1");
 
         assertEquals(1, view.unverifiedQuestions);
@@ -80,7 +83,7 @@ public class ProfilesPresenterTest {
     @Test
     public void approvalIsRejectedWhenEnvironmentChangedSinceConfirmation() throws Exception {
         environment = OUTDATED;
-        ConsoleServices services = services(TestServices.stoppedLifecycle(), ServerSettings.defaults());
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
         ProfilesPresenter presenter = presenter(services);
         environment = UNKNOWN;
 
@@ -94,7 +97,7 @@ public class ProfilesPresenterTest {
     @Test
     public void unverifiedProfileIsNotActivatedWithoutConfirmation() throws Exception {
         environment = UNKNOWN;
-        ConsoleServices services = services(null, ServerSettings.defaults());
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
         ProfilesPresenter presenter = presenter(services);
         view.acceptUnverified = false;
 
@@ -106,7 +109,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void confirmedProfileWithoutServerAppliesOnNextStart() throws Exception {
-        ConsoleServices services = services(TestServices.stoppedLifecycle(),
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock),
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = presenter(services);
 
@@ -121,7 +124,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void declinedRestartStoresNothingAndKeepsServerRunning() throws Exception {
-        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = presenter(services);
@@ -137,7 +140,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void confirmedRestartActivatesAndRestartsOwnedServer() throws Exception {
-        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = presenter(services);
@@ -151,7 +154,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void externalServerIsNeverRestarted() throws Exception {
-        ServerLifecycleService lifecycle = TestServices.externalLifecycle();
+        ServerLifecycleService lifecycle = TestServices.externalLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = presenter(services);
@@ -166,7 +169,7 @@ public class ProfilesPresenterTest {
 
     @Test
     public void externalServerWithDefaultProfileIsNotReportedAsMatching() throws Exception {
-        ConsoleServices services = services(TestServices.externalLifecycle(), ServerSettings.defaults());
+        ConsoleServices services = services(TestServices.externalLifecycle(lock), ServerSettings.defaults());
         ProfilesPresenter presenter = presenter(services);
 
         presenter.activate("p1");
@@ -177,7 +180,7 @@ public class ProfilesPresenterTest {
     @Test
     public void cancelledRestartReleasesBusyState() throws Exception {
         List<Runnable> pending = new ArrayList<Runnable>();
-        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = new ProfilesPresenter(services,
@@ -188,18 +191,18 @@ public class ProfilesPresenterTest {
 
         presenter.activate("p1");
         pending.remove(0).run();
-        pending.remove(0).run();
         assertTrue(presenter.isBusy());
         view.tracked.cancel();
         pending.remove(0).run();
 
         assertFalse(presenter.isBusy());
-        assertTrue(view.notices.contains(ProfilesPresenter.RESTART_CANCELLED));
+        assertTrue(view.notices.contains(ProfilesPresenter.ACTIVATION_CANCELLED));
+        assertNull(services.configuration().current().activeProfileId());
     }
 
     @Test
     public void failedOwnedServerCountsAsNotRunning() throws Exception {
-        ServerLifecycleService lifecycle = TestServices.crashedLifecycle();
+        ServerLifecycleService lifecycle = TestServices.crashedLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         presenter(services).activate("p1");
@@ -213,7 +216,7 @@ public class ProfilesPresenterTest {
     @Test
     public void lifecycleChangeAfterPlanningStoresNothing() throws Exception {
         List<Runnable> pending = new ArrayList<Runnable>();
-        ServerLifecycleService lifecycle = TestServices.runningLifecycle();
+        ServerLifecycleService lifecycle = TestServices.runningLifecycle(lock);
         ConsoleServices services = services(lifecycle,
             ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4));
         ProfilesPresenter presenter = new ProfilesPresenter(services,
@@ -229,8 +232,22 @@ public class ProfilesPresenterTest {
         pending.remove(0).run();
 
         assertNull(services.configuration().current().activeProfileId());
-        assertTrue(view.notices.get(view.notices.size() - 1).contains(ProfilesPresenter.SERVER_CHANGED));
+        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("failure:Activate profile:"));
         assertFalse(presenter.isBusy());
+    }
+
+    @Test
+    public void refreshCapturesTheEnvironmentOnceForAllProfiles() throws Exception {
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
+        services.configuration().update(current -> current.withProfile(new ModelProfile("p2", "Code", 1,
+            new ProfileScope(MODEL, GPU, "0.1.0", "code"), ServerSettings.defaults(),
+            new ModelOptions(4096, null, null, null))));
+        captures = 0;
+
+        presenter(services);
+
+        assertEquals(2, view.rows.size());
+        assertEquals(1, captures);
     }
 
     private ProfilesPresenter presenter(ConsoleServices services) {
@@ -245,8 +262,10 @@ public class ProfilesPresenterTest {
         ConsoleServices base = TestServices.builder().build();
         base.configuration().update(current -> current.withProfile(profile(profileSettings)));
         return ConsoleServices.builder(base.configuration()).serverLifecycle(lifecycle)
-            .profiles(new ProfileActivationService(base.configuration(),
-                cancellation -> environment)).build();
+            .profiles(new ProfileActivationService(base.configuration(), cancellation -> {
+                captures++;
+                return environment;
+            }, lifecycle, lock)).build();
     }
 
     private static ModelProfile profile(ServerSettings settings) {

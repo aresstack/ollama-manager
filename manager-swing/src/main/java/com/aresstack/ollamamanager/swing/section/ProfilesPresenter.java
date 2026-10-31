@@ -1,20 +1,12 @@
 package com.aresstack.ollamamanager.swing.section;
 
-import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileValidity;
 import com.aresstack.ollamamanager.application.profile.ValidityApproval;
-import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.profile.ActivationMode;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
-import com.aresstack.ollamamanager.domain.profile.ProfileActivationPlan;
-import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
-import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
-import com.aresstack.ollamamanager.domain.server.ServerState;
-import com.aresstack.ollamamanager.domain.server.ServerSettings;
-import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobContext;
 import com.aresstack.ollamamanager.swing.job.JobState;
@@ -22,22 +14,22 @@ import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Lists profiles with the application layer's validity evaluation (model digest, GPU fingerprint, Ollama
  * version) and activates them through {@link ProfileActivationService}. Outdated or unverifiable profiles are
  * activated only after an explicit confirmation that lists every finding; the confirmation is passed to the
- * service as a {@link ValidityApproval}, which re-checks it at activation time. The owned server is restarted only after the
- * user confirmed it; an external server's lifecycle is never touched.
+ * service as a {@link ValidityApproval}, which re-checks it at activation time. The service reads the server
+ * state itself and restarts the owned server, under the lifecycle lock, only after the user confirmed it; an
+ * external server's lifecycle is never touched.
  */
 public final class ProfilesPresenter {
 
     static final String NOT_WIRED = "Profiles are not connected in this build.";
-    static final String SERVER_IN_TRANSITION = "The server is starting or stopping. Activate the profile once it"
-        + " is running or stopped.";
-    static final String SERVER_CHANGED = "The server changed while the activation was being planned. Nothing was"
-        + " stored; activate the profile again.";
 
     private final ConsoleServices services;
     private final JobManager jobs;
@@ -93,83 +85,88 @@ public final class ProfilesPresenter {
                 validity.findings());
         }
         final ValidityApproval confirmed = approval;
-        final LifecycleSnapshot snapshot = LifecycleSnapshot.capture(services.serverLifecycle());
-        if (snapshot.inTransition()) {
-            view.showNotice(SERVER_IN_TRANSITION);
-            return;
-        }
-        final ServerSettings applied = snapshot.applied();
-        final RuntimeOwnership ownership = snapshot.ownership();
         setBusy(true);
-        jobs.submit("Plan profile " + row.profile().name(), false,
-            context -> profiles.plan(profileId, applied, ownership), plan -> {
-                boolean restart = plan.mode() == ActivationMode.RESTART_OWNED_SERVER;
-                if (restart && !view.confirmRestart(row, plan)) {
-                    setBusy(false);
-                    view.showNotice("Not activated: the profile needs a server restart, which was not confirmed.");
-                    return;
-                }
-                store(row, snapshot, restart, confirmed);
-            }, error -> {
+        // The service reads the server state itself; STARTING or STOPPING fails here with INVALID_STATE.
+        jobs.submit("Plan profile " + row.profile().name(), false, context -> profiles.plan(profileId), plan -> {
+            boolean restart = plan.mode() == ActivationMode.RESTART_OWNED_SERVER;
+            if (restart && !view.confirmRestart(row, plan)) {
                 setBusy(false);
-                view.showFailure("Plan profile", error);
-            });
+                view.showNotice("Not activated: the profile needs a server restart, which was not confirmed.");
+                return;
+            }
+            commit(row, plan.mode(), restart, confirmed);
+        }, error -> {
+            setBusy(false);
+            view.showFailure("Plan profile", error);
+        });
     }
 
-    private void store(ProfileRow row, LifecycleSnapshot planned, boolean restartConfirmed,
-                       ValidityApproval approval) {
+    /**
+     * Store the profile and, for a confirmed restart, restart the owned server, all in one application call under
+     * the lifecycle lock. It fails with INVALID_STATE if the server state no longer yields the confirmed mode.
+     */
+    private void commit(ProfileRow row, ActivationMode confirmedMode, boolean restartConfirmed,
+                        ValidityApproval approval) {
         final String id = row.profile().id();
-        final RuntimeOwnership ownership = planned.ownership();
-        jobs.submit("Activate profile " + row.profile().name(), false, context -> {
-            // The plan and the confirmations were based on this lifecycle state; never commit against another one.
-            if (!planned.equals(LifecycleSnapshot.capture(services.serverLifecycle()))) {
-                throw new OperationException(ErrorKind.INVALID_STATE, SERVER_CHANGED);
+        // Set in the background when activation ends without success; read on the UI thread afterwards.
+        final AtomicBoolean storedBeforeFailure = new AtomicBoolean();
+        Job job = jobs.submit("Activate profile " + row.profile().name(), restartConfirmed, context -> {
+            try {
+                return services.profiles().activate(id, confirmedMode, restartConfirmed, approval,
+                    context.cancellation());
+            } catch (Exception e) {
+                storedBeforeFailure.set(isActive(id));
+                throw e;
             }
-            return services.profiles().activate(id, planned.applied(), ownership, restartConfirmed, approval,
-                context.cancellation());
         }, plan -> {
-                if (plan.mode() == ActivationMode.RESTART_OWNED_SERVER) {
-                    restart(row, plan);
+                setBusy(false);
+                view.showNotice(outcomeNotice(plan.mode()));
+                refresh();
+            }, error -> {
+                setBusy(false);
+                if (restartConfirmed && storedBeforeFailure.get()) {
+                    // The profile is stored before the restart, so only the restart failed.
+                    view.showNotice(RESTART_FAILED);
+                    view.showFailure("Restart server", error);
                 } else {
+                    view.showFailure("Activate profile", error);
+                }
+                refresh();
+            });
+        if (restartConfirmed) {
+            job.addListener(current -> {
+                if (current.state() == JobState.CANCELLED && busy) {
                     setBusy(false);
-                    // Applied settings of an external server are unknown; never report them as matching.
-                    view.showNotice(ownership == RuntimeOwnership.EXTERNAL ? EXTERNAL_NOTICE : noticeFor(plan.mode()));
+                    view.showNotice(storedBeforeFailure.get() ? RESTART_CANCELLED : ACTIVATION_CANCELLED);
                     refresh();
                 }
-            }, error -> {
-                setBusy(false);
-                view.showFailure("Activate profile", error);
-                refresh();
             });
+            view.trackJob(job);
+        }
     }
 
-    private void restart(ProfileRow row, ProfileActivationPlan plan) {
-        final ServerLifecycleService lifecycle = services.serverLifecycle();
-        Job job = jobs.submit("Restart server for " + row.profile().name(), true,
-            (JobContext context) -> lifecycle.restart(plan.targetSettings(), context.cancellation()), status -> {
-                setBusy(false);
-                view.showNotice("Profile active. The server was restarted with the profile's settings.");
-                refresh();
-            }, error -> {
-                setBusy(false);
-                view.showNotice(RESTART_FAILED);
-                view.showFailure("Restart server", error);
-                refresh();
-            });
-        job.addListener(current -> {
-            if (current.state() == JobState.CANCELLED && busy) {
-                setBusy(false);
-                view.showNotice(RESTART_CANCELLED);
-                refresh();
-            }
-        });
-        view.trackJob(job);
+    /** Read in the background only; an unreadable configuration counts as not stored. */
+    private boolean isActive(String profileId) {
+        try {
+            return profileId.equals(services.configuration().current().activeProfileId());
+        } catch (OperationException e) {
+            return false;
+        }
+    }
+
+    static String outcomeNotice(ActivationMode mode) {
+        if (mode == ActivationMode.RESTART_OWNED_SERVER) {
+            return "Profile active. The server was restarted with the profile's settings.";
+        }
+        // Applied settings of an external server are unknown; never report them as matching.
+        return mode == ActivationMode.CANNOT_APPLY_TO_EXTERNAL ? EXTERNAL_NOTICE : noticeFor(mode);
     }
 
     static final String RESTART_FAILED = "Profile stored as active, but the restart failed. The server does not"
         + " use the profile's settings yet.";
     static final String RESTART_CANCELLED = "Restart cancelled. The profile is stored as active, but the server"
         + " may be stopped and does not use the profile's settings. Check the dashboard.";
+    static final String ACTIVATION_CANCELLED = "Activation cancelled. Nothing was stored.";
     static final String EXTERNAL_NOTICE = "Profile stored as active. The external server is not changed, and its"
         + " actual settings are unknown, so the manager cannot apply or verify the profile's server settings.";
 
@@ -187,16 +184,16 @@ public final class ProfilesPresenter {
         }
     }
 
-    /** Ask the application layer for each profile's validity; the UI does not judge validity itself. */
+    /** Ask the application layer for all validities against one environment capture; the UI does not judge. */
     private List<ProfileRow> loadRows(JobContext context) throws Exception {
-        ManagerConfiguration configuration = services.configuration().current();
         ProfileActivationService profiles = services.profiles();
+        Map<String, ProfileValidity> validities = profiles == null
+            ? Collections.<String, ProfileValidity>emptyMap() : profiles.validities(context.cancellation());
+        ManagerConfiguration configuration = services.configuration().current();
         List<ProfileRow> result = new ArrayList<ProfileRow>();
         for (ModelProfile profile : configuration.profiles()) {
-            context.cancellation().throwIfCancelled();
-            ProfileValidity validity = profiles == null ? null
-                : profiles.validity(profile.id(), context.cancellation());
-            result.add(new ProfileRow(profile, validity, profile.id().equals(configuration.activeProfileId())));
+            result.add(new ProfileRow(profile, validities.get(profile.id()),
+                profile.id().equals(configuration.activeProfileId())));
         }
         return result;
     }
@@ -217,66 +214,5 @@ public final class ProfilesPresenter {
     private void setBusy(boolean value) {
         busy = value;
         view.setBusy(value);
-    }
-
-    /**
-     * The lifecycle state an activation is planned against. A FAILED owned process no longer runs, so it counts
-     * as no server; its last settings are not the applied ones. For an external or no server the applied settings
-     * are unknown, so Ollama's defaults stand in; the plan mode for those cases never restarts.
-     */
-    static final class LifecycleSnapshot {
-        private final ServerState state;
-        private final RuntimeOwnership ownership;
-        private final ServerSettings applied;
-        private final OllamaInstallation installation;
-
-        private LifecycleSnapshot(ServerState state, RuntimeOwnership ownership, ServerSettings applied,
-                                  OllamaInstallation installation) {
-            this.state = state;
-            this.ownership = ownership;
-            this.applied = applied;
-            this.installation = installation;
-        }
-
-        static LifecycleSnapshot capture(ServerLifecycleService lifecycle) {
-            if (lifecycle == null) {
-                return new LifecycleSnapshot(ServerState.STOPPED, RuntimeOwnership.NONE, ServerSettings.defaults(),
-                    null);
-            }
-            ServerStatus status = lifecycle.status();
-            ServerSettings settings = lifecycle.appliedSettings();
-            boolean running = status.state() == ServerState.RUNNING;
-            RuntimeOwnership ownership = running ? status.ownership() : RuntimeOwnership.NONE;
-            ServerSettings applied = running && ownership == RuntimeOwnership.OWNED && settings != null
-                ? settings : ServerSettings.defaults();
-            return new LifecycleSnapshot(status.state(), ownership, applied, status.installation());
-        }
-
-        boolean inTransition() {
-            return state == ServerState.STARTING || state == ServerState.STOPPING;
-        }
-
-        RuntimeOwnership ownership() {
-            return ownership;
-        }
-
-        ServerSettings applied() {
-            return applied;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof LifecycleSnapshot)) {
-                return false;
-            }
-            LifecycleSnapshot that = (LifecycleSnapshot) other;
-            return state == that.state && ownership == that.ownership && applied.equals(that.applied)
-                && (installation == null ? that.installation == null : installation.equals(that.installation));
-        }
-
-        @Override
-        public int hashCode() {
-            return state.hashCode() * 31 + ownership.hashCode();
-        }
     }
 }
