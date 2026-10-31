@@ -139,7 +139,7 @@ public class ConsoleShell extends JFrame {
     }
 
     private void restoreBounds() {
-        Rectangle saved = state.bounds(WindowStateStore.virtualScreen());
+        Rectangle saved = state.bounds(WindowStateStore.screens());
         if (saved != null) {
             setBounds(saved);
         } else {
