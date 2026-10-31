@@ -78,7 +78,8 @@ public final class OllamaManagerApp {
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
             .models(models)
             .installations(installations)
-            .profiles(new ProfileActivationService(configuration, profileEnvironment))
+            .profiles(new ProfileActivationService(configuration, profileEnvironment, lifecycle,
+                lifecycleLock))
             .profileRepository(new ModelProfileRepository(configuration))
             .setup(setup)
             .build();

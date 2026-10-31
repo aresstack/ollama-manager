@@ -111,10 +111,14 @@ Unknown values are `null` (documented per getter), never guessed.
   verified GPU fingerprint (`HardwareSnapshot.verifiedGpuFingerprint()`, `null` if discovery was incomplete),
   the Ollama version queried live from the endpoint and the installed model identities; unknown values are
   `null`. Built once in the composition root.
-- `ProfileActivationService.activate(id, applied, ownership, restartConfirmed, ValidityApproval, token)`
-  re-evaluates validity under the configuration lock and rejects `OUTDATED`/`UNVERIFIED` with `INVALID_STATE`
-  unless the `ValidityApproval(profileId, revision, result, findings)` equals that evaluation. The approval is
-  separate from `restartConfirmed`. `validity(id, token)` gives the UI the evaluation to show.
+- `ProfileActivationService(ConfigurationService, ProfileEnvironment, ServerLifecycleService, LifecycleLock)`
+  reads server state and applied settings itself; callers never pass ownership or applied settings.
+  `plan(id)` and `activate(id, expectedMode, restartConfirmed, ValidityApproval, token)` reject STARTING and
+  STOPPING with `INVALID_STATE`, treat FAILED as not running and an external server's settings as unknown
+  (`CANNOT_APPLY_TO_EXTERNAL`). `activate` re-reads state and validity under the `LifecycleLock`, fails with
+  `INVALID_STATE` if the mode differs from `expectedMode`, rejects `OUTDATED`/`UNVERIFIED` unless the approval
+  equals the evaluation (findings name the exact model artifact), and runs a confirmed restart inside the same
+  lock section after storing the profile. `validities(token)` evaluates all profiles from one capture.
 - The composition root creates the single `ModelProfileRepository` and passes it via
   `ConsoleServices.profileRepository()`; the UI never creates its own.
 
