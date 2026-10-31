@@ -17,9 +17,21 @@ public final class HardwareSnapshot {
     private final int logicalProcessors;
     private final Long totalMemoryBytes;
     private final List<GpuDescriptor> gpus;
+    private final boolean gpuDiscoveryComplete;
 
+    /** Create a snapshot whose GPU list is known to be complete. */
     public HardwareSnapshot(String operatingSystem, String architecture, String cpuName, int logicalProcessors,
                             Long totalMemoryBytes, List<GpuDescriptor> gpus) {
+        this(operatingSystem, architecture, cpuName, logicalProcessors, totalMemoryBytes, gpus, true);
+    }
+
+    /**
+     * @param gpuDiscoveryComplete {@code false} if a discovery tool failed, so an empty or short GPU list may be
+     *                             incomplete and must not be read as a verified configuration
+     */
+    public HardwareSnapshot(String operatingSystem, String architecture, String cpuName, int logicalProcessors,
+                            Long totalMemoryBytes, List<GpuDescriptor> gpus, boolean gpuDiscoveryComplete) {
+        this.gpuDiscoveryComplete = gpuDiscoveryComplete;
         this.operatingSystem = Preconditions.requireNonBlank(operatingSystem, "operatingSystem");
         this.architecture = Preconditions.requireNonBlank(architecture, "architecture");
         this.cpuName = cpuName;
@@ -58,5 +70,15 @@ public final class HardwareSnapshot {
 
     public GpuFingerprint gpuFingerprint() {
         return GpuFingerprint.of(gpus);
+    }
+
+    /** Return whether every GPU discovery source answered, so the GPU list can be trusted as complete. */
+    public boolean isGpuDiscoveryComplete() {
+        return gpuDiscoveryComplete;
+    }
+
+    /** Return the fingerprint only if discovery was complete, otherwise {@code null} for "not verified". */
+    public GpuFingerprint verifiedGpuFingerprint() {
+        return gpuDiscoveryComplete ? gpuFingerprint() : null;
     }
 }

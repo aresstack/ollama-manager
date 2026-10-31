@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.application.profile;
 
+import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
@@ -20,15 +21,24 @@ import com.aresstack.ollamamanager.domain.server.ServerSettings;
 public final class ProfileActivationService {
 
     private final ConfigurationService configurations;
+    private final ProfileEnvironment environment;
 
     /**
      * @param configurations the single service instance the composition root hands to every use case
+     * @param environment    captures GPU fingerprint, Ollama version and installed models for the validity check
      */
-    public ProfileActivationService(ConfigurationService configurations) {
-        if (configurations == null) {
-            throw new IllegalArgumentException("configurations must not be null");
+    public ProfileActivationService(ConfigurationService configurations, ProfileEnvironment environment) {
+        if (configurations == null || environment == null) {
+            throw new IllegalArgumentException("configurations and environment must not be null");
         }
         this.configurations = configurations;
+        this.environment = environment;
+    }
+
+    /** Evaluate whether {@code profileId} still matches the current environment. Nothing is stored. */
+    public ProfileValidity validity(String profileId, CancellationToken cancellation) throws OperationException {
+        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
+        return ProfileValidity.evaluate(requireProfile(configurations.current(), profileId), snapshot);
     }
 
     /**
@@ -41,19 +51,32 @@ public final class ProfileActivationService {
     }
 
     /**
-     * Make {@code profileId} active and its server settings the desired settings for owned servers.
+     * Make {@code profileId} active and its server settings the desired settings for owned servers. Validity is
+     * evaluated again here, against the profile revision stored at this moment; a result shown earlier in the UI
+     * is never trusted.
      *
      * @param restartConfirmed whether the user confirmed restarting the owned server; required when the plan
      *                         is {@link ActivationMode#RESTART_OWNED_SERVER}
+     * @param approval         the user's confirmation for an outdated or unverified profile, or {@code null};
+     *                         accepted only if it equals the evaluation made now
      * @return the plan the caller must follow
-     * @throws OperationException {@code INVALID_STATE} if a needed restart was not confirmed
+     * @throws OperationException {@code INVALID_STATE} if the profile is not valid and not approved, or if a
+     *                            needed restart was not confirmed
      */
-    public ProfileActivationPlan activate(String profileId, ServerSettings applied,
-                                                       RuntimeOwnership ownership, boolean restartConfirmed)
-        throws OperationException {
+    public ProfileActivationPlan activate(String profileId, ServerSettings applied, RuntimeOwnership ownership,
+                                          boolean restartConfirmed, ValidityApproval approval,
+                                          CancellationToken cancellation) throws OperationException {
+        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
         ProfileActivationPlan[] plan = new ProfileActivationPlan[1];
         configurations.update(configuration -> {
             ModelProfile profile = requireProfile(configuration, profileId);
+            ProfileValidity validity = ProfileValidity.evaluate(profile, snapshot);
+            if (validity.result() != ProfileValidity.Result.VALID
+                && (approval == null || !approval.covers(profileId, profile.revision(), validity))) {
+                throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profileId + " revision "
+                    + profile.revision() + " is " + validity.result().label() + " " + validity.findings()
+                    + "; confirm exactly these findings to activate it anyway");
+            }
             plan[0] = ProfileActivationPlan.plan(profile, applied, ownership);
             if (plan[0].mode() == ActivationMode.RESTART_OWNED_SERVER && !restartConfirmed) {
                 throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profileId
