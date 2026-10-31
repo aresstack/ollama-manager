@@ -62,6 +62,62 @@ public class CancellationTokenTest {
     }
 
     @Test
+    public void closedRegistrationIsNotRunAndReleased() {
+        CancellationToken token = new CancellationToken();
+        AtomicInteger calls = new AtomicInteger();
+
+        CancellationToken.Registration registration = token.onCancel(calls::incrementAndGet);
+        try {
+            assertEquals(1, token.registeredCallbackCount());
+        } finally {
+            registration.close();
+        }
+        token.cancel();
+
+        assertEquals(0, token.registeredCallbackCount());
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    public void reusedTokenDoesNotAccumulateCallbacks() {
+        CancellationToken token = new CancellationToken();
+        Runnable callback = () -> { };
+
+        for (int i = 0; i < 1000; i++) {
+            CancellationToken.Registration registration = token.onCancel(callback);
+            registration.close();
+        }
+
+        assertEquals(0, token.registeredCallbackCount());
+    }
+
+    @Test
+    public void closingOneRegistrationKeepsOthersOfSameCallback() {
+        CancellationToken token = new CancellationToken();
+        AtomicInteger calls = new AtomicInteger();
+        Runnable callback = calls::incrementAndGet;
+        CancellationToken.Registration first = token.onCancel(callback);
+        token.onCancel(callback);
+
+        first.close();
+        first.close();
+        token.cancel();
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void closingAfterCancelHasNoEffect() {
+        CancellationToken token = new CancellationToken();
+        CancellationToken.Registration registration = token.onCancel(() -> { });
+        token.cancel();
+
+        registration.close();
+
+        assertEquals(0, token.registeredCallbackCount());
+    }
+
+    @Test
     public void runsLateCallbackImmediately() {
         CancellationToken token = new CancellationToken();
         token.cancel();
