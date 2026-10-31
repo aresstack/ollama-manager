@@ -141,6 +141,22 @@ public class ServerLifecycleServiceTest {
     }
 
     @Test
+    public void unexpectedStopFailureDuringRestartKeepsServiceUsable() throws Exception {
+        service.start(INSTALLED, ServerSettings.defaults(), CancellationToken.none());
+        runtime.nextStopFailure = new SecurityException("denied");
+
+        try {
+            service.restart(ServerSettings.defaults(), CancellationToken.none());
+            fail("expected SecurityException");
+        } catch (SecurityException expected) {
+            // The runtime failure propagates unchanged.
+        }
+
+        assertEquals(ServerState.RUNNING, service.status().state());
+        assertEquals(ServerState.STOPPED, service.stop().state());
+    }
+
+    @Test
     public void restartWithoutServerFails() {
         assertFails(ErrorKind.INVALID_STATE, () -> service.restart(ServerSettings.defaults(), CancellationToken.none()));
     }
@@ -198,6 +214,7 @@ public class ServerLifecycleServiceTest {
         volatile OperationException nextFailure;
         volatile CountDownLatch blockStart;
         volatile CountDownLatch startEntered;
+        volatile RuntimeException nextStopFailure;
 
         @Override
         public List<OllamaInstallation> discover(List<File> additionalDirectories, CancellationToken cancellation) {
@@ -229,6 +246,11 @@ public class ServerLifecycleServiceTest {
 
         @Override
         public void stop(ManagedServer server, long gracePeriodMillis) {
+            if (nextStopFailure != null) {
+                RuntimeException failure = nextStopFailure;
+                nextStopFailure = null;
+                throw failure;
+            }
             stops.add(server);
             ((FakeServer) server).exitCode = 0;
         }
