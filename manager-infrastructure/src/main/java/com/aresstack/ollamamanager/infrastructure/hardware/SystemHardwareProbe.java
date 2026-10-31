@@ -106,6 +106,12 @@ public final class SystemHardwareProbe implements HardwareProbePort {
         }
     }
 
+    /**
+     * Read physical memory from the JDK management bean. Newer Java 8 updates (for example Oracle 8u481)
+     * deprecate {@code getTotalPhysicalMemorySize()} in favour of {@code getTotalMemorySize()}, which older
+     * Java 8 updates do not have, so the deprecated call is the only one available on every Java 8 runtime.
+     */
+    @SuppressWarnings("deprecation")
     private static Long jvmTotalMemory() {
         OperatingSystemMXBean bean = ManagementFactory.getOperatingSystemMXBean();
         if (bean instanceof com.sun.management.OperatingSystemMXBean) {
