@@ -146,7 +146,13 @@ public final class NativeAcceptanceMain {
         try {
             runStage("readonly", this::readOnlyReference);
             runStage("hardware", this::hardware);
-            runStage("install", this::install);
+            runStage("install", () -> {
+                try {
+                    install();
+                } finally {
+                    cleanUpInstallRoot();
+                }
+            });
             runStage("process", this::process);
             runStage("models", this::models);
         } finally {
@@ -323,6 +329,39 @@ public final class NativeAcceptanceMain {
         installer.activate(installed, installRoot);
         report.check(installed.equals(installer.active(installRoot)), "re-activate newer version",
             "active=" + installer.active(installRoot));
+        service.uninstall(previous);
+        report.check(!service.installedVersions().contains(previous), "uninstall stopped non-active version",
+            "versions=" + service.installedVersions());
+    }
+
+    /** Remove every portable version and download of this run; the installed Ollama is never below it. */
+    private void cleanUpInstallRoot() {
+        runtime.stopAll(GRACE_MILLIS);
+        File root = guard.requireInsideWorkDir(installRoot);
+        if (!root.exists()) {
+            return;
+        }
+        try {
+            java.nio.file.Files.walkFileTree(root.toPath(), new java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+                @Override
+                public java.nio.file.FileVisitResult visitFile(java.nio.file.Path file,
+                                                               java.nio.file.attribute.BasicFileAttributes attributes)
+                    throws java.io.IOException {
+                    java.nio.file.Files.delete(file);
+                    return java.nio.file.FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public java.nio.file.FileVisitResult postVisitDirectory(java.nio.file.Path dir, java.io.IOException failure)
+                    throws java.io.IOException {
+                    java.nio.file.Files.delete(dir);
+                    return java.nio.file.FileVisitResult.CONTINUE;
+                }
+            });
+            report.check(!root.exists(), "clean up portable installations", "removed " + root);
+        } catch (java.io.IOException e) {
+            report.fail("clean up portable installations", root + ": " + e);
+        }
     }
 
     private OllamaInstallation timedInstall(PortableInstallationService service, String version,
