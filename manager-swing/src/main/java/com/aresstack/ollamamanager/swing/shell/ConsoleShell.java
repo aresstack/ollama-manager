@@ -4,6 +4,8 @@ import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.section.DashboardPanel;
 import com.aresstack.ollamamanager.swing.section.DashboardPresenter;
 import com.aresstack.ollamamanager.swing.section.JobsPanel;
+import com.aresstack.ollamamanager.swing.section.ModelsPanel;
+import com.aresstack.ollamamanager.swing.section.ModelsPresenter;
 import com.aresstack.ollamamanager.swing.section.PlannedSectionPanel;
 import com.aresstack.ollamamanager.swing.section.ServerSettingsPanel;
 
@@ -59,9 +61,7 @@ public class ConsoleShell extends JFrame {
         panels.put(Section.SETUP, new PlannedSectionPanel(Section.SETUP,
             "Setup wizard: detect an existing Ollama or install a portable version with progress and Cancel."
                 + " Connected in the next step."));
-        panels.put(Section.MODELS, new PlannedSectionPanel(Section.MODELS,
-            "Model library: inventory, pull with progress, preload, unload and confirmed delete."
-                + " Connected in the next step."));
+        panels.put(Section.MODELS, new ModelsPanel(new ModelsPresenter(services, jobs)));
         panels.put(Section.SERVER_SETTINGS, new ServerSettingsPanel(services, jobs));
         panels.put(Section.PROFILES, new PlannedSectionPanel(Section.PROFILES,
             "Model profiles: scenario presets, activation plan and restart notice. Connected in the next step."));
