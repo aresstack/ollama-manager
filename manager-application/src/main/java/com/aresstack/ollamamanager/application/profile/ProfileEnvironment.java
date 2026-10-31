@@ -6,9 +6,11 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.port.HardwareProbePort;
+import com.aresstack.ollamamanager.application.port.OllamaApiPort;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
 import com.aresstack.ollamamanager.domain.model.ModelIdentity;
+import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 
@@ -26,15 +28,20 @@ public interface ProfileEnvironment {
     /** Capture the current environment; only cancellation propagates, every other failure yields unknowns. */
     Snapshot capture(CancellationToken cancellation) throws OperationCancelledException;
 
-    /** Build the environment from the hardware probe, the server lifecycle and the model inventory. */
-    static ProfileEnvironment live(HardwareProbePort hardware, ServerLifecycleService lifecycle, ModelService models) {
-        if (hardware == null || lifecycle == null || models == null) {
-            throw new IllegalArgumentException("hardware, lifecycle and models must not be null");
+    /**
+     * Build the environment from the hardware probe, the server lifecycle and the model inventory. The server
+     * version is queried from the endpoint on every capture, because an attached external server can be
+     * upgraded behind the manager's back; the version cached at attach time is never trusted.
+     */
+    static ProfileEnvironment live(HardwareProbePort hardware, ServerLifecycleService lifecycle, ModelService models,
+                                   OllamaApiPort api) {
+        if (hardware == null || lifecycle == null || models == null || api == null) {
+            throw new IllegalArgumentException("hardware, lifecycle, models and api must not be null");
         }
         return cancellation -> {
             GpuFingerprint fingerprint;
             try {
-                fingerprint = hardware.probe(cancellation).gpuFingerprint();
+                fingerprint = hardware.probe(cancellation).verifiedGpuFingerprint();
             } catch (OperationCancelledException e) {
                 throw e;
             } catch (OperationException e) {
@@ -44,10 +51,19 @@ public interface ProfileEnvironment {
             if (status.state() != ServerState.RUNNING || status.installation() == null) {
                 return new Snapshot(fingerprint, null, null);
             }
+            Endpoint endpoint = status.installation().endpoint();
+            String version;
+            try {
+                version = api.version(endpoint, cancellation);
+            } catch (OperationCancelledException e) {
+                throw e;
+            } catch (OperationException e) {
+                version = null;
+            }
             List<ModelIdentity> installed;
             try {
                 installed = new ArrayList<ModelIdentity>();
-                for (ModelEntry entry : models.inventory(status.installation().endpoint(), cancellation)) {
+                for (ModelEntry entry : models.inventory(endpoint, cancellation)) {
                     if (entry.isInstalled()) {
                         installed.add(entry.identity());
                     }
@@ -57,7 +73,7 @@ public interface ProfileEnvironment {
             } catch (OperationException e) {
                 installed = null;
             }
-            return new Snapshot(fingerprint, status.reportedVersion(), installed);
+            return new Snapshot(fingerprint, version, installed);
         };
     }
 

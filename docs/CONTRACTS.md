@@ -107,7 +107,8 @@ Unknown values are `null` (documented per getter), never guessed.
 
 - `ProfileValidity.evaluate(profile, ProfileEnvironment.Snapshot)` returns `VALID`, `OUTDATED` or `UNVERIFIED`
   plus findings; anything not verifiable is a finding, never valid.
-- `ProfileEnvironment.live(HardwareProbePort, ServerLifecycleService, ModelService)` captures GPU fingerprint,
+- `ProfileEnvironment.live(HardwareProbePort, ServerLifecycleService, ModelService, OllamaApiPort)` captures the
+  verified GPU fingerprint (`HardwareSnapshot.verifiedGpuFingerprint()`, `null` if discovery was incomplete), the version queried live from the endpoint,
   running Ollama version and installed model identities; unknown values are `null`. Built once in the
   composition root.
 - `ProfileActivationService.activate(id, applied, ownership, restartConfirmed, ValidityApproval, token)`
