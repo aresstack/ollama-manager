@@ -298,6 +298,56 @@ public class PortableDistributionInstallerTest {
         return (Integer) count.invoke(token);
     }
 
+    @Test(timeout = 10000)
+    public void cancelFromAnotherThreadReturnsPromptlyWhileReadIsBlocked() throws Exception {
+        byte[] zip = base("v0.12.6");
+        OllamaRelease release = publish("v0.12.6", zip);
+        java.util.concurrent.CountDownLatch blocked = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch unblock = new java.util.concurrent.CountDownLatch(1);
+        server.route("/ollama/ollama/releases/download/v0.12.6/ollama-windows-amd64.zip", exchange -> {
+            exchange.sendResponseHeaders(200, zip.length);
+            OutputStream out = exchange.getResponseBody();
+            out.write(zip, 0, 10);
+            out.flush();
+            blocked.countDown();
+            try {
+                unblock.await(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        PortableDistributionInstaller slow = new PortableDistributionInstaller(
+            new HttpTransport(server.resolver(), 2000, 60000), WINDOWS, directory -> freeBytes.get());
+        CancellationToken token = new CancellationToken();
+        java.util.concurrent.atomic.AtomicReference<Throwable> outcome =
+            new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Thread worker = new Thread(() -> {
+            try {
+                slow.install(release, BASE, root, ignore(), token);
+            } catch (Throwable t) {
+                outcome.set(t);
+            }
+        });
+        worker.start();
+        try {
+            blocked.await();
+            Thread.sleep(200);
+            long started = System.nanoTime();
+            token.cancel();
+            long cancelMillis = (System.nanoTime() - started) / 1000000;
+            worker.join(5000);
+            long totalMillis = (System.nanoTime() - started) / 1000000;
+
+            assertTrue("cancel() took " + cancelMillis + " ms", cancelMillis < 1000);
+            assertFalse("worker still blocked after " + totalMillis + " ms", worker.isAlive());
+            assertTrue(String.valueOf(outcome.get()),
+                outcome.get() instanceof com.aresstack.ollamamanager.application.common.OperationCancelledException);
+            assertEquals(0, new File(root, "downloads").list().length);
+        } finally {
+            unblock.countDown();
+        }
+    }
+
     @Test
     public void cancellationRemovesPartialResults() throws Exception {
         byte[] zip = base("v0.12.6");

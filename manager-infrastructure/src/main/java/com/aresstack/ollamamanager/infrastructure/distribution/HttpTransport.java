@@ -4,22 +4,25 @@ import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import okhttp3.Call;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Minimal HTTP GET client with timeouts, a bounded number of https-only redirects and cancellation that
- * aborts blocking reads by disconnecting.
+ * Minimal HTTP GET client on OkHttp with timeouts and a bounded number of https-only redirects. Cancellation
+ * calls {@link Call#cancel()}, which returns immediately and makes a blocked read fail, so cancelling from the
+ * Swing event dispatch thread never waits for the read timeout.
  */
 public final class HttpTransport {
 
@@ -27,13 +30,16 @@ public final class HttpTransport {
     private static final String USER_AGENT = "aresstack-ollama-manager";
 
     private final UrlResolver resolver;
-    private final int connectTimeoutMillis;
-    private final int readTimeoutMillis;
+    private final OkHttpClient client;
 
     public HttpTransport(UrlResolver resolver, int connectTimeoutMillis, int readTimeoutMillis) {
         this.resolver = resolver;
-        this.connectTimeoutMillis = connectTimeoutMillis;
-        this.readTimeoutMillis = readTimeoutMillis;
+        this.client = new OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
+            .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
+            .build();
     }
 
     public static HttpTransport defaults() {
@@ -42,49 +48,34 @@ public final class HttpTransport {
 
     /** An open response; the caller must close it. */
     public static final class Response implements AutoCloseable {
-        private final HttpURLConnection connection;
-        private final int status;
-        private final InputStream body;
+        private final okhttp3.Response response;
         private final CancellationToken.Registration registration;
 
-        Response(HttpURLConnection connection, int status, InputStream body,
-                 CancellationToken.Registration registration) {
-            this.connection = connection;
-            this.status = status;
-            this.body = body;
+        Response(okhttp3.Response response, CancellationToken.Registration registration) {
+            this.response = response;
             this.registration = registration;
         }
 
         public int status() {
-            return status;
+            return response.code();
         }
 
         public String header(String name) {
-            return connection.getHeaderField(name);
+            return response.header(name);
         }
 
         /** Return the declared body length, or {@code -1} if unknown. */
         public long contentLength() {
-            String value = connection.getHeaderField("Content-Length");
-            try {
-                return value == null ? -1 : Long.parseLong(value.trim());
-            } catch (NumberFormatException e) {
-                return -1;
-            }
+            return response.body() == null ? -1 : response.body().contentLength();
         }
 
         public InputStream body() {
-            return body;
+            return response.body().byteStream();
         }
 
         @Override
         public void close() {
-            try {
-                body.close();
-            } catch (IOException ignored) {
-                // Disconnect below releases the socket anyway.
-            }
-            connection.disconnect();
+            response.close();
             registration.close();
         }
     }
@@ -99,19 +90,19 @@ public final class HttpTransport {
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             cancellation.throwIfCancelled();
             requireHttps(current);
-            HttpURLConnection connection = open(current, headers);
-            CancellationToken.Registration registration = cancellation.onCancel(connection::disconnect);
+            Call call = client.newCall(request(current, headers));
+            CancellationToken.Registration registration = cancellation.onCancel(call::cancel);
+            okhttp3.Response response = null;
             boolean handedOver = false;
             try {
-                int status;
                 try {
-                    status = connection.getResponseCode();
-                } catch (IOException | RuntimeException e) {
-                    // JDK 8 may throw a RuntimeException when another thread disconnects to cancel.
+                    response = call.execute();
+                } catch (IOException e) {
                     throw failure(e, current, cancellation);
                 }
+                int status = response.code();
                 if (status >= 300 && status < 400 && status != 304) {
-                    String location = connection.getHeaderField("Location");
+                    String location = response.header("Location");
                     if (location == null) {
                         throw new OperationException(ErrorKind.HTTP_ERROR, "redirect without Location from " + current);
                     }
@@ -122,17 +113,13 @@ public final class HttpTransport {
                     throw new OperationException(status == 404 ? ErrorKind.NOT_FOUND : ErrorKind.HTTP_ERROR,
                         "HTTP " + status + " from " + current);
                 }
-                InputStream body;
-                try {
-                    body = connection.getInputStream();
-                } catch (IOException | RuntimeException e) {
-                    throw failure(e, current, cancellation);
-                }
                 handedOver = true;
-                return new Response(connection, status, body, registration);
+                return new Response(response, registration);
             } finally {
                 if (!handedOver) {
-                    connection.disconnect();
+                    if (response != null) {
+                        response.close();
+                    }
                     registration.close();
                 }
             }
@@ -148,7 +135,8 @@ public final class HttpTransport {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int read;
-            while ((read = response.body().read(buffer)) != -1) {
+            InputStream in = response.body();
+            while ((read = in.read(buffer)) != -1) {
                 out.write(buffer, 0, read);
                 if (out.size() > maxBytes) {
                     throw new OperationException(ErrorKind.HTTP_ERROR, "response too large from " + url);
@@ -180,20 +168,16 @@ public final class HttpTransport {
         return new OperationException(ErrorKind.CONNECTION_FAILED, "cannot read " + url + ": " + e.getMessage(), e);
     }
 
-    private HttpURLConnection open(String publicUrl, Map<String, String> headers) throws OperationException {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(resolver.resolve(publicUrl)).openConnection();
-            connection.setInstanceFollowRedirects(false);
-            connection.setConnectTimeout(connectTimeoutMillis);
-            connection.setReadTimeout(readTimeoutMillis);
-            connection.setRequestProperty("User-Agent", USER_AGENT);
-            for (Map.Entry<String, String> header : headers.entrySet()) {
-                connection.setRequestProperty(header.getKey(), header.getValue());
-            }
-            return connection;
-        } catch (IOException e) {
-            throw new OperationException(ErrorKind.CONNECTION_FAILED, "cannot open " + publicUrl, e);
+    private Request request(String publicUrl, Map<String, String> headers) throws OperationException {
+        HttpUrl resolved = HttpUrl.parse(resolver.resolve(publicUrl));
+        if (resolved == null) {
+            throw new OperationException(ErrorKind.HTTP_ERROR, "invalid URL " + publicUrl);
         }
+        Request.Builder builder = new Request.Builder().url(resolved).get().header("User-Agent", USER_AGENT);
+        for (Map.Entry<String, String> header : headers.entrySet()) {
+            builder.header(header.getKey(), header.getValue());
+        }
+        return builder.build();
     }
 
     private static void requireHttps(String url) throws OperationException {
@@ -203,10 +187,11 @@ public final class HttpTransport {
     }
 
     private static String absolute(String base, String location) throws OperationException {
-        try {
-            return new URL(new URL(base), location).toString();
-        } catch (MalformedURLException e) {
-            throw new OperationException(ErrorKind.HTTP_ERROR, "invalid redirect " + location, e);
+        HttpUrl baseUrl = HttpUrl.parse(base);
+        HttpUrl target = baseUrl == null ? null : baseUrl.resolve(location);
+        if (target == null) {
+            throw new OperationException(ErrorKind.HTTP_ERROR, "invalid redirect " + location);
         }
+        return target.toString();
     }
 }
