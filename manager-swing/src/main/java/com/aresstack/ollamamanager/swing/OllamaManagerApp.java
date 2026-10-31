@@ -1,15 +1,16 @@
 package com.aresstack.ollamamanager.swing;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
-import com.aresstack.ollamamanager.application.installation.InstallationUsage;
+import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
+import com.aresstack.ollamamanager.application.hardware.PackageAdvisor;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
+import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
-import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
+import com.aresstack.ollamamanager.application.setup.SetupService;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
-import com.aresstack.ollamamanager.domain.server.ServerState;
-import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
 import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistributionInstaller;
 import com.aresstack.ollamamanager.infrastructure.hardware.SystemHardwareProbe;
@@ -57,36 +58,25 @@ public final class OllamaManagerApp {
             new ConfigurationService(new JsonConfigurationRepository(dataDirectory));
         File portableRoot = new File(dataDirectory, PORTABLE_DIRECTORY);
         SystemHardwareProbe hardwareProbe = SystemHardwareProbe.forCurrentSystem();
+        HttpOllamaApiClient api = new HttpOllamaApiClient();
+        ProcessOllamaRuntime runtime = new ProcessOllamaRuntime(portableRoot);
+        LifecycleLock lifecycleLock = new LifecycleLock();
         ServerLifecycleService lifecycle =
-            new ServerLifecycleService(new ProcessOllamaRuntime(portableRoot), STOP_GRACE_PERIOD_MILLIS);
+            new ServerLifecycleService(runtime, STOP_GRACE_PERIOD_MILLIS, lifecycleLock);
         PortableInstallationService installations = new PortableInstallationService(
             GitHubReleaseCatalog.defaults(), PortableDistributionInstaller.defaults(), portableRoot,
-            usedByOwnedServer(lifecycle));
+            new OwnedServerUsage(lifecycle), lifecycleLock);
+        SetupService setup = new SetupService(runtime, api, lifecycle, hardwareProbe,
+            new PackageAdvisor(new GpuCompatibilityRules()), installations);
         return ConsoleServices.builder(configuration)
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
-            .models(new ModelService(new HttpOllamaApiClient()))
+            .models(new ModelService(api))
             .installations(installations)
             .profiles(new ProfileActivationService(configuration))
+            .setup(setup)
             .build();
-    }
-
-    /**
-     * Treat an installation as in use while the manager's own server runs from its binary directory. While a
-     * start or stop is in progress the running binary is not reliably known, so every installation counts as in
-     * use until the transition has finished.
-     */
-    static InstallationUsage usedByOwnedServer(ServerLifecycleService lifecycle) {
-        return installation -> {
-            ServerStatus status = lifecycle.status();
-            if (status.state() == ServerState.STARTING || status.state() == ServerState.STOPPING) {
-                return true;
-            }
-            OllamaInstallation running = status.installation();
-            return status.canBeStoppedByManager() && running != null && running.binaryDirectory() != null
-                && running.binaryDirectory().equals(installation.binaryDirectory());
-        };
     }
 
     /**
