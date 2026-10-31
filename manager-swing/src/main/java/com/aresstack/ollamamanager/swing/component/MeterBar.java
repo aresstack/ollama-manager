@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.component;
 
+import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.swing.JComponent;
@@ -14,7 +15,7 @@ import java.awt.RenderingHints;
  * Horizontal usage meter such as "11.2 GB / 16 GB". The fill colour turns to warning and error at the configured
  * thresholds; the caption is painted inside so the control needs no extra label.
  */
-public final class MeterBar extends JComponent {
+public final class MeterBar extends JComponent implements Accessible {
 
     private static final long serialVersionUID = 1L;
 
@@ -42,6 +43,7 @@ public final class MeterBar extends JComponent {
         this.caption = caption == null || caption.isEmpty() ? "—" : caption;
         setToolTipText(this.caption);
         getAccessibleContext().setAccessibleName(this.caption);
+        revalidate();
         repaint();
     }
 

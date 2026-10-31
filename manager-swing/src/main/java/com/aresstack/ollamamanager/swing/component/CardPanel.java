@@ -18,6 +18,7 @@ public class CardPanel extends JPanel {
     private final JLabel heading = new JLabel();
     private final JPanel header = new JPanel(new BorderLayout(Spacing.GAP, 0));
     private final JPanel body = new JPanel(new BorderLayout());
+    private JComponent trailing;
 
     public CardPanel(String title) {
         super(new BorderLayout(0, Spacing.GAP));
@@ -44,8 +45,15 @@ public class CardPanel extends JPanel {
 
     /** Place {@code component} at the right end of the heading line. */
     public final void setTrailing(JComponent component) {
-        header.add(component, BorderLayout.EAST);
+        if (trailing != null) {
+            header.remove(trailing);
+        }
+        trailing = component;
+        if (component != null) {
+            header.add(component, BorderLayout.EAST);
+        }
         header.revalidate();
+        header.repaint();
     }
 
     public final void setTitle(String title) {

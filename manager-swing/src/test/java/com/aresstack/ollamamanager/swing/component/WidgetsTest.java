@@ -77,6 +77,27 @@ public class WidgetsTest {
     }
 
     @Test
+    public void meterBarIsReachableThroughTheAccessibilityTree() {
+        javax.swing.JPanel parent = new javax.swing.JPanel();
+        MeterBar meter = new MeterBar();
+        parent.add(meter);
+        meter.show(0.5, "8 GB / 16 GB");
+        assertEquals(1, parent.getAccessibleContext().getAccessibleChildrenCount());
+        assertEquals("8 GB / 16 GB", meter.getAccessibleContext().getAccessibleName());
+    }
+
+    @Test
+    public void cardPanelReplacesTrailingComponent() {
+        CardPanel card = new CardPanel("Server");
+        JButton first = new JButton("a");
+        JButton second = new JButton("b");
+        card.setTrailing(first);
+        card.setTrailing(second);
+        assertFalse(first.getParent() != null);
+        assertTrue(second.getParent() != null);
+    }
+
+    @Test
     public void cardPanelDoesNotStretchVertically() {
         CardPanel card = new CardPanel("Server", new JButton("x"));
         card.setSize(400, 400);
