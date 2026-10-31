@@ -335,6 +335,7 @@ public class ProcessOllamaRuntimeTest {
         assertEquals(Arrays.asList(new File(portableBin, "ollama").getAbsolutePath(), "--version"),
             launched.get(0).command());
         assertEquals(3, launched.size());
+        assertEquals("127.0.0.1:1", launched.get(0).environment().get("OLLAMA_HOST"));
     }
 
     @Test
@@ -359,6 +360,8 @@ public class ProcessOllamaRuntimeTest {
     public void parsesVersionOutput() {
         assertEquals("0.12.3", ProcessOllamaRuntime.parseVersion(Collections.singletonList("ollama version is 0.12.3")));
         assertNull(ProcessOllamaRuntime.parseVersion(Collections.singletonList("command not found")));
+        assertEquals("0.40.12", ProcessOllamaRuntime.parseVersion(Arrays.asList("ollama version is 0.40.13",
+            "Warning: client version is 0.40.12")));
     }
 
     private FakeProcess startedProcess(boolean ignoresGracefulStop) {
