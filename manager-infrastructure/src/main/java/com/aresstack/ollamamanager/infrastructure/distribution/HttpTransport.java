@@ -45,11 +45,14 @@ public final class HttpTransport {
         private final HttpURLConnection connection;
         private final int status;
         private final InputStream body;
+        private final CancellationToken.Registration registration;
 
-        Response(HttpURLConnection connection, int status, InputStream body) {
+        Response(HttpURLConnection connection, int status, InputStream body,
+                 CancellationToken.Registration registration) {
             this.connection = connection;
             this.status = status;
             this.body = body;
+            this.registration = registration;
         }
 
         public int status() {
@@ -82,6 +85,7 @@ public final class HttpTransport {
                 // Disconnect below releases the socket anyway.
             }
             connection.disconnect();
+            registration.close();
         }
     }
 
@@ -96,35 +100,41 @@ public final class HttpTransport {
             cancellation.throwIfCancelled();
             requireHttps(current);
             HttpURLConnection connection = open(current, headers);
-            cancellation.onCancel(connection::disconnect);
-            int status;
+            CancellationToken.Registration registration = cancellation.onCancel(connection::disconnect);
+            boolean handedOver = false;
             try {
-                status = connection.getResponseCode();
-            } catch (IOException | RuntimeException e) {
-                // JDK 8 may throw a RuntimeException when another thread disconnects to cancel.
-                connection.disconnect();
-                throw failure(e, current, cancellation);
-            }
-            if (status >= 300 && status < 400 && status != 304) {
-                String location = connection.getHeaderField("Location");
-                connection.disconnect();
-                if (location == null) {
-                    throw new OperationException(ErrorKind.HTTP_ERROR, "redirect without Location from " + current);
+                int status;
+                try {
+                    status = connection.getResponseCode();
+                } catch (IOException | RuntimeException e) {
+                    // JDK 8 may throw a RuntimeException when another thread disconnects to cancel.
+                    throw failure(e, current, cancellation);
                 }
-                current = absolute(current, location);
-                continue;
-            }
-            if (status < 200 || status >= 300) {
-                connection.disconnect();
-                throw new OperationException(status == 404 ? ErrorKind.NOT_FOUND : ErrorKind.HTTP_ERROR,
-                    "HTTP " + status + " from " + current);
-            }
-            try {
-                return new Response(connection, status, connection.getInputStream());
-            } catch (IOException | RuntimeException e) {
-                // JDK 8 may throw a RuntimeException when another thread disconnects to cancel.
-                connection.disconnect();
-                throw failure(e, current, cancellation);
+                if (status >= 300 && status < 400 && status != 304) {
+                    String location = connection.getHeaderField("Location");
+                    if (location == null) {
+                        throw new OperationException(ErrorKind.HTTP_ERROR, "redirect without Location from " + current);
+                    }
+                    current = absolute(current, location);
+                    continue;
+                }
+                if (status < 200 || status >= 300) {
+                    throw new OperationException(status == 404 ? ErrorKind.NOT_FOUND : ErrorKind.HTTP_ERROR,
+                        "HTTP " + status + " from " + current);
+                }
+                InputStream body;
+                try {
+                    body = connection.getInputStream();
+                } catch (IOException | RuntimeException e) {
+                    throw failure(e, current, cancellation);
+                }
+                handedOver = true;
+                return new Response(connection, status, body, registration);
+            } finally {
+                if (!handedOver) {
+                    connection.disconnect();
+                    registration.close();
+                }
             }
         }
         throw new OperationException(ErrorKind.HTTP_ERROR, "more than " + MAX_REDIRECTS + " redirects for " + url);
