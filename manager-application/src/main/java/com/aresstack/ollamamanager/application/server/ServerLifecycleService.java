@@ -153,13 +153,17 @@ public final class ServerLifecycleService {
             server = owned;
             transition = ServerState.STOPPING;
         }
+        boolean stopped = false;
         try {
             runtime.stop(server, gracePeriodMillis);
-        } catch (OperationException e) {
-            synchronized (this) {
-                transition = null;
+            stopped = true;
+        } finally {
+            if (!stopped) {
+                // Keep the owned handle so the caller can retry, but never stay stuck in STOPPING.
+                synchronized (this) {
+                    transition = null;
+                }
             }
-            throw e;
         }
         synchronized (this) {
             owned = null;
