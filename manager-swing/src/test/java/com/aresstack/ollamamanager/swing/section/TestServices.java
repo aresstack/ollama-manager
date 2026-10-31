@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
@@ -48,7 +49,7 @@ final class TestServices {
 
     /** Lifecycle service without any server. */
     static ServerLifecycleService stoppedLifecycle() {
-        return new ServerLifecycleService(new FakeRuntime(), 0);
+        return new ServerLifecycleService(new FakeRuntime(), 0, new LifecycleLock());
     }
 
     /** Lifecycle service whose fake owned server is running on {@link #ENDPOINT}. */

@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.application.server;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
@@ -27,6 +28,7 @@ public final class ServerLifecycleService {
 
     private final OllamaRuntimePort runtime;
     private final long gracePeriodMillis;
+    private final LifecycleLock lock;
 
     private ServerState transition;
     private ManagedServer owned;
@@ -34,7 +36,26 @@ public final class ServerLifecycleService {
     private String externalVersion;
     private ServerStatus lastFailure;
 
+    /**
+     * Create a service with its own private lock.
+     *
+     * @deprecated a private lock does not protect against a concurrent uninstall; pass the process-wide
+     *             {@link LifecycleLock} that {@code PortableInstallationService} also uses
+     */
+    @Deprecated
     public ServerLifecycleService(OllamaRuntimePort runtime, long gracePeriodMillis) {
+        this(runtime, gracePeriodMillis, new LifecycleLock());
+    }
+
+    /**
+     * @param lock the process-wide lock shared with uninstall, so that no installation is deleted while a start,
+     *             stop or restart runs
+     */
+    public ServerLifecycleService(OllamaRuntimePort runtime, long gracePeriodMillis, LifecycleLock lock) {
+        if (lock == null) {
+            throw new IllegalArgumentException("lock must not be null");
+        }
+        this.lock = lock;
         if (runtime == null) {
             throw new IllegalArgumentException("runtime must not be null");
         }
@@ -71,7 +92,14 @@ public final class ServerLifecycleService {
      * Record a server found running that this manager did not start, for example after a port conflict. It is
      * shown but never controlled.
      */
-    public synchronized void attachExternal(OllamaInstallation installation, String reportedVersion)
+    public void attachExternal(OllamaInstallation installation, String reportedVersion) throws OperationException {
+        lock.run("attach an external server", () -> {
+            attachUnderLock(installation, reportedVersion);
+            return null;
+        });
+    }
+
+    private synchronized void attachUnderLock(OllamaInstallation installation, String reportedVersion)
         throws OperationException {
         if (installation.kind() != InstallationKind.EXTERNAL_ATTACHED) {
             throw new IllegalArgumentException("only EXTERNAL_ATTACHED installations can be attached: " + installation);
@@ -95,6 +123,11 @@ public final class ServerLifecycleService {
     /** Start an owned server; fails if a server is already running or a transition is in progress. */
     public ServerStatus start(OllamaInstallation installation, ServerSettings settings, CancellationToken cancellation)
         throws OperationException {
+        return lock.run("start the server", () -> startUnderLock(installation, settings, cancellation));
+    }
+
+    private ServerStatus startUnderLock(OllamaInstallation installation, ServerSettings settings,
+                                        CancellationToken cancellation) throws OperationException {
         if (!installation.kind().isStartableByManager()) {
             throw new OperationException(ErrorKind.NOT_OWNED, "external servers cannot be started by the manager");
         }
@@ -116,6 +149,10 @@ public final class ServerLifecycleService {
 
     /** Stop the owned server. Does nothing when no server runs; fails with {@code NOT_OWNED} for external ones. */
     public ServerStatus stop() throws OperationException {
+        return lock.run("stop the server", () -> stopUnderLock());
+    }
+
+    private ServerStatus stopUnderLock() throws OperationException {
         ManagedServer server;
         synchronized (this) {
             requireIdle();
@@ -143,6 +180,11 @@ public final class ServerLifecycleService {
 
     /** Stop the owned server and start it again from the same installation with new settings. */
     public ServerStatus restart(ServerSettings settings, CancellationToken cancellation) throws OperationException {
+        return lock.run("restart the server", () -> restartUnderLock(settings, cancellation));
+    }
+
+    private ServerStatus restartUnderLock(ServerSettings settings, CancellationToken cancellation)
+        throws OperationException {
         ManagedServer server;
         synchronized (this) {
             requireIdle();

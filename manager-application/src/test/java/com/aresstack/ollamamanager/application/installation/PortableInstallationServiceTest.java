@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.application.installation;
 
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
@@ -64,7 +65,7 @@ public class PortableInstallationServiceTest {
     };
 
     private final PortableInstallationService service = new PortableInstallationService(catalog, installer, root,
-        installation -> installation.version().equals(running));
+        installation -> installation.version().equals(running), new LifecycleLock());
 
     @Test
     public void reportsUpdateWhenNothingIsInstalled() throws Exception {

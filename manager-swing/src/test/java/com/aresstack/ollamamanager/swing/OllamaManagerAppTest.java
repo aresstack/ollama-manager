@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing;
 
+import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.InstallationKind;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
@@ -36,6 +37,8 @@ public class OllamaManagerAppTest {
         assertNotNull(services.models());
         assertNotNull(services.installations());
         assertNotNull(services.profiles());
+        assertNotNull(services.setup());
+        assertNotNull(services.profileRepository());
         assertTrue(services.installations().installedVersions().isEmpty());
     }
 
@@ -45,6 +48,6 @@ public class OllamaManagerAppTest {
         OllamaInstallation installation = new OllamaInstallation(InstallationKind.MANAGED_PORTABLE, "0.12.0",
             folder.newFolder("ollama", "versions", "v0.12.0"), Endpoint.DEFAULT);
 
-        assertFalse(OllamaManagerApp.usedByOwnedServer(services.serverLifecycle()).isInUse(installation));
+        assertFalse(new OwnedServerUsage(services.serverLifecycle()).isInUse(installation));
     }
 }

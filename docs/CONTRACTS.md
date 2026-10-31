@@ -17,6 +17,19 @@ Changes go through a coordinator PR first; feature branches only implement them.
   `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
 - `ProgressListener<T>` is called from background threads; callers dispatch to the EDT themselves.
 - `TransferProgress(phase, completedBytes, totalBytes)`; `totalBytes = -1` when unknown.
+- `LifecycleLock`: one instance per process, created in the composition root and passed to
+  `ServerLifecycleService` and `PortableInstallationService`. Start, stop, restart, attaching an external
+  server and uninstall (usage check plus deletion) run under it; downloads and installs never take it. It
+  never waits: a concurrent operation fails fast with `INVALID_STATE`. `OwnedServerUsage` is the only
+  `InstallationUsage` implementation; it counts every installation as in use while a start or stop runs.
+
+## Setup assistant (`application.setup`)
+
+- `SetupService` only coordinates and delegates: `detectExisting` (runtime discovery),
+  `detectRunning` (API version, `null` only on `CONNECTION_FAILED`; `TIMEOUT` propagates), `attachExisting` (verify via API, then
+  `attachExternal`), `recommendPackages` (hardware probe plus `PackageAdvisor`), `installLatest` and
+  `uninstall` (portable installation use cases). It holds no lock of its own, so the lifecycle safety also
+  applies to callers that use the underlying services directly. The UI gets it via `ConsoleServices.setup()`.
 
 ## Ports (`application.port`)
 
@@ -89,6 +102,20 @@ handle fails with `NOT_OWNED`. External servers are represented only as `OllamaI
 - `configuration.ManagerConfiguration` (`FORMAT_VERSION = 1`)
 
 Unknown values are `null` (documented per getter), never guessed.
+
+## Profile validity (`application.profile`)
+
+- `ProfileValidity.evaluate(profile, ProfileEnvironment.Snapshot)` returns `VALID`, `OUTDATED` or `UNVERIFIED`
+  plus findings; anything not verifiable is a finding, never valid.
+- `ProfileEnvironment.live(HardwareProbePort, ServerLifecycleService, ModelService)` captures GPU fingerprint,
+  running Ollama version and installed model identities; unknown values are `null`. Built once in the
+  composition root.
+- `ProfileActivationService.activate(id, applied, ownership, restartConfirmed, ValidityApproval, token)`
+  re-evaluates validity under the configuration lock and rejects `OUTDATED`/`UNVERIFIED` with `INVALID_STATE`
+  unless the `ValidityApproval(profileId, revision, result, findings)` equals that evaluation. The approval is
+  separate from `restartConfirmed`. `validity(id, token)` gives the UI the evaluation to show.
+- The composition root creates the single `ModelProfileRepository` and passes it via
+  `ConsoleServices.profileRepository()`; the UI never creates its own.
 
 ## File ownership for parallel work
 
