@@ -8,8 +8,13 @@ Changes go through a coordinator PR first; feature branches only implement them.
 - Every port method throws the checked `OperationException` with an `ErrorKind`. Adapters map library
   or IO exceptions to a kind and never leak them.
 - `CancellationToken`: long-running methods call `throwIfCancelled()` between units of work and register
-  `onCancel(Runnable)` to abort blocking IO (close stream, destroy owned process). After cancellation they
-  throw `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
+  `onCancel(Runnable)` to abort blocking IO (close stream, destroy owned process). `onCancel` returns a
+  `CancellationToken.Registration`; close it with an explicit `try { ... } finally { registration.close(); }`
+  when the guarded work ends, so tokens reused across operations do not accumulate callbacks. Close it only
+  after the guarded resource is finished (for example not while an owned child process still runs).
+  Integration duty: #11, #12, #14 and #18 must close the registrations at their existing call sites and test
+  token reuse across several requests. After cancellation they throw
+  `OperationCancelledException` (`ErrorKind.CANCELLED`) and clean up partial results.
 - `ProgressListener<T>` is called from background threads; callers dispatch to the EDT themselves.
 - `TransferProgress(phase, completedBytes, totalBytes)`; `totalBytes = -1` when unknown.
 
@@ -22,7 +27,8 @@ Changes go through a coordinator PR first; feature branches only implement them.
 | `ReleaseCatalogPort` | #4 | `latestStable`, `findRelease(version)` (SHA-256 filled from `sha256sum.txt`) |
 | `DistributionInstallerPort` | #4 | `install`, `installedVersions`, `uninstall` |
 | `HardwareProbePort` | #5 | `probe` |
-| `ConfigurationRepository` | done (`JsonConfigurationRepository`) | `load`, `save` |
+| `GpuTelemetryPort` | #5 | `sample` (live GPU usage; empty list when no tool is available) |
+| `ConfigurationRepository` | done (`JsonConfigurationRepository`) | `load`, `save` – only called by `ConfigurationService` |
 | `BenchmarkMetricsPort` | #8 | `record`, `findValid` |
 
 Model identity rule: digests come only from `/api/tags` or `/api/ps`. `show()` returns `ModelDetails`
@@ -35,6 +41,25 @@ adapter (#3) removes every name from `ServerSettingCatalog.environmentVariables(
 
 JSON rule: all JSON goes through `infrastructure.json.Json`, which runs Gson in strict mode and rejects
 empty input, comments, unquoted keys, unescaped control characters and trailing content.
+
+Configuration rule: every change to settings or profiles goes through
+`application.configuration.ConfigurationService.update(ConfigurationChange)`, which runs load, change and save
+under the lock of the repository instance. `ConfigurationChange.apply` may throw `OperationException` (for
+example `INVALID_STATE` on a revision conflict); validation therefore runs under the lock and nothing is saved
+on rejection. `current()` reads the stored state.
+
+Integration duty (binding before the contract counts as fulfilled): the composition root creates exactly one
+`ConfigurationRepository` and one `ConfigurationService` and passes that service to every use case. #12 must
+migrate every profile and activation write path (`ModelProfileRepository.update`, `ProfileActivationService`)
+to it, and server-settings changes use it as well. No use case or UI component calls
+`ConfigurationRepository.save` directly or keeps its own configuration lock. A second repository instance for the
+same file is not protected and must not be created. This PR provides the mechanism; the guarantee holds only
+after that migration.
+
+GPU rule: the UI reads live GPU statistics only through `GpuTelemetryPort`; it never knows `nvidia-smi` or
+infrastructure classes. `GpuDescriptor.computeCapability()` is optional (`null` = unknown). Unknown hardware
+properties are never presented as confirmed GPU support; only runtime evidence (for example `/api/ps`) confirms
+that Ollama actually uses the GPU.
 
 Ownership rule: only a `ManagedServer` handle returned by `start` proves ownership. `stop` on any other
 handle fails with `NOT_OWNED`. External servers are represented only as `OllamaInstallation.external(...)`.
@@ -52,7 +77,8 @@ handle fails with `NOT_OWNED`. External servers are represented only as `OllamaI
   `differencesTo(other)`, `requiresRestartComparedTo(applied)`, `toEncodedMap()` / `fromEncodedMap(...)`
 - `model.ModelIdentity(name, digest, quantization)`, `model.ModelDetails(...)`, `model.InstalledModel(...)`, `model.LoadedModel(...)`
 - `model.ModelOptions(numCtx, numPredict, temperature, seed)` – per request only
-- `hardware.GpuDescriptor(vendor, name, vramBytes, driverVersion, dedicated)`,
+- `hardware.GpuDescriptor(vendor, name, vramBytes, driverVersion, dedicated[, computeCapability])`,
+  `hardware.GpuUsageSample(gpuName, usedVramBytes, totalVramBytes, utilizationPercent, sampledAtEpochMillis)`,
   `hardware.HardwareSnapshot(os, arch, cpuName, logicalProcessors, totalMemoryBytes, gpus)`, `hardware.GpuFingerprint`
 - `profile.ProfileScope(model, gpuFingerprint, ollamaVersion, workload)`,
   `profile.ModelProfile(id, name, revision, scope, serverSettings, modelOptions)` (the user optimization profile),
@@ -68,7 +94,7 @@ Unknown values are `null` (documented per getter), never guessed.
 
 | Owner | Paths |
 |---|---|
-| Coordinator | root `build.gradle`, `settings.gradle`, `gradle/`, `gradlew*`, `.github/`, `README.md`, `LICENSE`, `docs/`, all of `manager-domain`, `manager-application/.../application/common`, `manager-application/.../application/port`, `manager-infrastructure/.../infrastructure/json`, `.../infrastructure/persistence`, `manager-swing/.../swing/OllamaManagerApp.java` (composition root) |
+| Coordinator | root `build.gradle`, `settings.gradle`, `gradle/`, `gradlew*`, `.github/`, `README.md`, `LICENSE`, `docs/`, all of `manager-domain`, `manager-application/.../application/common`, `manager-application/.../application/port`, `manager-application/.../application/configuration`, `manager-infrastructure/.../infrastructure/json`, `.../infrastructure/persistence`, `manager-swing/.../swing/OllamaManagerApp.java` (composition root) |
 | #3 Process | `manager-infrastructure/.../infrastructure/runtime/**`, `manager-application/.../application/server/**` (lifecycle use cases) and their tests |
 | #4 Distribution | `manager-infrastructure/.../infrastructure/distribution/**`, `manager-application/.../application/installation/**` |
 | #5 Hardware | `manager-infrastructure/.../infrastructure/hardware/**`, `manager-application/.../application/hardware/**` |
