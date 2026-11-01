@@ -23,8 +23,9 @@ final class StatusBar extends JPanel {
 
     StatusBar(JobManager jobManager) {
         super(new BorderLayout(Spacing.MARGIN, 0));
-        message.getAccessibleContext().setAccessibleName("Last job result");
-        jobs.getAccessibleContext().setAccessibleName("Running jobs");
+        // Keep the text as the accessible name; the description says what each badge stands for.
+        message.getAccessibleContext().setAccessibleDescription("Last job result");
+        jobs.getAccessibleContext().setAccessibleDescription("Running jobs");
         add(message, BorderLayout.CENTER);
         add(jobs, BorderLayout.EAST);
         jobManager.addListener(job -> update(jobManager, job));

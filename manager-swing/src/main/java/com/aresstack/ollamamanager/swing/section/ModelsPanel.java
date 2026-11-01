@@ -52,6 +52,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final JButton load = new JButton("Load");
     private final JButton unload = new JButton("Unload");
     private final JButton delete = new JButton("Delete…");
+    private final JButton pullShortcut = new JButton("Pull a model…");
     private final JobProgressPanel progress = new JobProgressPanel();
     private boolean actionsEnabled = true;
     private boolean mutationsAllowed;
@@ -106,7 +107,8 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         south.add(pullRow, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
-        empty.setAction(pullFromEmpty());
+        pullShortcut.addActionListener(event -> pullName.requestFocusInWindow());
+        empty.setAction(pullShortcut);
         list.setOpaque(false);
         list.add(new JScrollPane(table), "table");
         list.add(empty, "empty");
@@ -185,13 +187,6 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         listCards.show(list, hasRows ? "table" : "empty");
     }
 
-    /** Button in the empty state that moves the focus to the pull field. */
-    private JButton pullFromEmpty() {
-        JButton button = new JButton("Pull a model…");
-        button.addActionListener(event -> pullName.requestFocusInWindow());
-        return button;
-    }
-
     static Theme.Tone placementTone(Object value) {
         if ("gpu".equals(value)) {
             return Theme.Tone.SUCCESS;
@@ -237,9 +232,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         boolean enabled = actionsEnabled && mutationsAllowed;
         pull.setEnabled(enabled);
         pullName.setEnabled(enabled);
-        for (java.awt.Component component : empty.getComponents()) {
-            component.setEnabled(true);
-        }
+        pullShortcut.setEnabled(enabled);
         load.setEnabled(enabled && entry != null && entry.isInstalled());
         unload.setEnabled(enabled && entry != null && entry.isLoaded());
         delete.setEnabled(enabled && entry != null && entry.isInstalled());
