@@ -1,10 +1,69 @@
-# Ollama Manager
+![Ollama Manager](docs/branding/banner.png)
 
 Standalone desktop manager and optimizer for a local [Ollama](https://ollama.com) server.
 Java 8 + Swing, MIT licensed. Windows x64 is the first supported platform.
 
-> Status: foundation (issue #2). The window is a minimal shell; server control, downloads,
-> hardware detection, model management and benchmarks follow in issues #3–#8.
+It controls an existing Ollama installation or a portable one it installs itself, manages models,
+edits the server-wide settings and benchmarks how many parallel chats a model serves best.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+## Features
+
+### Dashboard
+
+Server state, owner (started by the manager or external), version, address and installation at a glance,
+plus the running models, hardware (system, CPU, memory, GPUs) and live GPU usage with free VRAM.
+A server that is already running on the configured address is adopted automatically; **Restart** and
+**Stop server** control it after a confirmation.
+
+### Models
+
+![Models](docs/screenshots/models.png)
+
+Running models on top, installed models below, each as a card with family, size, quantization,
+capability icons (tools, vision, audio, thinking, embedding, …) and **Load**, **Unload** and **Delete**.
+
+### Install models
+
+![Install models](docs/screenshots/install-models.png)
+
+Search Hugging Face (library filters, originals/variants, GGUF file list and details) or the Ollama
+library, then download, download and install, or install an already downloaded file.
+
+### Server settings
+
+![Server settings](docs/screenshots/server-settings.png)
+
+Network address, parallel requests per model, models kept loaded, waiting requests, context memory
+precision (KV cache), flash attention, default context length and more. Ollama defaults are shown only as
+hints: a setting stays unset until you tick **Set**. Values configured for an existing installation are
+adopted and marked *from existing installation*. **Save** stores the values for servers the manager starts;
+**Save permanently** (Windows) also writes them into the user environment so the Ollama app uses them on its
+next start. Server-wide settings take effect after a restart.
+
+### Benchmarks
+
+![Benchmarks](docs/screenshots/benchmarks.png)
+
+For a model and settings (tokens per request, `num_ctx`, rounds), the benchmark runs 1..N parallel chats,
+measures tokens/s per chat and in total, plots total tokens/s over the number of parallel chats and marks
+the **optimum**. The per-stage table shows time to first token, latency and peak VRAM; previous runs are kept
+and can be turned into a profile. Optionally several `OLLAMA_NUM_PARALLEL` values are tried in one sweep
+(restarts a server started by the manager).
+
+### Setup
+
+![Setup](docs/screenshots/setup.png)
+
+Shows the server on the configured address, lists regular and portable installations on this computer,
+and installs a portable Ollama from the official GitHub releases with recommended packages for the GPU
+(base CPU/NVIDIA CUDA, AMD ROCm, MLX).
+
+### Profiles, jobs and logs
+
+Profiles store tested server settings to activate later. **Jobs & logs** lists every background job with its
+progress and log; long jobs can be cancelled.
 
 ## Requirements
 
@@ -53,14 +112,14 @@ Contracts and file ownership for parallel work: [docs/CONTRACTS.md](docs/CONTRAC
 ## Security and lifecycle semantics
 
 - The default bind address is `127.0.0.1:11434`; nothing is exposed to the network by default.
-- Server settings are passed only to the child process via `ProcessBuilder.environment()`. Global or user
-  Windows environment variables are never written.
+- Server settings are passed to a server the manager starts via `ProcessBuilder.environment()`. Windows user
+  environment variables are written only by an explicit, confirmed **Save permanently**.
 - `OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_MAX_QUEUE`, `OLLAMA_CONTEXT_LENGTH`,
   `OLLAMA_KV_CACHE_TYPE`, `OLLAMA_FLASH_ATTENTION`, `OLLAMA_KEEP_ALIVE` and `OLLAMA_MODELS` are server-wide
   and need a restart of a server the manager started. Per-request options such as `num_ctx` do not, and
   only affect requests the manager itself sends.
-- The manager stops only servers it started itself. Already running Ollama instances are attached
-  read-only and never stopped.
+- An Ollama server already running on the configured address is adopted automatically and fully managed.
+  Stopping or restarting it always asks for confirmation first, because running requests may be aborted.
 - Preferences are stored in `%LOCALAPPDATA%\AresStack\OllamaManager\configuration.json`
   (`~/.ollama-manager` elsewhere), written atomically with a `.bak` copy for recovery. No credentials.
 
