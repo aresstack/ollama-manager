@@ -48,6 +48,8 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
     private final CardLayout listCards = new CardLayout();
     private final JPanel list = new JPanel(listCards);
     private final JButton activate = new JButton("Activate…");
+    private final JButton deactivate = new JButton("Deactivate");
+    private final JButton delete = new JButton("Delete…");
     private final JButton refresh = new JButton("Refresh");
     private final JobProgressPanel progress = new JobProgressPanel();
     private boolean busy;
@@ -78,7 +80,20 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
             }
         });
 
-        ActionBar buttons = new ActionBar().addAction(activate);
+        deactivate.setMnemonic('D');
+        deactivate.setToolTipText("Make no profile active. The server uses Ollama's defaults for the profile's"
+            + " settings after its next restart.");
+        deactivate.addActionListener(event -> presenter.deactivate());
+        delete.setMnemonic('L');
+        delete.setToolTipText("Delete the selected profile for good, after a confirmation.");
+        delete.addActionListener(event -> {
+            ProfileRow row = selected();
+            if (row != null) {
+                presenter.delete(row.profile().id());
+            }
+        });
+
+        ActionBar buttons = new ActionBar().addAction(activate).addAction(deactivate).addAction(delete);
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
         south.setOpaque(false);
         south.add(buttons, BorderLayout.CENTER);
@@ -192,6 +207,16 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         return Dialogs.confirm(this, "Restart server", text.toString());
     }
 
+    @Override
+    public boolean confirmDelete(ProfileRow row) {
+        String text = "Delete the profile \"" + row.profile().name() + "\"? This cannot be undone.";
+        if (row.isActive()) {
+            text += "\n\nIt is the active profile. No profile will be active afterwards, and the server uses"
+                + " Ollama's defaults for its settings after the next restart.";
+        }
+        return Dialogs.confirm(this, "Delete profile", text);
+    }
+
     private static String label(ProfileRow row) {
         return row.validity() == null ? "not checked" : row.validity().result().label();
     }
@@ -225,12 +250,23 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
 
     private void updateButtons() {
         activate.setEnabled(!busy && selected() != null);
+        delete.setEnabled(!busy && selected() != null);
+        deactivate.setEnabled(!busy && model.hasActive());
     }
 
     private static final class ProfileTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
         private static final String[] COLUMNS = {"Profile", "Model", "Workload", "Ollama", "Check", "Active"};
         private final List<ProfileRow> rows = new ArrayList<ProfileRow>();
+
+        boolean hasActive() {
+            for (ProfileRow row : rows) {
+                if (row.isActive()) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         ProfileRow row(int index) {
             return rows.get(index);

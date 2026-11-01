@@ -48,7 +48,10 @@ import java.util.Set;
 final class NavigationList extends JPanel {
 
     private static final long serialVersionUID = 1L;
-    private static final Set<Section> BOTTOM = EnumSet.of(Section.JOBS);
+    /** Pinned to the bottom edge in this order; Jobs & logs is always the last entry. */
+    private static final List<Section> BOTTOM_ORDER =
+        java.util.Arrays.asList(Section.PROFILES, Section.SETUP, Section.JOBS);
+    private static final Set<Section> BOTTOM = EnumSet.copyOf(BOTTOM_ORDER);
 
     private final JList<Section> top;
     private final JList<Section> bottom;
@@ -60,9 +63,11 @@ final class NavigationList extends JPanel {
     NavigationList() {
         super(new BorderLayout());
         List<Section> topSections = new ArrayList<Section>();
-        List<Section> bottomSections = new ArrayList<Section>();
+        List<Section> bottomSections = new ArrayList<Section>(BOTTOM_ORDER);
         for (Section section : Section.values()) {
-            (BOTTOM.contains(section) ? bottomSections : topSections).add(section);
+            if (!BOTTOM.contains(section)) {
+                topSections.add(section);
+            }
         }
         top = group(topSections, "Navigation");
         bottom = group(bottomSections, "Support views");

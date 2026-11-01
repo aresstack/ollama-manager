@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileValidity;
 import com.aresstack.ollamamanager.application.profile.ValidityApproval;
@@ -100,6 +101,67 @@ public final class ProfilesPresenter {
             view.showFailure("Plan profile", error);
         });
     }
+
+    /**
+     * Make no profile active. The server settings the profile chose are unset again; a running server keeps its
+     * current settings until it is restarted.
+     */
+    public void deactivate() {
+        final ModelProfileRepository repository = services.profileRepository();
+        if (busy || repository == null) {
+            if (repository == null) {
+                view.showNotice(NOT_WIRED);
+            }
+            return;
+        }
+        setBusy(true);
+        jobs.submit("Deactivate profile", false, context -> {
+            repository.deactivate();
+            return Boolean.TRUE;
+        }, done -> {
+            setBusy(false);
+            view.showNotice(DEACTIVATED_NOTICE);
+            refresh();
+        }, error -> {
+            setBusy(false);
+            view.showFailure("Deactivate profile", error);
+            refresh();
+        });
+    }
+
+    /** Delete the profile with {@code profileId} after the user confirmed it. */
+    public void delete(String profileId) {
+        final ModelProfileRepository repository = services.profileRepository();
+        if (busy || repository == null) {
+            if (repository == null) {
+                view.showNotice(NOT_WIRED);
+            }
+            return;
+        }
+        final ProfileRow row = find(profileId);
+        if (row == null || !view.confirmDelete(row)) {
+            return;
+        }
+        final boolean wasActive = row.isActive();
+        setBusy(true);
+        jobs.submit("Delete profile " + row.profile().name(), false, context -> {
+            repository.delete(profileId);
+            return Boolean.TRUE;
+        }, done -> {
+            setBusy(false);
+            view.showNotice(wasActive ? DELETED_ACTIVE_NOTICE : "Profile \"" + row.profile().name() + "\" deleted.");
+            refresh();
+        }, error -> {
+            setBusy(false);
+            view.showFailure("Delete profile", error);
+            refresh();
+        });
+    }
+
+    static final String DEACTIVATED_NOTICE = "No profile is active any more. The settings the profile chose are"
+        + " unset again; a running server uses Ollama's defaults for them after its next restart.";
+    static final String DELETED_ACTIVE_NOTICE = "Active profile deleted. No profile is active any more; a running"
+        + " server uses Ollama's defaults for its settings after its next restart.";
 
     /**
      * Store the profile and, for a confirmed restart, restart the owned server, all in one application call under
