@@ -1,17 +1,23 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkReport;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkRequest;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
+import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.swing.component.CardPanel;
+import com.aresstack.ollamamanager.swing.component.Dialogs;
 import com.aresstack.ollamamanager.swing.component.FormPanel;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
 import com.aresstack.ollamamanager.swing.component.MessageBanner;
+import com.aresstack.ollamamanager.swing.component.ScrollColumn;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
 import com.aresstack.ollamamanager.swing.component.Tables;
 import com.aresstack.ollamamanager.swing.component.Theme;
 import com.aresstack.ollamamanager.swing.component.ThroughputChart;
+import com.aresstack.ollamamanager.swing.component.WrapLabel;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
@@ -22,12 +28,14 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
@@ -36,42 +44,58 @@ import java.awt.FlowLayout;
 import java.awt.event.HierarchyEvent;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * Concurrency benchmark: pick a model, choose how many parallel chats to try, run, and read off the optimum
- * from the chart. Per-stage numbers are in the table; finished runs are kept for comparison.
+ * from the chart. Optionally the owned server is restarted with several {@code OLLAMA_NUM_PARALLEL} values and
+ * the runs are drawn on top of each other. Per-stage numbers are in the table; finished runs are kept for
+ * comparison and an optimum can be saved as a model profile.
  */
 public final class BenchmarksPanel extends SectionPanel implements BenchmarksView {
 
     private static final long serialVersionUID = 1L;
     static final String DEFAULT_LEVELS = "1, 2, 4, 6, 8, 12, 16";
+    static final String DEFAULT_SERVER_VALUES = "1, 4, 8, 16";
+    /** Highest number of parallel chats the UI accepts; the request enforces the same limit. */
+    static final int MAX_LEVEL = 256;
+    static final String SWEEP_WARNING = "The server is restarted once per value and once more at the end to restore"
+        + " its current settings.\nEvery restart ends running requests of all clients at once.\n\nContinue?";
 
     private final BenchmarksPresenter presenter;
     private final MessageBanner banner = new MessageBanner();
     private final JComboBox<String> model = new JComboBox<String>();
-    private final JTextField levels = new JTextField(DEFAULT_LEVELS, 20);
+    private final JTextField levels = new JTextField(DEFAULT_LEVELS, 14);
     private final JSpinner maxTokens = new JSpinner(new SpinnerNumberModel(128, 8, 4096, 16));
     private final JCheckBox setContext = new JCheckBox("Context size");
     private final JSpinner numCtx = new JSpinner(new SpinnerNumberModel(4096, 256, 262144, 1024));
     private final JSpinner rounds = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
     private final JCheckBox stopWhenUnstable = new JCheckBox("Stop at the first stage with errors or CPU offload",
         true);
-    private final JLabel serverHint = new JLabel(" ");
+    private final JCheckBox sweep = new JCheckBox("Try several server values (OLLAMA_NUM_PARALLEL):");
+    private final JTextField serverValues = new JTextField(DEFAULT_SERVER_VALUES, 8);
+    private final WrapLabel sweepHint = WrapLabel.muted(" ");
+    private final WrapLabel serverHint = WrapLabel.muted(" ");
     private final JButton run = new JButton("Run benchmark");
     private final JobProgressPanel progress = new JobProgressPanel();
     private final ThroughputChart chart = new ThroughputChart();
-    private final JLabel verdict = new JLabel(" ");
+    private final WrapLabel verdict = new WrapLabel(" ");
     private final StageTableModel stageModel = new StageTableModel();
     private final JTable stageTable = new JTable(stageModel);
     private final HistoryTableModel historyModel = new HistoryTableModel();
     private final JTable historyTable = new JTable(historyModel);
     private final JButton showRun = new JButton("Show");
+    private final JButton compareRuns = new JButton("Compare");
+    private final JButton saveProfile = new JButton("Profile…");
     private final JButton deleteRun = new JButton("Delete");
     private boolean running;
     private boolean hasModels;
+    private boolean sweepAvailable;
+    /** Runs currently drawn, newest last; a sweep in progress appends to this list. */
+    private final List<BenchmarkReport> shown = new ArrayList<BenchmarkReport>();
 
     public BenchmarksPanel(BenchmarksPresenter presenter) {
         super(Section.BENCHMARKS.title(), Section.BENCHMARKS.description());
@@ -86,10 +110,18 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         model.setPrototypeDisplayValue("some-model-name:latest-q4_K_M");
         levels.setToolTipText("How many chats to start at the same time, one stage per number, for example 1, 2, 4, 8.");
         maxTokens.setToolTipText("Tokens each chat generates per request. More tokens give steadier numbers but take longer.");
-        setContext.setToolTipText("Send num_ctx with every request. Larger contexts need more VRAM per chat.");
-        numCtx.setEnabled(false);
+        setContext.setToolTipText("Send num_ctx with every request. Larger contexts need more VRAM per chat; unticked, the"
+            + " server's default applies, which for some models is the model's full context and may not fit.");
+        // An explicit context is part of the measured setting; the server default can be the model's full context.
+        setContext.setSelected(true);
+        numCtx.setEnabled(true);
         setContext.addActionListener(event -> numCtx.setEnabled(setContext.isSelected()));
         rounds.setToolTipText("Requests each chat sends in a row per stage.");
+        sweep.setToolTipText("Restart the manager's own server with each value, run all stages, then restore the"
+            + " current settings. Shows one line per value.");
+        serverValues.setToolTipText("OLLAMA_NUM_PARALLEL values to try, for example 1, 4, 8, 16.");
+        serverValues.setEnabled(false);
+        sweep.addActionListener(event -> serverValues.setEnabled(sweep.isSelected() && sweepAvailable));
         run.setMnemonic('B');
         run.addActionListener(event -> start());
 
@@ -97,30 +129,44 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         form.addRow("Model", model, null);
         form.addRow("Parallel chats", levels, levels.getToolTipText());
         form.addRow("Tokens per request", withUnit(maxTokens, "tokens"), maxTokens.getToolTipText());
-        JPanel contextRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
+        // Every field starts at the label column's edge and stretches to the card's width, so rows line up.
+        setContext.setOpaque(false);
+        setContext.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, Spacing.GAP));
+        JPanel contextRow = new JPanel(new BorderLayout());
         contextRow.setOpaque(false);
-        contextRow.add(setContext);
-        contextRow.add(numCtx);
-        contextRow.add(new JLabel("tokens"));
+        contextRow.add(setContext, BorderLayout.WEST);
+        contextRow.add(withUnit(numCtx, "tokens"), BorderLayout.CENTER);
         form.addRow("num_ctx", contextRow, setContext.getToolTipText());
-        form.addRow("Rounds per chat", rounds, rounds.getToolTipText());
-        serverHint.setForeground(Theme.mutedForeground());
-        JPanel controls = new JPanel(new BorderLayout(0, Spacing.GAP));
-        controls.setOpaque(false);
-        controls.add(form, BorderLayout.CENTER);
+        form.addRow("Rounds per chat", withUnit(rounds, "requests"), rounds.getToolTipText());
+
         stopWhenUnstable.setOpaque(false);
-        JPanel options = new JPanel(new BorderLayout(0, Spacing.GAP));
+        sweep.setOpaque(false);
+        sweep.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, Spacing.GAP));
+        JPanel sweepRow = new JPanel(new BorderLayout());
+        sweepRow.setOpaque(false);
+        sweepRow.add(sweep, BorderLayout.WEST);
+        sweepRow.add(serverValues, BorderLayout.CENTER);
+        JPanel options = new JPanel();
         options.setOpaque(false);
-        options.add(stopWhenUnstable, BorderLayout.NORTH);
+        options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+        options.add(leftAligned(stopWhenUnstable));
+        options.add(leftAligned(sweepRow));
+        options.add(leftAligned(sweepHint));
+        options.add(Box.createVerticalStrut(Spacing.GAP));
         JPanel runRow = new JPanel(new BorderLayout(Spacing.GAP, 0));
         runRow.setOpaque(false);
         runRow.add(serverHint, BorderLayout.CENTER);
         runRow.add(run, BorderLayout.EAST);
-        options.add(runRow, BorderLayout.SOUTH);
+        options.add(leftAligned(runRow));
+        JPanel controls = new JPanel(new BorderLayout(0, Spacing.GAP));
+        controls.setOpaque(false);
+        controls.add(form, BorderLayout.CENTER);
         controls.add(options, BorderLayout.SOUTH);
         CardPanel setupCard = new CardPanel("Settings", controls);
 
         verdict.setFont(Theme.derived(1.1f, true));
+        // Two lines, whatever the text: a wrapped text area must not steal height from the chart.
+        verdict.setPreferredSize(new Dimension(100, verdict.getFontMetrics(verdict.getFont()).getHeight() * 2 + 6));
         JPanel chartBox = new JPanel(new BorderLayout(0, Spacing.GAP));
         chartBox.setOpaque(false);
         chartBox.add(chart, BorderLayout.CENTER);
@@ -128,28 +174,40 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         CardPanel chartCard = new CardPanel("Total tokens per second over parallel chats", chartBox);
 
         Tables.setup(stageTable, "Benchmark stages");
-        Tables.alignRight(stageTable, 0, 1, 2, 3, 4, 5, 6, 7);
-        stageTable.getColumnModel().getColumn(8).setCellRenderer(Tables.toneRenderer(value ->
+        Tables.alignRight(stageTable, 0, 1, 2, 3, 4, 5, 6, 7, 8);
+        stageTable.getColumnModel().getColumn(9).setCellRenderer(Tables.toneRenderer(value ->
             "ok".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.ERROR));
         JScrollPane stageScroll = new JScrollPane(stageTable);
         stageScroll.setPreferredSize(new Dimension(400, 150));
         CardPanel stageCard = new CardPanel("Per stage", stageScroll);
 
         Tables.setup(historyTable, "Benchmark history");
+        historyTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         historyTable.getSelectionModel().addListSelectionListener(event -> updateButtons());
+        showRun.setToolTipText("Draw the selected run.");
         showRun.addActionListener(event -> {
-            BenchmarkReport selected = selectedReport();
-            if (selected != null) {
-                showReport(selected);
+            List<BenchmarkReport> selected = selectedReports();
+            if (!selected.isEmpty()) {
+                showReport(selected.get(0));
             }
         });
-        deleteRun.addActionListener(event -> presenter.delete(selectedReport()));
+        compareRuns.setToolTipText("Draw all selected runs on top of each other.");
+        compareRuns.addActionListener(event -> showReports(selectedReports()));
+        saveProfile.setToolTipText("Create a model profile with the selected run's optimum.");
+        saveProfile.addActionListener(event -> askProfile());
+        deleteRun.addActionListener(event -> {
+            for (BenchmarkReport report : selectedReports()) {
+                presenter.delete(report);
+            }
+        });
         JPanel historyButtons = new JPanel(new FlowLayout(FlowLayout.TRAILING, Spacing.GAP, 0));
         historyButtons.setOpaque(false);
         historyButtons.add(showRun);
+        historyButtons.add(compareRuns);
+        historyButtons.add(saveProfile);
         historyButtons.add(deleteRun);
         JScrollPane historyScroll = new JScrollPane(historyTable);
-        historyScroll.setPreferredSize(new Dimension(400, 120));
+        historyScroll.setPreferredSize(new Dimension(400, 140));
         JPanel historyBox = new JPanel(new BorderLayout(0, Spacing.GAP));
         historyBox.setOpaque(false);
         historyBox.add(historyScroll, BorderLayout.CENTER);
@@ -169,13 +227,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         right.add(chartCard, BorderLayout.CENTER);
         right.add(stageCard, BorderLayout.SOUTH);
 
-        JScrollPane leftScroll = new JScrollPane(left);
-        leftScroll.setBorder(null);
-        leftScroll.setMinimumSize(new Dimension(320, 200));
+        JScrollPane leftScroll = ScrollColumn.wrap(left);
+        leftScroll.setMinimumSize(new Dimension(360, 200));
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, right);
         split.setBorder(null);
         split.setResizeWeight(0);
-        split.setDividerLocation(400);
+        split.setDividerLocation(470);
         split.setContinuousLayout(true);
 
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
@@ -184,6 +241,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         body.add(split, BorderLayout.CENTER);
         body.add(progress, BorderLayout.SOUTH);
         setBody(body);
+        setSweepAvailable(false, null);
         updateButtons();
         presenter.bind(this);
         addHierarchyListener(event -> {
@@ -193,11 +251,20 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         });
     }
 
-    private static JPanel withUnit(JSpinner spinner, String unit) {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
+    /** Field that fills the row with its unit at the right edge, so it aligns with plain fields. */
+    private static JPanel withUnit(javax.swing.JComponent field, String unit) {
+        JPanel row = new JPanel(new BorderLayout(Spacing.GAP, 0));
         row.setOpaque(false);
-        row.add(spinner);
-        row.add(new JLabel(unit));
+        row.add(field, BorderLayout.CENTER);
+        row.add(new JLabel(unit), BorderLayout.EAST);
+        return row;
+    }
+
+    private static JPanel leftAligned(javax.swing.JComponent component) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.add(component, BorderLayout.CENTER);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, component.getPreferredSize().height + Spacing.SMALL));
         return row;
     }
 
@@ -214,6 +281,16 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             banner.error("Parallel chats: " + e.getMessage());
             return;
         }
+        List<Integer> candidates = null;
+        if (sweep.isSelected() && sweepAvailable) {
+            try {
+                // The same distinct, ascending order the sweep runs in, so that live labels match the server.
+                candidates = ParallelismSweepService.candidates(parseLevels(serverValues.getText()));
+            } catch (IllegalArgumentException e) {
+                banner.error("Server values: " + e.getMessage());
+                return;
+            }
+        }
         banner.clear();
         ConcurrencyBenchmarkRequest request;
         try {
@@ -224,10 +301,50 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             banner.error(e.getMessage());
             return;
         }
+        if (candidates != null && !Dialogs.confirm(this, "Restart the server per value?", SWEEP_WARNING)) {
+            return;
+        }
+        boolean started = candidates != null ? presenter.runSweep(request, candidates) : presenter.run(request);
+        if (!started) {
+            return;
+        }
+        // Stage results arrive through later UI events, so the chart is prepared after the start.
+        shown.clear();
         chart.clear();
-        stageModel.setRows(new ArrayList<StageResult>());
+        stageModel.setRows(Collections.<BenchmarkReport>emptyList());
         verdict.setText("Running…");
-        presenter.run(request);
+        if (candidates != null) {
+            sweepCandidates = candidates;
+            currentSweepLabel = String.valueOf(candidates.get(0));
+            chart.startSeries(seriesName(currentSweepLabel));
+        } else {
+            sweepCandidates = Collections.emptyList();
+            currentSweepLabel = "";
+            chart.startSeries(name);
+        }
+    }
+
+    private void askProfile() {
+        List<BenchmarkReport> selected = selectedReports();
+        if (selected.isEmpty()) {
+            return;
+        }
+        BenchmarkReport report = selected.get(0);
+        StageResult optimum = report.optimum();
+        if (optimum == null) {
+            banner.warning("This run has no stable stage to save.");
+            return;
+        }
+        String serverValue = BenchmarkProfiles.hasServerValue(report)
+            ? "OLLAMA_NUM_PARALLEL=" + report.serverNumParallel() + " and the run's num_ctx"
+            : "OLLAMA_NUM_PARALLEL left unset (not measured) and the run's num_ctx";
+        String name = (String) JOptionPane.showInputDialog(this,
+            "Profile name for " + report.model() + " with " + optimum.parallel() + " parallel chats"
+                + " (" + tps(optimum.aggregateTps()) + " tok/s total).\nThe profile sets " + serverValue + ":",
+            "Save as profile", JOptionPane.PLAIN_MESSAGE, null, null, BenchmarkProfiles.defaultName(report, optimum));
+        if (name != null) {
+            presenter.saveProfile(report, optimum, name);
+        }
     }
 
     /** Parse "1, 2, 4-8" style input into distinct numbers between 1 and {@link #MAX_LEVEL}. */
@@ -257,9 +374,6 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         return result;
     }
 
-    /** Highest number of parallel chats the UI accepts; the request enforces the same limit. */
-    static final int MAX_LEVEL = 256;
-
     private static int level(String text) {
         int value;
         try {
@@ -273,17 +387,22 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         return value;
     }
 
-    private BenchmarkReport selectedReport() {
-        int row = historyTable.getSelectedRow();
-        return row < 0 ? null : historyModel.rows.get(historyTable.convertRowIndexToModel(row));
+    private List<BenchmarkReport> selectedReports() {
+        List<BenchmarkReport> result = new ArrayList<BenchmarkReport>();
+        for (int row : historyTable.getSelectedRows()) {
+            result.add(historyModel.rows.get(historyTable.convertRowIndexToModel(row)));
+        }
+        return result;
     }
 
     private void updateButtons() {
         run.setEnabled(!running && hasModels);
-        boolean selected = historyTable.getSelectedRow() >= 0;
-        // Neither action touches the display of a running sweep.
-        showRun.setEnabled(selected && !running);
-        deleteRun.setEnabled(selected && !running);
+        int selected = historyTable.getSelectedRowCount();
+        // None of these may touch the display of a running sweep.
+        showRun.setEnabled(selected == 1 && !running);
+        compareRuns.setEnabled(selected >= 2 && !running);
+        saveProfile.setEnabled(selected == 1 && !running);
+        deleteRun.setEnabled(selected >= 1 && !running);
     }
 
     @Override
@@ -292,7 +411,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         if (stageTable != null) {
             Tables.fitRowHeight(stageTable);
             Tables.fitRowHeight(historyTable);
-            serverHint.setForeground(Theme.mutedForeground());
+            verdict.setFont(Theme.derived(1.1f, true));
         }
     }
 
@@ -324,10 +443,19 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     }
 
     @Override
+    public void setSweepAvailable(boolean available, String reason) {
+        sweepAvailable = available;
+        sweep.setEnabled(available && !running);
+        serverValues.setEnabled(available && sweep.isSelected() && !running);
+        sweepHint.setText(available || reason == null ? " " : reason);
+    }
+
+    @Override
     public void showUnavailable(String reason) {
         hasModels = false;
         model.setModel(new DefaultComboBoxModel<String>());
         banner.warning(reason);
+        setSweepAvailable(false, null);
         updateButtons();
     }
 
@@ -341,6 +469,8 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         numCtx.setEnabled(!isRunning && setContext.isSelected());
         rounds.setEnabled(!isRunning);
         stopWhenUnstable.setEnabled(!isRunning);
+        sweep.setEnabled(!isRunning && sweepAvailable);
+        serverValues.setEnabled(!isRunning && sweepAvailable && sweep.isSelected());
         if (!isRunning && "Running…".equals(verdict.getText())) {
             verdict.setText(chart.pointCount() == 0 ? "Cancelled before the first stage finished."
                 : "Cancelled; stages so far are shown.");
@@ -351,34 +481,87 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     @Override
     public void stageFinished(StageResult stage) {
         chart.addPoint(toPoint(stage));
-        stageModel.add(stage);
+        stageModel.add(liveLabel(), stage);
+    }
+
+    /** Label of the server value a running sweep is currently measuring; empty for a plain run. */
+    private String liveLabel() {
+        return currentSweepLabel;
+    }
+
+    /** Server values of the running sweep in the order the sweep tries them; empty for a plain run. */
+    private List<Integer> sweepCandidates = Collections.emptyList();
+    private String currentSweepLabel = "";
+
+    @Override
+    public void reportFinished(BenchmarkReport report) {
+        shown.add(report);
+        // The next stages belong to the next server value; after the last one no new line is started.
+        int next = shown.size();
+        if (next < sweepCandidates.size()) {
+            currentSweepLabel = String.valueOf(sweepCandidates.get(next));
+            chart.startSeries(seriesName(currentSweepLabel));
+        } else {
+            currentSweepLabel = "";
+        }
+        verdict.setText(verdictText(shown));
+    }
+
+    static String seriesName(String serverParallel) {
+        return "OLLAMA_NUM_PARALLEL=" + (serverParallel == null ? "?" : serverParallel);
     }
 
     @Override
     public void showReport(BenchmarkReport report) {
-        List<ThroughputChart.Point> points = new ArrayList<ThroughputChart.Point>();
-        for (StageResult stage : report.stages()) {
-            points.add(toPoint(stage));
-        }
-        StageResult optimum = report.optimum();
-        chart.setPoints(points, optimum == null ? null : optimum.parallel());
-        stageModel.setRows(report.stages());
-        verdict.setText(verdictText(report));
+        showReports(Collections.singletonList(report));
     }
 
-    static String verdictText(BenchmarkReport report) {
-        StageResult optimum = report.optimum();
-        if (optimum == null) {
-            return report.stages().isEmpty() ? "No stage finished." : "No stable stage: every stage had errors or left the GPU.";
+    @Override
+    public void showReports(List<BenchmarkReport> reports) {
+        shown.clear();
+        shown.addAll(reports);
+        List<ThroughputChart.Series> series = new ArrayList<ThroughputChart.Series>();
+        for (BenchmarkReport report : reports) {
+            ThroughputChart.Series line = new ThroughputChart.Series(reports.size() == 1 ? report.model()
+                : seriesName(report.serverNumParallel()) + "  " + report.model());
+            for (StageResult stage : report.stages()) {
+                line.add(toPoint(stage));
+            }
+            series.add(line);
         }
+        chart.setSeries(series);
+        stageModel.setRows(reports);
+        verdict.setText(verdictText(reports));
+    }
+
+    /** One line naming the optimum; for several runs the run with the best optimum. */
+    static String verdictText(List<BenchmarkReport> reports) {
+        BenchmarkReport best = null;
+        for (BenchmarkReport report : reports) {
+            if (report.optimum() != null && (best == null || report.optimum().aggregateTps()
+                > best.optimum().aggregateTps())) {
+                best = report;
+            }
+        }
+        if (best == null) {
+            boolean empty = true;
+            for (BenchmarkReport report : reports) {
+                empty &= report.stages().isEmpty();
+            }
+            return empty ? "No stage finished." : "No stable stage: every stage had errors or left the GPU.";
+        }
+        StageResult optimum = best.optimum();
         String text = String.format(Locale.ROOT, "%s: optimum %d parallel %s at %.1f tok/s total (%.1f tok/s per chat)",
-            report.model(), optimum.parallel(), optimum.parallel() == 1 ? "chat" : "chats", optimum.aggregateTps(),
+            best.model(), optimum.parallel(), optimum.parallel() == 1 ? "chat" : "chats", optimum.aggregateTps(),
             optimum.perChatTpsAvg());
-        StageResult maxStable = report.maxStable();
+        if (reports.size() > 1 && best.serverNumParallel() != null) {
+            text = "OLLAMA_NUM_PARALLEL=" + best.serverNumParallel() + " wins. " + text;
+        }
+        StageResult maxStable = best.maxStable();
         if (maxStable != null && maxStable.parallel() > optimum.parallel()) {
             text += String.format(Locale.ROOT, "; still stable up to %d", maxStable.parallel());
         }
-        return report.complete() ? text : text + " (run incomplete)";
+        return best.complete() ? text : text + " (run incomplete)";
     }
 
     private static ThroughputChart.Point toPoint(StageResult stage) {
@@ -393,6 +576,11 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     }
 
     @Override
+    public void showProfileSaved(ModelProfile profile) {
+        banner.info("Profile \"" + profile.name() + "\" saved. Activate it under Profiles.");
+    }
+
+    @Override
     public void showFailure(String action, Exception error) {
         banner.error(action, error);
     }
@@ -402,20 +590,28 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         progress.attach(job);
     }
 
-    /** Per-stage numbers. */
+    /** Per-stage numbers of one or more runs. */
     static final class StageTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
-        private static final String[] COLUMNS = {"Chats", "Total tok/s", "Per chat tok/s", "Slowest chat",
+        private static final String[] COLUMNS = {"Server", "Chats", "Total tok/s", "Per chat tok/s", "Slowest chat",
             "First token p50", "First token p95", "Latency p95", "Peak VRAM", "State"};
+        private final List<String> labels = new ArrayList<String>();
         private final List<StageResult> rows = new ArrayList<StageResult>();
 
-        void setRows(List<StageResult> stages) {
+        void setRows(List<BenchmarkReport> reports) {
+            labels.clear();
             rows.clear();
-            rows.addAll(stages);
+            for (BenchmarkReport report : reports) {
+                for (StageResult stage : report.stages()) {
+                    labels.add(report.serverNumParallel() == null ? "?" : report.serverNumParallel());
+                    rows.add(stage);
+                }
+            }
             fireTableDataChanged();
         }
 
-        void add(StageResult stage) {
+        void add(String label, StageResult stage) {
+            labels.add(label == null ? "" : label);
             rows.add(stage);
             fireTableRowsInserted(rows.size() - 1, rows.size() - 1);
         }
@@ -439,14 +635,15 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         public Object getValueAt(int row, int column) {
             StageResult s = rows.get(row);
             switch (column) {
-                case 0: return String.valueOf(s.parallel());
-                case 1: return tps(s.aggregateTps());
-                case 2: return tps(s.perChatTpsAvg());
-                case 3: return tps(s.perChatTpsMin());
-                case 4: return s.ttftP50Millis() + " ms";
-                case 5: return s.ttftP95Millis() + " ms";
-                case 6: return s.latencyP95Millis() + " ms";
-                case 7: return s.peakVramBytes() == null ? "–" : Format.bytes(s.peakVramBytes());
+                case 0: return labels.get(row);
+                case 1: return String.valueOf(s.parallel());
+                case 2: return tps(s.aggregateTps());
+                case 3: return tps(s.perChatTpsAvg());
+                case 4: return tps(s.perChatTpsMin());
+                case 5: return s.ttftP50Millis() + " ms";
+                case 6: return s.ttftP95Millis() + " ms";
+                case 7: return s.latencyP95Millis() + " ms";
+                case 8: return s.peakVramBytes() == null ? "–" : Format.bytes(s.peakVramBytes());
                 default: return state(s);
             }
         }
@@ -469,7 +666,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     /** Stored runs, newest first. */
     static final class HistoryTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
-        private static final String[] COLUMNS = {"When", "Model", "num_ctx", "Optimum", "Total tok/s"};
+        private static final String[] COLUMNS = {"When", "Model", "Server", "num_ctx", "Optimum", "Total tok/s"};
         final List<BenchmarkReport> rows = new ArrayList<BenchmarkReport>();
         private final DateFormat format = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
@@ -501,8 +698,9 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             switch (column) {
                 case 0: return format.format(new Date(r.startedAtEpochMillis()));
                 case 1: return r.model();
-                case 2: return r.numCtx() == null ? "default" : String.valueOf(r.numCtx());
-                case 3: return optimum == null ? "–" : String.valueOf(optimum.parallel());
+                case 2: return r.serverNumParallel() == null ? "?" : r.serverNumParallel();
+                case 3: return r.numCtx() == null ? "default" : String.valueOf(r.numCtx());
+                case 4: return optimum == null ? "–" : String.valueOf(optimum.parallel());
                 default: return optimum == null ? "–" : tps(optimum.aggregateTps());
             }
         }

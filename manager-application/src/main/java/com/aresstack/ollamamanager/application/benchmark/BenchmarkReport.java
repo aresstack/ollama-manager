@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.application.benchmark;
 
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,13 +17,23 @@ public final class BenchmarkReport {
     private final Integer numCtx;
     private final int maxTokens;
     private final String serverNumParallel;
+    private final ServerSettings serverSettings;
+    private final BenchmarkEnvironment environment;
     private final long loadMillis;
     private final List<StageResult> stages;
     private final boolean complete;
 
+    /** A report of a run whose server settings are unknown, for example against an external server. */
     public BenchmarkReport(String id, long startedAtEpochMillis, String model, Integer numCtx, int maxTokens,
                            String serverNumParallel, long loadMillis,
                            List<StageResult> stages, boolean complete) {
+        this(id, startedAtEpochMillis, model, numCtx, maxTokens, serverNumParallel, null, null, loadMillis, stages,
+            complete);
+    }
+
+    public BenchmarkReport(String id, long startedAtEpochMillis, String model, Integer numCtx, int maxTokens,
+                           String serverNumParallel, ServerSettings serverSettings, BenchmarkEnvironment environment,
+                           long loadMillis, List<StageResult> stages, boolean complete) {
         if (id == null || model == null || stages == null) {
             throw new IllegalArgumentException("id, model and stages must not be null");
         }
@@ -31,6 +43,8 @@ public final class BenchmarkReport {
         this.numCtx = numCtx;
         this.maxTokens = maxTokens;
         this.serverNumParallel = serverNumParallel;
+        this.serverSettings = serverSettings;
+        this.environment = environment;
         this.loadMillis = loadMillis;
         this.stages = Collections.unmodifiableList(new ArrayList<StageResult>(stages));
         this.complete = complete;
@@ -60,6 +74,19 @@ public final class BenchmarkReport {
     /** @return OLLAMA_NUM_PARALLEL as configured when the run started, or {@code null} for the server default */
     public String serverNumParallel() {
         return serverNumParallel;
+    }
+
+    /**
+     * @return the settings the manager's own server ran with during this run, or {@code null} when they are
+     *         unknown (external server, or a report stored before they were recorded)
+     */
+    public ServerSettings serverSettings() {
+        return serverSettings;
+    }
+
+    /** @return GPU, server version and model the run was measured on, or {@code null} when not recorded */
+    public BenchmarkEnvironment environment() {
+        return environment;
     }
 
     public long loadMillis() {

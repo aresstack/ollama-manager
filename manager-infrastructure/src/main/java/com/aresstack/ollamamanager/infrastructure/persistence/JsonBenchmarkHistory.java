@@ -1,10 +1,14 @@
 package com.aresstack.ollamamanager.infrastructure.persistence;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkEnvironment;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkReport;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
+import com.aresstack.ollamamanager.domain.model.ModelIdentity;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.infrastructure.json.Json;
 
 import java.io.File;
@@ -82,6 +86,9 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
         map.put("numCtx", report.numCtx() == null ? null : report.numCtx().longValue());
         map.put("maxTokens", (long) report.maxTokens());
         map.put("serverNumParallel", report.serverNumParallel());
+        map.put("serverSettings", report.serverSettings() == null ? null
+            : new LinkedHashMap<String, Object>(report.serverSettings().toEncodedMap()));
+        map.put("environment", environmentMap(report.environment()));
         map.put("loadMillis", report.loadMillis());
         map.put("complete", report.complete());
         List<Object> stages = new ArrayList<Object>();
@@ -127,7 +134,54 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
         Number numCtx = (Number) map.get("numCtx");
         return new BenchmarkReport((String) map.get("id"), num(map, "startedAt").longValue(),
             (String) map.get("model"), numCtx == null ? null : numCtx.intValue(), num(map, "maxTokens").intValue(),
-            (String) map.get("serverNumParallel"), num(map, "loadMillis").longValue(), stages, Boolean.TRUE.equals(map.get("complete")));
+            (String) map.get("serverNumParallel"), serverSettings(map.get("serverSettings")),
+            environment(map.get("environment")), num(map, "loadMillis").longValue(), stages,
+            Boolean.TRUE.equals(map.get("complete")));
+    }
+
+    private static Map<String, Object> environmentMap(BenchmarkEnvironment environment) {
+        if (environment == null) {
+            return null;
+        }
+        Map<String, Object> map = new LinkedHashMap<String, Object>();
+        map.put("gpu", environment.gpuFingerprint() == null ? null : environment.gpuFingerprint().value());
+        map.put("ollamaVersion", environment.ollamaVersion());
+        if (environment.model() != null) {
+            map.put("modelName", environment.model().name());
+            map.put("modelDigest", environment.model().digest());
+            map.put("modelQuantization", environment.model().quantization());
+        }
+        return map;
+    }
+
+    private static BenchmarkEnvironment environment(Object raw) {
+        if (!(raw instanceof Map)) {
+            return null;
+        }
+        Map<String, Object> map = asMap(raw);
+        String gpu = string(map, "gpu");
+        String modelName = string(map, "modelName");
+        return new BenchmarkEnvironment(gpu == null ? null : new GpuFingerprint(gpu), string(map, "ollamaVersion"),
+            modelName == null ? null : new ModelIdentity(modelName, string(map, "modelDigest"),
+                string(map, "modelQuantization")));
+    }
+
+    private static String string(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value instanceof String ? (String) value : null;
+    }
+
+    private static ServerSettings serverSettings(Object raw) {
+        if (!(raw instanceof Map)) {
+            return null;
+        }
+        Map<String, String> encoded = new LinkedHashMap<String, String>();
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) raw).entrySet()) {
+            if (entry.getKey() instanceof String && entry.getValue() instanceof String) {
+                encoded.put((String) entry.getKey(), (String) entry.getValue());
+            }
+        }
+        return ServerSettings.fromEncodedMap(encoded);
     }
 
     private static Number num(Map<String, Object> map, String key) {

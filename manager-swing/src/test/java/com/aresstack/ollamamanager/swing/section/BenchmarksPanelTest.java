@@ -38,8 +38,21 @@ public class BenchmarksPanelTest {
             new StageResult(1, 1, 0, 50, 50, 50, 1, 1, 1, 1, 100, null, 1.0, null),
             new StageResult(4, 4, 0, 30, 28, 120, 1, 1, 1, 1, 100, null, 1.0, null),
             new StageResult(8, 8, 0, 14, 10, 112, 1, 1, 1, 1, 100, null, 1.0, null)), true);
-        String text = BenchmarksPanel.verdictText(report);
+        String text = BenchmarksPanel.verdictText(java.util.Collections.singletonList(report));
         assertTrue(text, text.contains("optimum 4 parallel chats"));
         assertTrue(text, text.contains("still stable up to 8"));
+    }
+
+    @Test
+    public void verdictOverSeveralRunsNamesTheWinningServerValue() {
+        BenchmarkReport slow = new BenchmarkReport("a", 0, "m", null, 50, "1", 0, Arrays.asList(
+            new StageResult(1, 1, 0, 50, 50, 50, 1, 1, 1, 1, 100, null, 1.0, null),
+            new StageResult(4, 4, 0, 13, 12, 52, 1, 1, 1, 1, 100, null, 1.0, null)), true);
+        BenchmarkReport fast = new BenchmarkReport("b", 0, "m", null, 50, "8", 0, Arrays.asList(
+            new StageResult(1, 1, 0, 50, 50, 50, 1, 1, 1, 1, 100, null, 1.0, null),
+            new StageResult(4, 4, 0, 40, 38, 160, 1, 1, 1, 1, 100, null, 1.0, null)), true);
+        String text = BenchmarksPanel.verdictText(Arrays.asList(slow, fast));
+        assertTrue(text, text.startsWith("OLLAMA_NUM_PARALLEL=8 wins."));
+        assertTrue(text, text.contains("optimum 4 parallel chats"));
     }
 }
