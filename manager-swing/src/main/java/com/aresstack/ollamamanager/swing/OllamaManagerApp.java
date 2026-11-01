@@ -31,7 +31,7 @@ import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
+import com.aresstack.ollamamanager.swing.component.ComicStyle;
 import java.io.File;
 import java.util.Arrays;
 
@@ -116,11 +116,8 @@ public final class OllamaManagerApp {
     }
 
     private static void openMainFrame(ConsoleServices services) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
-            // Keep the default look and feel.
-        }
+        // As askai-java8: Metal stays the base look and feel, the comic theme goes on top before any component exists.
+        ComicStyle.installTheme();
         new MainFrame(services, new BackgroundTasks()).setVisible(true);
     }
 }
