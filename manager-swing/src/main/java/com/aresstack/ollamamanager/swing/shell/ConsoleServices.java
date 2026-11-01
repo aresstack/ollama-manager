@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.swing.shell;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
+import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
@@ -26,6 +28,8 @@ public final class ConsoleServices {
     private final ProfileActivationService profiles;
     private final SetupService setup;
     private final ModelProfileRepository profileRepository;
+    private final ConcurrencyBenchmarkService benchmarks;
+    private final BenchmarkHistoryPort benchmarkHistory;
 
     private ConsoleServices(Builder builder) {
         if (builder.configuration == null) {
@@ -40,6 +44,8 @@ public final class ConsoleServices {
         this.profiles = builder.profiles;
         this.setup = builder.setup;
         this.profileRepository = builder.profileRepository;
+        this.benchmarks = builder.benchmarks;
+        this.benchmarkHistory = builder.benchmarkHistory;
     }
 
     /** Start a builder around the single shared configuration service. */
@@ -94,6 +100,16 @@ public final class ConsoleServices {
         return profileRepository;
     }
 
+    /** @return the concurrency benchmark, or {@code null} when not wired */
+    public ConcurrencyBenchmarkService benchmarks() {
+        return benchmarks;
+    }
+
+    /** @return stored benchmark reports, or {@code null} when not wired */
+    public BenchmarkHistoryPort benchmarkHistory() {
+        return benchmarkHistory;
+    }
+
     /** Collects optional services. */
     public static final class Builder {
         private final ConfigurationService configuration;
@@ -105,6 +121,8 @@ public final class ConsoleServices {
         private ProfileActivationService profiles;
         private SetupService setup;
         private ModelProfileRepository profileRepository;
+        private ConcurrencyBenchmarkService benchmarks;
+        private BenchmarkHistoryPort benchmarkHistory;
 
         private Builder(ConfigurationService configuration) {
             this.configuration = configuration;
@@ -147,6 +165,12 @@ public final class ConsoleServices {
 
         public Builder profileRepository(ModelProfileRepository value) {
             this.profileRepository = value;
+            return this;
+        }
+
+        public Builder benchmarks(ConcurrencyBenchmarkService value, BenchmarkHistoryPort history) {
+            this.benchmarks = value;
+            this.benchmarkHistory = history;
             return this;
         }
 

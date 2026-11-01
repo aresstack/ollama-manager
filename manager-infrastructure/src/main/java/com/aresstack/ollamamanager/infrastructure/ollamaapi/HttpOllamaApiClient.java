@@ -7,6 +7,7 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.port.OllamaApiPort;
+import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
 import com.aresstack.ollamamanager.domain.model.ModelDetails;
@@ -143,6 +144,87 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
             body.put("options", requestOptions);
         }
         exchange(longClient, endpoint, "POST", "/api/generate", body, cancellation, true);
+    }
+
+    @Override
+    public GenerationMetrics generate(Endpoint endpoint, String modelName, String prompt, ModelOptions options,
+                                      String keepAlive, CancellationToken cancellation) throws OperationException {
+        Map<String, Object> body = modelBody(modelName);
+        body.put("prompt", prompt == null ? "" : prompt);
+        body.put("stream", Boolean.TRUE);
+        if (keepAlive != null) {
+            body.put("keep_alive", keepAlive);
+        }
+        Map<String, Object> requestOptions = (options == null ? ModelOptions.none() : options).toRequestOptions();
+        if (!requestOptions.isEmpty()) {
+            body.put("options", requestOptions);
+        }
+        ConnectionState state = new ConnectionState();
+        long start = System.nanoTime();
+        Call call = newCall(longClient, endpoint, "POST", "/api/generate", body, state, cancellation);
+        CancellationToken.Registration registration = cancellation.onCancel(call::cancel);
+        try (Response response = call.execute()) {
+            ResponseBody responseBody = response.body();
+            if (!response.isSuccessful()) {
+                throw httpFailure(response.code(), readBody(responseBody));
+            }
+            return readGenerateStream(responseBody.byteStream(), start, cancellation);
+        } catch (IOException e) {
+            throw ioFailure(e, state, cancellation);
+        } finally {
+            registration.close();
+        }
+    }
+
+    /** Read NDJSON chunks; note the first token time and parse the final statistics line. */
+    static GenerationMetrics readGenerateStream(InputStream in, long startNanos, CancellationToken cancellation)
+        throws IOException, OperationException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        long firstTokenNanos = -1;
+        String line;
+        while ((line = reader.readLine()) != null) {
+            cancellation.throwIfCancelled();
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            if (line.length() > MAX_LINE_CHARS) {
+                throw new OperationException(ErrorKind.NOT_OLLAMA, "generate line too long");
+            }
+            Map<String, Object> chunk;
+            try {
+                chunk = OllamaResponseMapper.asMap(Json.parse(line), "generate chunk");
+            } catch (IllegalArgumentException e) {
+                throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid generate line", e);
+            }
+            String error = OllamaResponseMapper.errorMessage(chunk);
+            if (error != null) {
+                throw new OperationException(ErrorKind.HTTP_ERROR, "generate failed: " + error);
+            }
+            Object text = chunk.get("response");
+            if (firstTokenNanos < 0 && text instanceof String && !((String) text).isEmpty()) {
+                firstTokenNanos = System.nanoTime();
+            }
+            if (Boolean.TRUE.equals(chunk.get("done"))) {
+                long end = System.nanoTime();
+                if (firstTokenNanos < 0) {
+                    firstTokenNanos = end;
+                }
+                try {
+                    return new GenerationMetrics((firstTokenNanos - startNanos) / 1_000_000L,
+                        (end - startNanos) / 1_000_000L, nonNegative(chunk, "load_duration"),
+                        (int) nonNegative(chunk, "prompt_eval_count"), nonNegative(chunk, "prompt_eval_duration"),
+                        (int) nonNegative(chunk, "eval_count"), nonNegative(chunk, "eval_duration"));
+                } catch (IllegalArgumentException e) {
+                    throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid generate statistics", e);
+                }
+            }
+        }
+        throw new OperationException(ErrorKind.IO, "generate stream ended before done");
+    }
+
+    private static long nonNegative(Map<String, Object> map, String key) {
+        Long value = OllamaResponseMapper.optionalLong(map, key);
+        return value == null || value < 0 ? 0 : value;
     }
 
     @Override

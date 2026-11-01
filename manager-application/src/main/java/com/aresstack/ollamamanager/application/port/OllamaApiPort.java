@@ -1,9 +1,11 @@
 package com.aresstack.ollamamanager.application.port;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
+import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
+import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
 import com.aresstack.ollamamanager.domain.model.ModelDetails;
@@ -47,4 +49,13 @@ public interface OllamaApiPort {
 
     /** Delete a model from disk. Callers must have obtained user confirmation first. */
     void delete(Endpoint endpoint, String modelName, CancellationToken cancellation) throws OperationException;
+
+    /**
+     * Stream one {@code /api/generate} request to completion and return its timing. The response text is
+     * discarded. Implementations must honour cancellation by aborting the request.
+     */
+    default GenerationMetrics generate(Endpoint endpoint, String modelName, String prompt, ModelOptions options,
+                                       String keepAlive, CancellationToken cancellation) throws OperationException {
+        throw new OperationException(ErrorKind.INVALID_STATE, "generate is not supported by this client");
+    }
 }

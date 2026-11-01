@@ -1,12 +1,13 @@
 package com.aresstack.ollamamanager.swing.shell;
 
 import com.aresstack.ollamamanager.swing.job.JobManager;
+import com.aresstack.ollamamanager.swing.section.BenchmarksPanel;
+import com.aresstack.ollamamanager.swing.section.BenchmarksPresenter;
 import com.aresstack.ollamamanager.swing.section.DashboardPanel;
 import com.aresstack.ollamamanager.swing.section.DashboardPresenter;
 import com.aresstack.ollamamanager.swing.section.JobsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPresenter;
-import com.aresstack.ollamamanager.swing.section.PlannedSectionPanel;
 import com.aresstack.ollamamanager.swing.section.SetupPanel;
 import com.aresstack.ollamamanager.swing.section.SetupPresenter;
 import com.aresstack.ollamamanager.swing.section.ProfilesPanel;
@@ -69,8 +70,7 @@ public class ConsoleShell extends JFrame {
         panels.put(Section.SERVER_SETTINGS, new ServerSettingsPanel(new ServerSettingsPresenter(services, jobs)));
         panels.put(Section.PROFILES, new ProfilesPanel(new ProfilesPresenter(services, jobs)));
         panels.put(Section.JOBS, new JobsPanel(services, jobs));
-        panels.put(Section.BENCHMARKS, new PlannedSectionPanel(Section.BENCHMARKS,
-            "Benchmarks follow with issue #8."));
+        panels.put(Section.BENCHMARKS, new BenchmarksPanel(new BenchmarksPresenter(services, jobs)));
         for (Map.Entry<Section, JComponent> entry : panels.entrySet()) {
             content.add(entry.getValue(), entry.getKey().name());
         }

@@ -12,7 +12,7 @@ public enum Section {
     SERVER_SETTINGS("Server settings", "Server-wide options. Changes take effect after a restart.", KeyEvent.VK_4),
     PROFILES("Profiles", "Model-specific optimisation profiles and scenario presets.", KeyEvent.VK_5),
     JOBS("Jobs & logs", "Running and finished operations, progress and server log.", KeyEvent.VK_6),
-    BENCHMARKS("Benchmarks", "Measure and compare configurations (issue #8).", KeyEvent.VK_7);
+    BENCHMARKS("Benchmarks", "Find how many parallel chats a model serves best.", KeyEvent.VK_7);
 
     private final String title;
     private final String description;

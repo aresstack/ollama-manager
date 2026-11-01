@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing;
 
+import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
@@ -18,6 +19,7 @@ import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistribut
 import com.aresstack.ollamamanager.infrastructure.hardware.SystemHardwareProbe;
 import com.aresstack.ollamamanager.infrastructure.json.Json;
 import com.aresstack.ollamamanager.infrastructure.ollamaapi.HttpOllamaApiClient;
+import com.aresstack.ollamamanager.infrastructure.persistence.JsonBenchmarkHistory;
 import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationRepository;
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
@@ -72,7 +74,10 @@ public final class OllamaManagerApp {
             new PackageAdvisor(new GpuCompatibilityRules()), installations);
         ModelService models = new ModelService(api);
         ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models, api);
+        JsonBenchmarkHistory benchmarkHistory = new JsonBenchmarkHistory(dataDirectory);
         return ConsoleServices.builder(configuration)
+            .benchmarks(new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory),
+                benchmarkHistory)
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
