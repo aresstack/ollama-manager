@@ -76,6 +76,24 @@ public class SystemHardwareProbeTest {
     }
 
     @Test
+    public void failingNvidiaSmiMarksDiscoveryIncomplete() throws Exception {
+        FakeCommandRunner runner = new FakeCommandRunner()
+            .respond("nvidia-smi", "--query-gpu=", CommandResult.completed(9, ""))
+            .respond("powershell.exe", "-NoProfile", CommandResult.completed(0, CIM));
+        HardwareSnapshot snapshot = probe(runner).probe(CancellationToken.none());
+        assertFalse(snapshot.isGpuDiscoveryComplete());
+        assertNull(snapshot.verifiedGpuFingerprint());
+    }
+
+    @Test
+    public void malformedNvidiaSmiOutputMarksDiscoveryIncomplete() throws Exception {
+        FakeCommandRunner runner = new FakeCommandRunner()
+            .respond("nvidia-smi", "--query-gpu=", CommandResult.completed(0, "garbage"))
+            .respond("powershell.exe", "-NoProfile", CommandResult.completed(0, CIM));
+        assertFalse(probe(runner).probe(CancellationToken.none()).isGpuDiscoveryComplete());
+    }
+
+    @Test
     public void workingCimMarksDiscoveryComplete() throws Exception {
         FakeCommandRunner runner = new FakeCommandRunner()
             .respond("powershell.exe", "-NoProfile", CommandResult.completed(0, CIM));

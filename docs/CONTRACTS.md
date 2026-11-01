@@ -113,10 +113,10 @@ Unknown values are `null` (documented per getter), never guessed.
   `null`. Built once in the composition root.
 - `ProfileActivationService(ConfigurationService, ProfileEnvironment, ServerLifecycleService, LifecycleLock)`
   reads server state and applied settings itself; callers never pass ownership or applied settings.
-  `plan(id)` and `activate(id, expectedMode, restartConfirmed, ValidityApproval, token)` reject STARTING and
+  `plan(id)` and `activate(id, expectedRevision, expectedMode, restartConfirmed, ValidityApproval, token)` reject STARTING and
   STOPPING with `INVALID_STATE`, treat FAILED as not running and an external server's settings as unknown
   (`CANNOT_APPLY_TO_EXTERNAL`). `activate` captures the environment and re-reads state and validity under the `LifecycleLock`, fails with
-  `INVALID_STATE` if the mode differs from `expectedMode`, rejects `OUTDATED`/`UNVERIFIED` unless the approval
+  `INVALID_STATE` if the profile revision or the mode differs from what was confirmed, rejects `OUTDATED`/`UNVERIFIED` unless the approval
   equals the evaluation (findings name the exact model artifact), and runs a confirmed restart inside the same
   lock section after storing the profile. `validities(token)` evaluates all profiles from one capture.
 - The composition root creates the single `ModelProfileRepository` and passes it via
