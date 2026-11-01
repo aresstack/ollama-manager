@@ -230,7 +230,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         presenter.run(request);
     }
 
-    /** Parse "1, 2, 4-8" style input into distinct positive numbers. */
+    /** Parse "1, 2, 4-8" style input into distinct numbers between 1 and {@link #MAX_LEVEL}. */
     static List<Integer> parseLevels(String text) {
         List<Integer> result = new ArrayList<Integer>();
         for (String part : text.split("[,;\\s]+")) {
@@ -239,19 +239,38 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             }
             int dash = part.indexOf('-');
             if (dash > 0) {
-                int from = Integer.parseInt(part.substring(0, dash).trim());
-                int to = Integer.parseInt(part.substring(dash + 1).trim());
+                int from = level(part.substring(0, dash));
+                int to = level(part.substring(dash + 1));
+                if (to < from) {
+                    throw new IllegalArgumentException("range " + part + " runs backwards");
+                }
                 for (int i = from; i <= to; i++) {
                     result.add(i);
                 }
             } else {
-                result.add(Integer.parseInt(part.trim()));
+                result.add(level(part));
             }
         }
         if (result.isEmpty()) {
             throw new IllegalArgumentException("enter at least one number, for example 1, 2, 4, 8");
         }
         return result;
+    }
+
+    /** Highest number of parallel chats the UI accepts; the request enforces the same limit. */
+    static final int MAX_LEVEL = 256;
+
+    private static int level(String text) {
+        int value;
+        try {
+            value = Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("'" + text.trim() + "' is not a number");
+        }
+        if (value < 1 || value > MAX_LEVEL) {
+            throw new IllegalArgumentException(value + " is outside 1-" + MAX_LEVEL);
+        }
+        return value;
     }
 
     private BenchmarkReport selectedReport() {
@@ -262,7 +281,8 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private void updateButtons() {
         run.setEnabled(!running && hasModels);
         boolean selected = historyTable.getSelectedRow() >= 0;
-        showRun.setEnabled(selected);
+        // Neither action touches the display of a running sweep.
+        showRun.setEnabled(selected && !running);
         deleteRun.setEnabled(selected && !running);
     }
 
@@ -294,9 +314,13 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
 
     @Override
     public void showServerParallel(String text) {
-        serverHint.setText(text == null
-            ? "OLLAMA_NUM_PARALLEL is not set; Ollama picks 1 or 4 by itself. Stages above that queue on the server."
-            : "OLLAMA_NUM_PARALLEL = " + text + ". Stages above that queue on the server.");
+        if (text == null) {
+            serverHint.setText("OLLAMA_NUM_PARALLEL of this server is unknown; stages above it queue on the server.");
+        } else if (BenchmarksPresenter.SERVER_DEFAULT.equals(text)) {
+            serverHint.setText("OLLAMA_NUM_PARALLEL is not set; Ollama picks 1 or 4 by itself. Stages above that queue.");
+        } else {
+            serverHint.setText("OLLAMA_NUM_PARALLEL = " + text + " on the running server. Stages above that queue.");
+        }
     }
 
     @Override

@@ -7,6 +7,8 @@ import com.aresstack.ollamamanager.application.benchmark.StageResult;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
@@ -79,14 +81,25 @@ public final class BenchmarksPresenter {
             view::showHistory, error -> view.showFailure("Load benchmark history", error));
     }
 
-    /** Text for the hint about OLLAMA_NUM_PARALLEL, which caps real parallelism on the server. */
+    /** Marker for an owned server that runs without OLLAMA_NUM_PARALLEL set. */
+    static final String SERVER_DEFAULT = "default";
+
+    /**
+     * OLLAMA_NUM_PARALLEL as applied to the running server: the value of the owned server's actual settings,
+     * {@link #SERVER_DEFAULT} when it runs unset, or {@code null} for an external server whose environment the
+     * manager cannot read. Pending desired settings are never reported.
+     */
     String serverParallelText() {
-        try {
-            Integer parallel = services.configuration().current().desiredServerSettings().parallelism();
-            return parallel == null ? null : String.valueOf(parallel);
-        } catch (Exception e) {
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (lifecycle == null || lifecycle.status().ownership() != RuntimeOwnership.OWNED) {
             return null;
         }
+        ServerSettings applied = lifecycle.appliedSettings();
+        if (applied == null) {
+            return null;
+        }
+        Integer parallel = applied.parallelism();
+        return parallel == null ? SERVER_DEFAULT : String.valueOf(parallel);
     }
 
     public void run(final ConcurrencyBenchmarkRequest request) {

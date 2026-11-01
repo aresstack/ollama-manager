@@ -109,6 +109,8 @@ public final class ConcurrencyBenchmarkService {
         final CountDownLatch start = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(level);
         final AtomicLong peakVram = new AtomicLong(-1);
+        // Stage end is the moment the last chat finished, independent of how long a telemetry sample blocks.
+        final AtomicLong lastFinishNanos = new AtomicLong(0);
         List<Thread> threads = new ArrayList<Thread>();
         for (int i = 0; i < level; i++) {
             Thread thread = new Thread(() -> {
@@ -127,6 +129,11 @@ public final class ConcurrencyBenchmarkService {
                         errors.add(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                     }
                 } finally {
+                    long now = System.nanoTime();
+                    long seen;
+                    do {
+                        seen = lastFinishNanos.get();
+                    } while (now - seen > 0 && !lastFinishNanos.compareAndSet(seen, now));
                     done.countDown();
                 }
             }, "benchmark-chat-" + i);
@@ -144,7 +151,8 @@ public final class ConcurrencyBenchmarkService {
             Thread.currentThread().interrupt();
             cancellation.cancel();
         }
-        long wallMillis = (System.nanoTime() - begin) / 1_000_000L;
+        long end = lastFinishNanos.get() == 0 ? System.nanoTime() : lastFinishNanos.get();
+        long wallMillis = Math.max(0, (end - begin) / 1_000_000L);
         samplePeak(peakVram, cancellation);
         Double gpuShare = gpuShare(endpoint, request.model(), cancellation);
         return summarize(level, results, errors, wallMillis, peakVram.get() < 0 ? null : peakVram.get(), gpuShare);

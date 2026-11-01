@@ -18,6 +18,16 @@ public class BenchmarksPanelTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
+    public void rejectsOutOfRangeEndpointsBeforeExpanding() {
+        BenchmarksPanel.parseLevels("2147483647-2147483647");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsZero() {
+        BenchmarksPanel.parseLevels("0, 4");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void rejectsEmptyInput() {
         BenchmarksPanel.parseLevels("  ");
     }

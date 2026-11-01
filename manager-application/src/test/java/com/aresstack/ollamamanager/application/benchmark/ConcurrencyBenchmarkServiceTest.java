@@ -5,7 +5,9 @@ import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
+import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.application.port.OllamaApiPort;
+import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
@@ -38,6 +40,7 @@ public class ConcurrencyBenchmarkServiceTest {
         int failAbove = Integer.MAX_VALUE;
         double gpuShare = 1.0;
         int tokens = 50;
+        long sleepMillis = 20;
 
         @Override
         public GenerationMetrics generate(Endpoint endpoint, String modelName, String prompt, ModelOptions options,
@@ -48,7 +51,7 @@ public class ConcurrencyBenchmarkServiceTest {
                 if (now > failAbove) {
                     throw new OperationException(ErrorKind.SERVICE_UNAVAILABLE, "HTTP 503");
                 }
-                Thread.sleep(20);
+                Thread.sleep(sleepMillis);
                 int predicted = options.numPredict() == null ? tokens : Math.min(tokens, options.numPredict());
                 // Each chat gets a slice of a fixed server speed: 1000 tok/s shared.
                 long evalNanos = predicted * now * 1_000_000L;
@@ -219,6 +222,25 @@ public class ConcurrencyBenchmarkServiceTest {
         }, token);
         assertEquals(2, report.stages().size());
         assertFalse(report.complete());
+    }
+
+    @Test
+    public void slowTelemetryDoesNotStretchStageTime() throws Exception {
+        FakeApi api = new FakeApi();
+        // Chats outlive the first telemetry interval, so a sample is in flight when they finish.
+        api.sleepMillis = ConcurrencyBenchmarkService.TELEMETRY_INTERVAL_MILLIS + 100;
+        GpuTelemetryPort slowTelemetry = cancellation -> {
+            try {
+                Thread.sleep(400);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return Collections.<GpuUsageSample>emptyList();
+        };
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(api, slowTelemetry, null);
+        BenchmarkReport report = service.run(ENDPOINT, request(2), null, NO_LISTENER, CancellationToken.none());
+        assertTrue("stage wall time must end with the last chat, was " + report.stages().get(0).wallMillis(),
+            report.stages().get(0).wallMillis() < ConcurrencyBenchmarkService.TELEMETRY_INTERVAL_MILLIS + 300);
     }
 
     @Test
