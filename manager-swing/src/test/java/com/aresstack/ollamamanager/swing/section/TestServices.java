@@ -49,25 +49,55 @@ final class TestServices {
 
     /** Lifecycle service without any server. */
     static ServerLifecycleService stoppedLifecycle() {
-        return new ServerLifecycleService(new FakeRuntime(), 0, new LifecycleLock());
+        return stoppedLifecycle(new LifecycleLock());
+    }
+
+    static ServerLifecycleService stoppedLifecycle(LifecycleLock lock) {
+        return new ServerLifecycleService(new FakeRuntime(), 0, lock);
     }
 
     /** Lifecycle service whose fake owned server is running on {@link #ENDPOINT}. */
     static ServerLifecycleService runningLifecycle() throws OperationException {
-        ServerLifecycleService lifecycle = stoppedLifecycle();
+        return runningLifecycle(new LifecycleLock());
+    }
+
+    static ServerLifecycleService runningLifecycle(LifecycleLock lock) throws OperationException {
+        ServerLifecycleService lifecycle = stoppedLifecycle(lock);
         lifecycle.start(new OllamaInstallation(InstallationKind.MANAGED_PORTABLE, "0.1.0",
             new File("ollama").getAbsoluteFile(), ENDPOINT), ServerSettings.defaults(), CancellationToken.none());
         return lifecycle;
     }
 
+    /** Lifecycle service whose fake owned server was started and then exited on its own (FAILED, still OWNED). */
+    static ServerLifecycleService crashedLifecycle() throws OperationException {
+        return crashedLifecycle(new LifecycleLock());
+    }
+
+    static ServerLifecycleService crashedLifecycle(LifecycleLock lock) throws OperationException {
+        FakeRuntime runtime = new FakeRuntime();
+        ServerLifecycleService lifecycle = new ServerLifecycleService(runtime, 0, lock);
+        lifecycle.start(new OllamaInstallation(InstallationKind.MANAGED_PORTABLE, "0.1.0",
+            new File("ollama").getAbsoluteFile(), ENDPOINT), ServerSettings.defaults().with(
+                com.aresstack.ollamamanager.domain.server.ServerSettingCatalog.PARALLELISM, 4),
+            CancellationToken.none());
+        runtime.last.alive = false;
+        return lifecycle;
+    }
+
     /** Lifecycle service attached to a fake external server on {@link #ENDPOINT}. */
     static ServerLifecycleService externalLifecycle() throws OperationException {
-        ServerLifecycleService lifecycle = stoppedLifecycle();
+        return externalLifecycle(new LifecycleLock());
+    }
+
+    static ServerLifecycleService externalLifecycle(LifecycleLock lock) throws OperationException {
+        ServerLifecycleService lifecycle = stoppedLifecycle(lock);
         lifecycle.attachExternal(OllamaInstallation.external("0.1.0", ENDPOINT), "0.1.0");
         return lifecycle;
     }
 
     private static final class FakeRuntime implements OllamaRuntimePort {
+        private FakeServer last;
+
         @Override
         public List<OllamaInstallation> discover(List<File> directories, CancellationToken cancellation) {
             return Collections.emptyList();
@@ -76,7 +106,8 @@ final class TestServices {
         @Override
         public ManagedServer start(OllamaInstallation installation, ServerSettings settings,
                                    CancellationToken cancellation) {
-            return new FakeServer(installation, settings);
+            last = new FakeServer(installation, settings);
+            return last;
         }
 
         @Override
