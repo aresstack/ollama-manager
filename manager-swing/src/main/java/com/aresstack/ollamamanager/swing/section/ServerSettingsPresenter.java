@@ -32,7 +32,6 @@ public final class ServerSettingsPresenter {
         + " uses them the next time it starts.";
     static final String RESTART_HINT = "Restart the server to apply the changes; running requests are aborted on"
         + " restart.";
-    static final String NOTHING_TO_PERSIST = "No setting is set, so nothing is written to the environment variables.";
     static final String RUNNING_OWNED = "The right column shows what the running server started by the manager uses.";
     static final String NO_OWNED_SERVER = "No server started by the manager is running; stored values apply on"
         + " the next start.";
@@ -130,8 +129,8 @@ public final class ServerSettingsPresenter {
 
     /**
      * Save like {@link #save()}, then write every set value as an {@code OLLAMA_*} variable into the user
-     * environment, overwriting existing values, so an Ollama started without the manager uses them too. Unset
-     * settings write nothing and leave an existing variable alone.
+     * environment, overwriting existing values, so an Ollama started without the manager uses them too. The
+     * variables of unset settings are deleted.
      */
     public void savePermanently() {
         final PermanentEnvironmentService permanent = services.permanentEnvironment();
@@ -147,11 +146,8 @@ public final class ServerSettingsPresenter {
         final ServerSettings base = loaded;
         final ServerSettings desired = draft.settings();
         Map<String, String> variables = desired.toEnvironment();
-        if (variables.isEmpty()) {
-            view.showNotice(NOTHING_TO_PERSIST);
-            return;
-        }
-        if (!view.confirmPermanent(confirmText(variables, permanent.targetDescription()))) {
+        if (!view.confirmPermanent(confirmText(variables, PermanentEnvironmentService.removals(desired),
+            permanent.targetDescription()))) {
             return;
         }
         setBusy(true);
@@ -176,11 +172,20 @@ public final class ServerSettingsPresenter {
             });
     }
 
-    static String confirmText(Map<String, String> variables, String target) {
-        StringBuilder text = new StringBuilder("Write these values into the ").append(target)
-            .append("?\nExisting values are overwritten. Unset settings are not written.\n\n");
+    static String confirmText(Map<String, String> variables, Set<String> remove, String target) {
+        StringBuilder text = new StringBuilder("Update the ").append(target)
+            .append("?\nExisting values are overwritten; variables of unset settings are deleted.\n");
+        if (!variables.isEmpty()) {
+            text.append("\nSet:\n");
+        }
         for (Map.Entry<String, String> entry : variables.entrySet()) {
-            text.append(entry.getKey()).append(" = ").append(entry.getValue()).append('\n');
+            text.append("  ").append(entry.getKey()).append(" = ").append(entry.getValue()).append('\n');
+        }
+        if (!remove.isEmpty()) {
+            text.append("\nDelete:\n");
+        }
+        for (String name : remove) {
+            text.append("  ").append(name).append('\n');
         }
         return text.append("\nThe Ollama app and other programs use them the next time they start.").toString();
     }

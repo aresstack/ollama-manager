@@ -245,7 +245,7 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         permanent.setToolTipText(target == null
             ? "Writing the settings into the user environment is only supported on Windows."
             : "<html>Save, then write every set value into the " + Html.escape(target) + ",<br>overwriting existing"
-                + " values. The Ollama app uses them the next time it starts.<br>Unset settings write nothing.</html>");
+                + " values. The Ollama app uses them the next time it starts.<br>Unset settings delete their variable.</html>");
     }
 
     @Override

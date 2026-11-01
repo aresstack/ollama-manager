@@ -125,6 +125,8 @@ public class ServerSettingsPresenterTest {
         assertEquals(Integer.valueOf(4), services.configuration().current().desiredServerSettings().parallelism());
         assertEquals(1, environment.written.size());
         assertEquals("4", environment.written.get("OLLAMA_NUM_PARALLEL"));
+        assertTrue(environment.removed.contains("OLLAMA_KEEP_ALIVE"));
+        assertTrue(!environment.removed.contains("OLLAMA_NUM_PARALLEL"));
         assertEquals(ServerSettingsPresenter.SAVED_PERMANENT, view.notices.get(view.notices.size() - 1));
     }
 
@@ -168,9 +170,13 @@ public class ServerSettingsPresenterTest {
             return "Windows user environment variables";
         }
 
+        final java.util.Set<String> removed = new java.util.TreeSet<String>();
+
         @Override
-        public void write(Map<String, String> variables, CancellationToken cancellation) {
+        public void write(Map<String, String> variables, java.util.Set<String> remove,
+                          CancellationToken cancellation) {
             written.putAll(variables);
+            removed.addAll(remove);
         }
     }
 

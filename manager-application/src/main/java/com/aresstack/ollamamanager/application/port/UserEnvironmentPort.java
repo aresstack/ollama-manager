@@ -4,6 +4,7 @@ import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.OperationException;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Writes variables permanently into the current user's environment, so that an Ollama started without the manager
@@ -18,8 +19,9 @@ public interface UserEnvironmentPort {
     String targetDescription();
 
     /**
-     * Set every given variable in the user environment, overwriting existing values, and notify running programs.
-     * Variables not in {@code variables} are left untouched.
+     * Set every given variable in the user environment, overwriting existing values, delete every variable in
+     * {@code remove}, and notify running programs. Other variables are left untouched.
      */
-    void write(Map<String, String> variables, CancellationToken cancellation) throws OperationException;
+    void write(Map<String, String> variables, Set<String> remove, CancellationToken cancellation)
+        throws OperationException;
 }
