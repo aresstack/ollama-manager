@@ -1,6 +1,9 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import java.util.List;
+
 import com.aresstack.ollamamanager.application.common.TransferProgress;
+import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
@@ -68,6 +71,7 @@ public final class ModelsPresenter {
             entries -> {
                 if (generation == refreshGeneration) {
                     view.showModels(entries);
+                    loadCapabilities(generation, endpoint, entries);
                     view.showSource("from " + endpoint + ", read at "
                         + new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date()));
                 }
@@ -93,6 +97,27 @@ public final class ModelsPresenter {
                 }
             }, error -> {
                 // Nothing usable answers; the view already says that no server runs.
+            });
+    }
+
+    private void loadCapabilities(final long generation, final Endpoint endpoint, List<ModelEntry> entries) {
+        final List<String> names = new java.util.ArrayList<String>();
+        for (ModelEntry entry : entries) {
+            if (!names.contains(entry.identity().name())) {
+                names.add(entry.identity().name());
+            }
+        }
+        if (names.isEmpty()) {
+            return;
+        }
+        jobs.submit("Read model capabilities", true,
+            context -> services.models().capabilities(endpoint, names, context.cancellation()),
+            capabilities -> {
+                if (generation == refreshGeneration) {
+                    view.showCapabilities(capabilities);
+                }
+            }, error -> {
+                // Capabilities are decoration; the list itself stays valid.
             });
     }
 

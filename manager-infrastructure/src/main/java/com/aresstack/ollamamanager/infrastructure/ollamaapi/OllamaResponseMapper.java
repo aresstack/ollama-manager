@@ -55,7 +55,20 @@ final class OllamaResponseMapper {
         Map<String, Object> modelInfo = optionalMap(response, "model_info");
         return new ModelDetails(requestedName, optionalString(details, "family"),
             optionalString(details, "parameter_size"), optionalString(details, "quantization_level"),
-            optionalString(details, "format"), contextLength(modelInfo));
+            optionalString(details, "format"), contextLength(modelInfo), capabilities(response));
+    }
+
+    private static List<String> capabilities(Map<String, Object> response) {
+        Object value = response.get("capabilities");
+        List<String> tags = new ArrayList<String>();
+        if (value instanceof List) {
+            for (Object tag : (List<?>) value) {
+                if (tag instanceof String) {
+                    tags.add((String) tag);
+                }
+            }
+        }
+        return tags;
     }
 
     /** Return the error message of an Ollama error object, or {@code null} if the tree is none. */

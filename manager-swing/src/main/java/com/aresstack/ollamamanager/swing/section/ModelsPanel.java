@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.askai.java8.ui.ManagerModelCard;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.model.ModelPlacement;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
@@ -58,7 +59,8 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final JButton pullShortcut = new JButton("Pull a model…");
     private final JButton browse = new JButton("Install model…");
     private final JobProgressPanel progress = new JobProgressPanel();
-    private final List<JButton> cardActions = new java.util.ArrayList<JButton>();
+    private final java.util.Map<String, List<ManagerModelCard>> cardsByName =
+        new java.util.HashMap<String, List<ManagerModelCard>>();
     private boolean actionsEnabled = true;
     private boolean mutationsAllowed;
 
@@ -136,7 +138,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     @Override
     public void showModels(List<ModelEntry> entries) {
         column.removeAll();
-        cardActions.clear();
+        cardsByName.clear();
         int loaded = 0;
         int installed = 0;
         for (ModelEntry entry : entries) {
@@ -194,7 +196,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         notice.setText(" ");
         empty.setText("Model library unavailable", reason);
         column.removeAll();
-        cardActions.clear();
+        cardsByName.clear();
         showList(false);
         updateButtons();
     }
@@ -206,74 +208,55 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
 
     private JPanel runningCard(ModelEntry entry) {
         LoadedModel model = entry.loaded();
-        ModelPlacement placement = entry.placement();
-        String details = join(entry.isInstalled() ? entry.installed().family() : null,
-            entry.isInstalled() ? entry.installed().parameterSize() : null, entry.identity().quantization());
-        String meta = join("Size " + Format.bytes(model.sizeBytes()), "VRAM " + Format.bytes(model.vramBytes()),
+        String placement = entry.placement().name().toLowerCase(Locale.ROOT);
+        String details = ManagerModelCard.join(entry.isInstalled() ? entry.installed().family() : null,
+            entry.isInstalled() ? entry.installed().parameterSize() : null, entry.identity().quantization(),
+            "on " + placement);
+        String meta = ManagerModelCard.join("RAM " + ManagerModelCard.formatBytes(model.sizeBytes()),
+            "VRAM " + ManagerModelCard.formatBytes(model.vramBytes()),
             model.contextLength() == null ? null : "context " + model.contextLength(),
-            model.expiresAt() == null ? null : "unloads " + shortDate(model.expiresAt()));
-        String name = entry.identity().name();
-        JButton unload = action("Unload", "Remove the model from memory. The files stay on disk.",
-            () -> presenter.unload(name));
-        StatusBadge badge = new StatusBadge("running on " + placement.name().toLowerCase(Locale.ROOT),
-            placementTone(placement.name().toLowerCase(Locale.ROOT)));
-        return card(name, details, meta, badge, unload);
+            model.expiresAt() == null ? null : "expires " + ManagerModelCard.shortDate(model.expiresAt()));
+        final String name = entry.identity().name();
+        return register(name, new ManagerModelCard(name, details, meta, true,
+            ManagerModelCard.Action.normal("Unload", "Remove the model from memory. The files stay on disk.",
+                () -> presenter.unload(name))));
     }
 
     private JPanel installedCard(ModelEntry entry) {
         InstalledModel model = entry.installed();
-        String details = join(model.family(), model.parameterSize(), entry.identity().quantization());
-        String meta = join(Format.bytes(model.sizeBytes()), shortDate(model.modifiedAt()),
-            shortDigest(entry.identity().digest()));
-        String name = entry.identity().name();
-        JButton load = action("Load", "Load the model into memory now and show whether it runs on GPU, CPU or split.",
-            () -> presenter.load(name));
-        JButton delete = action("Delete…", "Delete the model files from disk. You must type the model name to"
-            + " confirm.", () -> presenter.delete(name));
-        delete.setForeground(Theme.color(Theme.Tone.ERROR));
-        StatusBadge badge = entry.isLoaded() ? new StatusBadge("loaded", Theme.Tone.SUCCESS)
-            : new StatusBadge("installed", Theme.Tone.NEUTRAL);
-        return card(name, details, meta, badge, entry.isLoaded() ? null : load, delete);
+        String details = ManagerModelCard.join(model.family(), model.parameterSize(), entry.identity().quantization());
+        String meta = ManagerModelCard.join(ManagerModelCard.formatBytes(model.sizeBytes()),
+            ManagerModelCard.shortDate(model.modifiedAt()), ManagerModelCard.shortDigest(entry.identity().digest()));
+        final String name = entry.identity().name();
+        return register(name, new ManagerModelCard(name, details, meta, false,
+            entry.isLoaded() ? null : ManagerModelCard.Action.primary("Load",
+                "Load the model into memory now and show whether it runs on GPU, CPU or split.",
+                () -> presenter.load(name)),
+            ManagerModelCard.Action.destructive("Delete", "Delete the model files from disk. You must type the"
+                + " model name to confirm.", () -> presenter.delete(name))));
     }
 
-    private JButton action(String text, String tooltip, Runnable run) {
-        JButton button = new JButton(text);
-        button.setToolTipText(tooltip);
-        button.addActionListener(event -> run.run());
-        cardActions.add(button);
-        return button;
-    }
-
-    private static JPanel card(String title, String details, String meta, StatusBadge badge, JButton... actions) {
-        JPanel card = new JPanel(new BorderLayout(Spacing.MARGIN, 0));
-        card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Theme.lineColor()),
-            BorderFactory.createEmptyBorder(8, 12, 8, 12)));
-        card.setBackground(Theme.background());
-        JPanel text = new JPanel(new GridLayout(0, 1, 0, 3));
-        text.setOpaque(false);
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
-        text.add(titleLabel);
-        for (String line : new String[] {details, meta}) {
-            if (!line.isEmpty()) {
-                JLabel label = new JLabel(line);
-                label.setForeground(Theme.mutedForeground());
-                text.add(label);
-            }
+    private ManagerModelCard register(String name, ManagerModelCard card) {
+        List<ManagerModelCard> list = cardsByName.get(name);
+        if (list == null) {
+            list = new java.util.ArrayList<ManagerModelCard>();
+            cardsByName.put(name, list);
         }
-        card.add(text, BorderLayout.CENTER);
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, Spacing.GAP, 0));
-        right.setOpaque(false);
-        right.add(badge);
-        for (JButton action : actions) {
-            if (action != null) {
-                right.add(action);
-            }
-        }
-        card.add(right, BorderLayout.EAST);
+        list.add(card);
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
         return card;
+    }
+
+    @Override
+    public void showCapabilities(java.util.Map<String, List<String>> capabilities) {
+        for (java.util.Map.Entry<String, List<String>> entry : capabilities.entrySet()) {
+            List<ManagerModelCard> cards = cardsByName.get(entry.getKey());
+            if (cards != null) {
+                for (ManagerModelCard card : cards) {
+                    card.setCapabilities(entry.getValue());
+                }
+            }
+        }
     }
 
     private void addCard(JPanel card) {
@@ -283,10 +266,16 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
 
     private void addHeader(String title) {
         JLabel header = new JLabel(title);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, header.getFont().getSize2D() + 1f));
-        header.setBorder(BorderFactory.createEmptyBorder(Spacing.GAP, 2, Spacing.GAP, 2));
+        // Section header exactly as askai's OllamaModelsPanel draws it.
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
+        header.setBorder(BorderFactory.createEmptyBorder(10, 2, 2, 2));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         column.add(header);
+        javax.swing.JSeparator separator = new javax.swing.JSeparator();
+        separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+        separator.setAlignmentX(Component.LEFT_ALIGNMENT);
+        column.add(separator);
+        column.add(Box.createVerticalStrut(4));
     }
 
     private void addPlaceholder(String message) {
@@ -373,8 +362,10 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         pullName.setEnabled(enabled);
         pullShortcut.setEnabled(enabled);
         browse.setEnabled(enabled && presenter.modelInstallConfiguration() != null);
-        for (JButton action : cardActions) {
-            action.setEnabled(enabled);
+        for (List<ManagerModelCard> cards : cardsByName.values()) {
+            for (ManagerModelCard card : cards) {
+                card.setActionsEnabled(enabled);
+            }
         }
     }
 }

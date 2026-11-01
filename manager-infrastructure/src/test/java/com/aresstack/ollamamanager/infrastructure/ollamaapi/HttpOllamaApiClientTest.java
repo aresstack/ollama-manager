@@ -403,6 +403,13 @@ public class HttpOllamaApiClientTest {
     }
 
     @Test
+    public void showReadsCapabilities() throws Exception {
+        server.json("POST", "/api/show", 200, "{\"details\":{},\"capabilities\":[\"embedding\",\"vision\"]}");
+        assertEquals(java.util.Arrays.asList("embedding", "vision"),
+            client.show(endpoint, "x", CancellationToken.none()).capabilities());
+    }
+
+    @Test
     public void unloadSendsKeepAliveZero() throws Exception {
         server.json("POST", "/api/generate", 200, "{\"done\":true,\"done_reason\":\"unload\"}");
         client.unload(endpoint, "llama3.1:8b", CancellationToken.none());
