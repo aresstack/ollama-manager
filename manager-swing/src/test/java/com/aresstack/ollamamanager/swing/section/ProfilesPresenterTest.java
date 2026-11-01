@@ -237,6 +237,28 @@ public class ProfilesPresenterTest {
     }
 
     @Test
+    public void profileRevisedAfterConfirmationIsNotActivated() throws Exception {
+        List<Runnable> pending = new ArrayList<Runnable>();
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
+        ProfilesPresenter presenter = new ProfilesPresenter(services,
+            new JobManager(pending::add, UiDispatcher.inline()));
+        presenter.bind(view);
+        presenter.refresh();
+        pending.remove(0).run();
+
+        presenter.activate("p1");
+        pending.remove(0).run();
+        services.configuration().update(current -> current.withProfile(new ModelProfile("p1", "Chat", 2,
+            new ProfileScope(MODEL, GPU, "0.1.0", "chat"), ServerSettings.defaults(),
+            new ModelOptions(4096, null, null, null))));
+        pending.remove(0).run();
+
+        assertNull(services.configuration().current().activeProfileId());
+        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("failure:Activate profile:"));
+        assertFalse(presenter.isBusy());
+    }
+
+    @Test
     public void refreshCapturesTheEnvironmentOnceForAllProfiles() throws Exception {
         ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
         services.configuration().update(current -> current.withProfile(new ModelProfile("p2", "Code", 1,

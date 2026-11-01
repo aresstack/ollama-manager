@@ -108,11 +108,13 @@ public final class ProfilesPresenter {
     private void commit(ProfileRow row, ActivationMode confirmedMode, boolean restartConfirmed,
                         ValidityApproval approval) {
         final String id = row.profile().id();
+        // The user confirmed this revision; a profile revised since then is rejected by the service.
+        final int revision = row.profile().revision();
         // Set in the background when activation ends without success; read on the UI thread afterwards.
         final AtomicBoolean storedBeforeFailure = new AtomicBoolean();
         Job job = jobs.submit("Activate profile " + row.profile().name(), restartConfirmed, context -> {
             try {
-                return services.profiles().activate(id, confirmedMode, restartConfirmed, approval,
+                return services.profiles().activate(id, revision, confirmedMode, restartConfirmed, approval,
                     context.cancellation());
             } catch (Exception e) {
                 storedBeforeFailure.set(isActive(id));
