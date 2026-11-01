@@ -1,7 +1,9 @@
 package com.aresstack.ollamamanager.swing.shell;
 
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.catalog.ModelCatalogService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
@@ -32,6 +34,8 @@ public final class ConsoleServices {
     private final ModelProfileRepository profileRepository;
     private final ConcurrencyBenchmarkService benchmarks;
     private final BenchmarkHistoryPort benchmarkHistory;
+    private final ParallelismSweepService sweeps;
+    private final BenchmarkProfiles benchmarkProfiles;
     private final ExistingSettingsImport existingSettings;
     private final ModelCatalogService catalog;
 
@@ -50,6 +54,8 @@ public final class ConsoleServices {
         this.profileRepository = builder.profileRepository;
         this.benchmarks = builder.benchmarks;
         this.benchmarkHistory = builder.benchmarkHistory;
+        this.sweeps = builder.sweeps;
+        this.benchmarkProfiles = builder.benchmarkProfiles;
         this.existingSettings = builder.existingSettings;
         this.catalog = builder.catalog;
     }
@@ -116,6 +122,16 @@ public final class ConsoleServices {
         return benchmarkHistory;
     }
 
+    /** @return the sweep over OLLAMA_NUM_PARALLEL values, or {@code null} when not wired */
+    public ParallelismSweepService sweeps() {
+        return sweeps;
+    }
+
+    /** @return the use case that saves a measured optimum as profile, or {@code null} when not wired */
+    public BenchmarkProfiles benchmarkProfiles() {
+        return benchmarkProfiles;
+    }
+
     /** Collects optional services. */
     /** @return the import of an existing installation's settings, or {@code null} when not wired */
     public ExistingSettingsImport existingSettings() {
@@ -139,6 +155,8 @@ public final class ConsoleServices {
         private ModelProfileRepository profileRepository;
         private ConcurrencyBenchmarkService benchmarks;
         private BenchmarkHistoryPort benchmarkHistory;
+        private ParallelismSweepService sweeps;
+        private BenchmarkProfiles benchmarkProfiles;
         private ExistingSettingsImport existingSettings;
         private ModelCatalogService catalog;
 
@@ -189,6 +207,16 @@ public final class ConsoleServices {
         public Builder benchmarks(ConcurrencyBenchmarkService value, BenchmarkHistoryPort history) {
             this.benchmarks = value;
             this.benchmarkHistory = history;
+            return this;
+        }
+
+        public Builder sweeps(ParallelismSweepService value) {
+            this.sweeps = value;
+            return this;
+        }
+
+        public Builder benchmarkProfiles(BenchmarkProfiles value) {
+            this.benchmarkProfiles = value;
             return this;
         }
 
