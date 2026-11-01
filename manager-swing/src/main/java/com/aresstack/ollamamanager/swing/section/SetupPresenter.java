@@ -407,6 +407,12 @@ public final class SetupPresenter {
         List<OllamaInstallation> portable = installations == null
             ? Collections.<OllamaInstallation>emptyList() : installations.installedVersions();
         ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (lifecycle != null && version == null && probeFailure == null
+            && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL
+            && lifecycle.status().installation().endpoint().equals(endpoint)) {
+            // The attached server no longer answers, for example because it was stopped outside the manager.
+            lifecycle.detachExternal();
+        }
         boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
         return new SetupDetection(endpoint, settings, version, probeFailure, attached, discovered, portable,
             configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory());
