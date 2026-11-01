@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.swing.shell;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
+import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.catalog.ModelCatalogService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
@@ -28,6 +30,8 @@ public final class ConsoleServices {
     private final ProfileActivationService profiles;
     private final SetupService setup;
     private final ModelProfileRepository profileRepository;
+    private final ConcurrencyBenchmarkService benchmarks;
+    private final BenchmarkHistoryPort benchmarkHistory;
     private final ExistingSettingsImport existingSettings;
     private final ModelCatalogService catalog;
 
@@ -44,6 +48,8 @@ public final class ConsoleServices {
         this.profiles = builder.profiles;
         this.setup = builder.setup;
         this.profileRepository = builder.profileRepository;
+        this.benchmarks = builder.benchmarks;
+        this.benchmarkHistory = builder.benchmarkHistory;
         this.existingSettings = builder.existingSettings;
         this.catalog = builder.catalog;
     }
@@ -100,6 +106,16 @@ public final class ConsoleServices {
         return profileRepository;
     }
 
+    /** @return the concurrency benchmark, or {@code null} when not wired */
+    public ConcurrencyBenchmarkService benchmarks() {
+        return benchmarks;
+    }
+
+    /** @return stored benchmark reports, or {@code null} when not wired */
+    public BenchmarkHistoryPort benchmarkHistory() {
+        return benchmarkHistory;
+    }
+
     /** Collects optional services. */
     /** @return the import of an existing installation's settings, or {@code null} when not wired */
     public ExistingSettingsImport existingSettings() {
@@ -121,6 +137,8 @@ public final class ConsoleServices {
         private ProfileActivationService profiles;
         private SetupService setup;
         private ModelProfileRepository profileRepository;
+        private ConcurrencyBenchmarkService benchmarks;
+        private BenchmarkHistoryPort benchmarkHistory;
         private ExistingSettingsImport existingSettings;
         private ModelCatalogService catalog;
 
@@ -165,6 +183,12 @@ public final class ConsoleServices {
 
         public Builder profileRepository(ModelProfileRepository value) {
             this.profileRepository = value;
+            return this;
+        }
+
+        public Builder benchmarks(ConcurrencyBenchmarkService value, BenchmarkHistoryPort history) {
+            this.benchmarks = value;
+            this.benchmarkHistory = history;
             return this;
         }
 
