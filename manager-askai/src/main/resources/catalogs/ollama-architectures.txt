@@ -1,0 +1,24 @@
+# Ollama-importable model architectures: config.json "architectures" value | Display Name
+# These are the HuggingFace architecture class names Ollama's safetensors import path can convert.
+# Version-dependent (Ollama adds architectures over releases) and independently updatable: replace
+# this file. A hit whose config.json architecture is NOT listed here is classified as an unsupported
+# Safetensors import with the architecture named as the concrete reason.
+
+LlamaForCausalLM|Llama
+MistralForCausalLM|Mistral
+MixtralForCausalLM|Mixtral
+Qwen2ForCausalLM|Qwen2
+Qwen2MoeForCausalLM|Qwen2 MoE
+Qwen3ForCausalLM|Qwen3
+Qwen3MoeForCausalLM|Qwen3 MoE
+GemmaForCausalLM|Gemma
+Gemma2ForCausalLM|Gemma 2
+Gemma3ForCausalLM|Gemma 3
+Gemma3ForConditionalGeneration|Gemma 3 (multimodal)
+Phi3ForCausalLM|Phi-3
+PhiForCausalLM|Phi
+StableLmForCausalLM|StableLM
+Starcoder2ForCausalLM|StarCoder2
+CohereForCausalLM|Command-R
+BertModel|BERT
+NomicBertModel|Nomic BERT
