@@ -129,11 +129,8 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         north.setOpaque(false);
         north.add(banner, BorderLayout.NORTH);
         north.add(column, BorderLayout.CENTER);
-        JPanel top = new JPanel(new BorderLayout());
-        top.setOpaque(false);
-        top.add(north, BorderLayout.NORTH);
-        JScrollPane scroll = new JScrollPane(top);
-        scroll.setBorder(null);
+        // ScrollColumn tracks the viewport width, so wrapped text shrinks back after maximize + restore.
+        JScrollPane scroll = com.aresstack.ollamamanager.swing.component.ScrollColumn.wrap(north);
         scroll.getVerticalScrollBar().setUnitIncrement(Spacing.MARGIN);
         setBody(scroll);
         presenter.bind(this);

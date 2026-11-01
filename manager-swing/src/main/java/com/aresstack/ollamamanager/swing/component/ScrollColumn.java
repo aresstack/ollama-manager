@@ -48,7 +48,8 @@ public class ScrollColumn extends JPanel implements Scrollable {
 
     private static boolean wrappedTextChanged(java.awt.Container container) {
         for (java.awt.Component child : container.getComponents()) {
-            if (child instanceof WrapLabel && child.getPreferredSize().height != child.getHeight()) {
+            if (child instanceof javax.swing.JTextArea && ((javax.swing.JTextArea) child).getLineWrap()
+                    && child.getPreferredSize().height != child.getHeight()) {
                 return true;
             }
             if (child instanceof java.awt.Container && wrappedTextChanged((java.awt.Container) child)) {
