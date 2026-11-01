@@ -1,0 +1,172 @@
+// Taken from the MainframeMate OSS license kit (AskAI: own modules skipped, more groups, POM fallback).
+// Collect all resolved dependencies and generate the license report for the selected Java module.
+// Configure ossLicenseTargetProjectPath in the root build.gradle before applying this script.
+
+def ossTargetPath = rootProject.ext.has('ossLicenseTargetProjectPath')
+        ? rootProject.ext.ossLicenseTargetProjectPath.toString()
+        : ':'
+def ossTargetProject = rootProject.project(ossTargetPath)
+def ossOutputDir = new File(ossTargetProject.buildDir, 'generated-resources/oss-licenses')
+
+def ossReportTask = rootProject.tasks.register('generateOssLicenseReport') {
+    group = 'documentation'
+    description = 'Collect resolved dependencies and write oss-licenses.json for the About dialog.'
+
+    outputs.dir(ossOutputDir)
+    // Regenerate the report even when dependency versions are changed without source edits.
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def knownLicenses = [
+                'com.google.code.gson'      : 'Apache-2.0',
+                'com.google.code.findbugs'   : 'Apache-2.0',
+                'com.google.googlejavaformat': 'Apache-2.0',
+                'commons-net'                : 'Apache-2.0',
+                'org.apache.commons'         : 'Apache-2.0',
+                'org.apache.poi'             : 'Apache-2.0',
+                'org.apache.tika'            : 'Apache-2.0',
+                'org.apache.pdfbox'          : 'Apache-2.0',
+                'org.apache.lucene'          : 'Apache-2.0',
+                'com.squareup.okhttp3'       : 'Apache-2.0',
+                'com.squareup.okio'          : 'Apache-2.0',
+                'org.jetbrains.kotlin'       : 'Apache-2.0',
+                'net.java.dev.jna'           : 'Apache-2.0 / LGPL-2.1',
+                'com.fifesoft'               : 'BSD-3-Clause',
+                'org.java-websocket'         : 'MIT',
+                'org.reflections'            : 'WTFPL / Apache-2.0',
+                'org.jsoup'                  : 'MIT',
+                'org.commonmark'             : 'BSD-2-Clause',
+                'com.h2database'             : 'EPL-1.0 / MPL-2.0',
+                'org.antlr'                  : 'BSD-3-Clause',
+                'com.pff'                    : 'Apache-2.0',
+                'org.junit.jupiter'          : 'EPL-2.0',
+                'org.junit'                  : 'EPL-2.0',
+                'junit'                      : 'EPL-2.0',
+                // AskAI's own dependencies
+                'com.vladsch.flexmark'       : 'BSD-2-Clause',
+                'org.apache.opennlp'         : 'Apache-2.0',
+                'org.asynchttpclient'        : 'Apache-2.0',
+                'io.netty'                   : 'Apache-2.0',
+                'org.jgroups'                : 'Apache-2.0',
+                'org.jodd'                   : 'BSD-2-Clause',
+                'org.lwjgl'                  : 'BSD-3-Clause',
+                'org.noear'                  : 'Apache-2.0',
+                'org.pf4j'                   : 'Apache-2.0',
+                'org.slf4j'                  : 'MIT',
+                'uk.co.caprica'              : 'GPL-3.0'
+        ]
+
+        def seen = new LinkedHashSet<String>()
+        def entries = []
+
+        // Resolve runtime and compile classpaths across every Java module.
+        rootProject.allprojects.each { moduleProject ->
+            moduleProject.configurations.each { configuration ->
+                if (!configuration.canBeResolved ||
+                        !(configuration.name in ['runtimeClasspath', 'compileClasspath'])) {
+                    return
+                }
+                try {
+                    configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        // AskAI's own modules are not third-party libraries
+                        if (artifact.id.componentIdentifier instanceof org.gradle.api.artifacts.component.ProjectComponentIdentifier) {
+                            return
+                        }
+                        def id = artifact.moduleVersion.id
+                        def key = "${id.group}:${id.name}:${id.version}"
+                        if (seen.add(key)) {
+                            def license = 'Unknown'
+                            for (mapping in knownLicenses) {
+                                if (id.group.startsWith(mapping.key)) {
+                                    license = mapping.value
+                                    break
+                                }
+                            }
+                            entries << [
+                                    group   : id.group,
+                                    artifact: id.name,
+                                    version : id.version,
+                                    license : license,
+                                    module  : moduleProject.name
+                            ]
+                        }
+                    }
+                } catch (Exception exception) {
+                    logger.warn("[OSSLicenses] Could not resolve ${moduleProject.path}:${configuration.name}: ${exception.message}")
+                }
+            }
+        }
+
+        // Groups the table does not know: take the license name from the artifact's POM, or (when it declares
+        // none) from its parent POMs.
+        def pomCache = [:]
+        def loadPom = { String coordinates ->
+            if (!pomCache.containsKey(coordinates)) {
+                def pom = null
+                try {
+                    def poms = rootProject.configurations.detachedConfiguration(
+                            rootProject.dependencies.create("${coordinates}@pom"))
+                    poms.transitive = false
+                    def files = poms.resolvedConfiguration.lenientConfiguration.files
+                    if (!files.isEmpty()) {
+                        pom = new groovy.xml.XmlSlurper(false, false).parse(files.iterator().next())
+                    }
+                } catch (Exception exception) {
+                    logger.warn("[OSSLicenses] Could not read the POM ${coordinates}: ${exception.message}")
+                }
+                pomCache[coordinates] = pom
+            }
+            return pomCache[coordinates]
+        }
+        entries.findAll { it.license == 'Unknown' }.each { entry ->
+            def coordinates = "${entry.group}:${entry.artifact}:${entry.version}".toString()
+            for (int depth = 0; depth < 6 && coordinates != null; depth++) {
+                def pom = loadPom(coordinates)
+                if (pom == null) {
+                    break
+                }
+                def names = pom.licenses.license.name*.text().collect { it.trim() }.findAll { it }
+                if (!names.isEmpty()) {
+                    entry.license = names.join(' / ')
+                    break
+                }
+                def parent = pom.parent
+                coordinates = parent.artifactId.text()
+                        ? "${parent.groupId.text()}:${parent.artifactId.text()}:${parent.version.text()}".toString()
+                        : null
+            }
+        }
+
+        // Components Ollama Manager downloads at RUNTIME (not on any Gradle classpath), listed by hand.
+        def runtimeDownloads = [
+                [group: 'github.com/ollama', artifact: 'ollama', version: 'downloaded at runtime',
+                 license: 'MIT', module: 'portable setup (runtime download)']
+        ]
+        runtimeDownloads.each { download ->
+            if (seen.add("${download.group}:${download.artifact}:${download.version}".toString())) {
+                entries << download
+            }
+        }
+
+        // Sort the report deterministically before writing it to resources.
+        entries.sort { left, right ->
+            def groupOrder = left.group <=> right.group
+            if (groupOrder != 0) return groupOrder
+            def artifactOrder = left.artifact <=> right.artifact
+            return artifactOrder != 0 ? artifactOrder : left.version <=> right.version
+        }
+
+        ossOutputDir.mkdirs()
+        def outputFile = new File(ossOutputDir, 'oss-licenses.json')
+        outputFile.setText(new groovy.json.JsonBuilder(entries).toPrettyString(), 'UTF-8')
+        logger.lifecycle("[OSSLicenses] Generated ${outputFile} (${entries.size()} dependencies).")
+    }
+}
+
+// Package the generated JSON into the target module's normal classpath resources.
+ossTargetProject.plugins.withId('java') {
+    ossTargetProject.sourceSets.main.resources.srcDir(ossOutputDir)
+    ossTargetProject.tasks.named('processResources') {
+        dependsOn(ossReportTask)
+    }
+}

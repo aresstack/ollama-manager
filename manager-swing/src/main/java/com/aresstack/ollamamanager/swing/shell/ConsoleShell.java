@@ -1,6 +1,9 @@
 package com.aresstack.ollamamanager.swing.shell;
 
 import com.aresstack.askai.java8.ui.AppIcon;
+import com.aresstack.askai.java8.ui.FooterScreen;
+import com.aresstack.askai.java8.ui.OllamaAboutPanel;
+import com.aresstack.askai.java8.ui.about.CopyrightFooter;
 import com.aresstack.askai.java8.ui.AskAiTitleBar;
 import com.aresstack.comiccontrols.control.ComicWindowDragger;
 import com.aresstack.comiccontrols.control.ComicWindowResizer;
@@ -30,6 +33,7 @@ import com.aresstack.ollamamanager.swing.section.ServerSettingsPresenter;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JDialog;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -193,6 +197,18 @@ public class ConsoleShell extends JFrame {
         }
     }
 
+    /** Help > About: the askai About screen (logo, version, open-source licenses) in a modal dialog. */
+    private void showAbout() {
+        JDialog dialog = new JDialog(this, "About Ollama Manager", true);
+        FooterScreen screen = new FooterScreen(new OllamaAboutPanel(), dialog::dispose)
+            .withCenter(OllamaAboutPanel.createCopyDiagnosticsButton())
+            .withTrailing(new CopyrightFooter());
+        dialog.setContentPane(screen);
+        dialog.setSize(960, 700);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private JMenuBar menuBar() {
         int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
         JMenuBar bar = new JMenuBar();
@@ -228,6 +244,11 @@ public class ConsoleShell extends JFrame {
         view.add(item("Normal text size", 'N', KeyStroke.getKeyStroke(KeyEvent.VK_0, mask),
             () -> setFontScale(1f)));
         bar.add(view);
+
+        JMenu help = new JMenu("Help");
+        help.setMnemonic('H');
+        help.add(item("About", 'A', null, this::showAbout));
+        bar.add(help);
         // Also accept Ctrl+Plus on the numeric keypad.
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
             .put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, mask), "font.larger");
