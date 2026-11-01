@@ -258,6 +258,10 @@ public final class OllamaInstallPanel extends JPanel {
         installOptions.setLayout(new BoxLayout(installOptions, BoxLayout.Y_AXIS));
         installOptions.add(deleteAfterInstallCheckbox);
         installOptions.add(installLocallyCheckbox);
+        // Ollama Manager: AskAI's local runtime (win-directml-java) is not bundled, so the local
+        // install path is unavailable. Hidden, it can no longer be auto-selected and gate GGUF
+        // installs into Ollama behind a config.json check.
+        installLocallyCheckbox.setVisible(false);
         progressRow.add(installOptions, BorderLayout.WEST);
         // Bar and cancel button share one vertically centered cell at their natural height: hung
         // straight into the BorderLayout they were stretched to the height of the check box column
@@ -747,7 +751,7 @@ public final class OllamaInstallPanel extends JPanel {
             lastHandledSuggestionKey = key;
             localInstallTouchedByUser = false; // a new selection is fresh intent
         }
-        if (suggestion.isLocalEngine() && !localInstallTouchedByUser
+        if (installLocallyCheckbox.isVisible() && suggestion.isLocalEngine() && !localInstallTouchedByUser
                 && !installLocallyCheckbox.isSelected()) {
             programmaticLocalToggle = true;
             try {
