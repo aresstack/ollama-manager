@@ -2,6 +2,8 @@ package com.aresstack.ollamamanager.infrastructure.persistence;
 
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkReport;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
+import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -24,7 +26,9 @@ public class JsonBenchmarkHistoryTest {
     @Test
     public void roundTripsReportsNewestFirstAndSkipsBrokenFiles() throws Exception {
         JsonBenchmarkHistory history = new JsonBenchmarkHistory(folder.getRoot());
-        BenchmarkReport older = new BenchmarkReport("a1", 1000, "llama3:8b", 4096, 128, "4", 900,
+        ServerSettings measured = ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4)
+            .with(ServerSettingCatalog.FLASH_ATTENTION, Boolean.TRUE);
+        BenchmarkReport older = new BenchmarkReport("a1", 1000, "llama3:8b", 4096, 128, "4", measured, 900,
             Arrays.asList(new StageResult(1, 1, 0, 40.5, 40.5, 40.5, 50, 60, 900, 1000, 1200, 8_000_000_000L, 1.0, null),
                 new StageResult(4, 4, 1, 20, 15, 70, 80, 300, 1800, 2000, 2500, null, 0.5, "HTTP 503")), false);
         BenchmarkReport newer = new BenchmarkReport("b2", 2000, "phi", null, 64, null, 10,
@@ -41,6 +45,9 @@ public class JsonBenchmarkHistoryTest {
         assertEquals("llama3:8b", read.model());
         assertEquals(Integer.valueOf(4096), read.numCtx());
         assertEquals("4", read.serverNumParallel());
+        assertEquals(measured, read.serverSettings());
+        assertEquals(Boolean.TRUE, read.serverSettings().flashAttention());
+        assertNull(loaded.get(0).serverSettings());
         assertEquals(900, read.loadMillis());
         assertEquals(2, read.stages().size());
         StageResult four = read.stages().get(1);

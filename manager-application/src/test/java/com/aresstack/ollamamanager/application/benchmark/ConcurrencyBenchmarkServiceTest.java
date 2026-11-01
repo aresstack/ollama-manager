@@ -15,6 +15,8 @@ import com.aresstack.ollamamanager.domain.model.ModelDetails;
 import com.aresstack.ollamamanager.domain.model.ModelIdentity;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -139,6 +141,22 @@ public class ConcurrencyBenchmarkServiceTest {
 
     private static ConcurrencyBenchmarkRequest request(Integer... levels) {
         return new ConcurrencyBenchmarkRequest("m", Arrays.asList(levels), null, 50, 1, null, true);
+    }
+
+    @Test
+    public void recordsTheServerSettingsTheRunWasMeasuredWith() throws Exception {
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(new FakeApi(), null, null);
+        BenchmarkReport unknown = service.run(ENDPOINT, request(1), null, NO_LISTENER, CancellationToken.none());
+        assertNull(unknown.serverNumParallel());
+        assertNull(unknown.serverSettings());
+        BenchmarkReport unset = service.run(ENDPOINT, request(1), ServerSettings.defaults(), NO_LISTENER,
+            CancellationToken.none());
+        assertEquals(ConcurrencyBenchmarkService.SERVER_DEFAULT, unset.serverNumParallel());
+        assertNull(unset.serverSettings().parallelism());
+        ServerSettings four = ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4);
+        BenchmarkReport set = service.run(ENDPOINT, request(1), four, NO_LISTENER, CancellationToken.none());
+        assertEquals("4", set.serverNumParallel());
+        assertEquals(four, set.serverSettings());
     }
 
     @Test

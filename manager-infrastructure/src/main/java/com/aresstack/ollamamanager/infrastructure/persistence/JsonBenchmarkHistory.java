@@ -5,6 +5,7 @@ import com.aresstack.ollamamanager.application.benchmark.BenchmarkReport;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.infrastructure.json.Json;
 
 import java.io.File;
@@ -82,6 +83,8 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
         map.put("numCtx", report.numCtx() == null ? null : report.numCtx().longValue());
         map.put("maxTokens", (long) report.maxTokens());
         map.put("serverNumParallel", report.serverNumParallel());
+        map.put("serverSettings", report.serverSettings() == null ? null
+            : new LinkedHashMap<String, Object>(report.serverSettings().toEncodedMap()));
         map.put("loadMillis", report.loadMillis());
         map.put("complete", report.complete());
         List<Object> stages = new ArrayList<Object>();
@@ -127,7 +130,21 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
         Number numCtx = (Number) map.get("numCtx");
         return new BenchmarkReport((String) map.get("id"), num(map, "startedAt").longValue(),
             (String) map.get("model"), numCtx == null ? null : numCtx.intValue(), num(map, "maxTokens").intValue(),
-            (String) map.get("serverNumParallel"), num(map, "loadMillis").longValue(), stages, Boolean.TRUE.equals(map.get("complete")));
+            (String) map.get("serverNumParallel"), serverSettings(map.get("serverSettings")),
+            num(map, "loadMillis").longValue(), stages, Boolean.TRUE.equals(map.get("complete")));
+    }
+
+    private static ServerSettings serverSettings(Object raw) {
+        if (!(raw instanceof Map)) {
+            return null;
+        }
+        Map<String, String> encoded = new LinkedHashMap<String, String>();
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) raw).entrySet()) {
+            if (entry.getKey() instanceof String && entry.getValue() instanceof String) {
+                encoded.put((String) entry.getKey(), (String) entry.getValue());
+            }
+        }
+        return ServerSettings.fromEncodedMap(encoded);
     }
 
     private static Number num(Map<String, Object> map, String key) {

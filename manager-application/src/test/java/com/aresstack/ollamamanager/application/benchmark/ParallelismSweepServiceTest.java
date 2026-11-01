@@ -3,6 +3,7 @@ package com.aresstack.ollamamanager.application.benchmark;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
@@ -77,6 +78,9 @@ public class ParallelismSweepServiceTest {
         final List<Integer> startedWith = new ArrayList<Integer>();
         FakeServer current;
         int failStartNumber = -1;
+        /** Start number at which the user cancels while the process comes up; -1 for never. */
+        int cancelStartNumber = -1;
+        CancellationToken userToken;
 
         @Override
         public List<OllamaInstallation> discover(List<File> additionalDirectories, CancellationToken cancellation) {
@@ -89,6 +93,10 @@ public class ParallelismSweepServiceTest {
             startedWith.add(settings.parallelism());
             if (startedWith.size() == failStartNumber) {
                 throw new OperationException(ErrorKind.PROCESS_FAILED, "boom");
+            }
+            if (startedWith.size() == cancelStartNumber) {
+                userToken.cancel();
+                throw new OperationCancelledException("cancelled while starting");
             }
             current = new FakeServer(settings);
             return current;
@@ -164,6 +172,7 @@ public class ParallelismSweepServiceTest {
     private static class Recorder implements ParallelismSweepService.Listener {
         final List<BenchmarkReport> reports = new ArrayList<BenchmarkReport>();
         final List<String> phases = new ArrayList<String>();
+        OperationException restoreFailure;
 
         @Override
         public void phase(String text, double fraction) {
@@ -178,6 +187,11 @@ public class ParallelismSweepServiceTest {
         @Override
         public void reportFinished(BenchmarkReport report) {
             reports.add(report);
+        }
+
+        @Override
+        public void restoreFailed(OperationException failure) {
+            restoreFailure = failure;
         }
     }
 
@@ -209,6 +223,9 @@ public class ParallelismSweepServiceTest {
         assertEquals(2, recorder.reports.size());
         assertNull(lifecycle.appliedSettings().parallelism());
         assertTrue(reports.get(1).optimum().aggregateTps() > reports.get(0).optimum().aggregateTps());
+        // Each report records the settings its server ran with.
+        assertEquals(Integer.valueOf(4), reports.get(0).serverSettings().parallelism());
+        assertEquals(Integer.valueOf(8), reports.get(1).serverSettings().parallelism());
     }
 
     @Test
@@ -239,6 +256,90 @@ public class ParallelismSweepServiceTest {
         assertEquals(1, reports.size());
         assertEquals(Arrays.asList(null, 2, null), runtime.startedWith);
         assertNull(lifecycle.appliedSettings().parallelism());
+    }
+
+    @Test
+    public void cancelDuringARestartKeepsFinishedReportsAndRestores() throws Exception {
+        final CancellationToken token = new CancellationToken();
+        runtime.userToken = token;
+        // Initial start, candidate 2, then the user cancels while candidate 4 comes up.
+        runtime.cancelStartNumber = 3;
+        List<BenchmarkReport> reports = service.run(request(), Arrays.asList(2, 4, 8), new Recorder(), token);
+        assertEquals(1, reports.size());
+        assertEquals("2", reports.get(0).serverNumParallel());
+        // The cancelled start left no server, so the installation is started again with the original settings.
+        assertEquals(Arrays.asList(null, 2, 4, null), runtime.startedWith);
+        assertNull(lifecycle.appliedSettings().parallelism());
+    }
+
+    @Test
+    public void reportsARestoreFailureAfterCancelThroughTheListener() throws Exception {
+        final CancellationToken token = new CancellationToken();
+        // Initial start, candidate 2, then the restore's start fails.
+        runtime.failStartNumber = 3;
+        Recorder recorder = new Recorder() {
+            @Override
+            public void reportFinished(BenchmarkReport report) {
+                super.reportFinished(report);
+                token.cancel();
+            }
+        };
+        List<BenchmarkReport> reports = service.run(request(), Arrays.asList(2, 4), recorder, token);
+        assertEquals(1, reports.size());
+        assertTrue(recorder.restoreFailure != null);
+        assertEquals(ErrorKind.PROCESS_FAILED, recorder.restoreFailure.kind());
+        assertTrue(recorder.restoreFailure.getMessage(), recorder.restoreFailure.getMessage().contains("dashboard"));
+        assertNull(lifecycle.appliedSettings());
+    }
+
+    @Test
+    public void leavesAServerTheUserStoppedAlone() throws Exception {
+        Recorder stopper = new Recorder() {
+            @Override
+            public void stageFinished(StageResult stage) {
+                try {
+                    lifecycle.stop();
+                } catch (OperationException e) {
+                    throw new AssertionError(e);
+                }
+            }
+        };
+        try {
+            service.run(request(), Arrays.asList(2, 4), stopper, CancellationToken.none());
+            fail("expected INVALID_STATE");
+        } catch (OperationException e) {
+            assertEquals(ErrorKind.INVALID_STATE, e.kind());
+            assertEquals(0, e.getSuppressed().length);
+        }
+        // No restore start: the user wanted the server down.
+        assertEquals(Arrays.asList(null, 2), runtime.startedWith);
+        assertNull(lifecycle.appliedSettings());
+    }
+
+    @Test
+    public void leavesAServerRestartedWithOtherSettingsAlone() throws Exception {
+        Recorder restarter = new Recorder() {
+            boolean done;
+
+            @Override
+            public void stageFinished(StageResult stage) {
+                if (done) {
+                    return;
+                }
+                done = true;
+                try {
+                    lifecycle.restart(ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 7),
+                        CancellationToken.none());
+                } catch (OperationException e) {
+                    throw new AssertionError(e);
+                }
+            }
+        };
+        List<BenchmarkReport> reports = service.run(request(), Arrays.asList(2), restarter, CancellationToken.none());
+        assertEquals(1, reports.size());
+        // The user's restart with 7 is the last word; the sweep does not revert it.
+        assertEquals(Arrays.asList(null, 2, 7), runtime.startedWith);
+        assertEquals(Integer.valueOf(7), lifecycle.appliedSettings().parallelism());
     }
 
     @Test

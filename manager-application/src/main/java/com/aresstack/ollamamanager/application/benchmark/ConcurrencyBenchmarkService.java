@@ -10,6 +10,7 @@ import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +25,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * whether the model stays on the GPU. The optimum is the stage with the highest total throughput.
  */
 public final class ConcurrencyBenchmarkService {
+
+    /** Marker in {@link BenchmarkReport#serverNumParallel()} for an own server running without OLLAMA_NUM_PARALLEL. */
+    public static final String SERVER_DEFAULT = "default";
 
     /** Keep the model loaded between stages so that load time is measured once. */
     static final String KEEP_ALIVE = "10m";
@@ -53,19 +57,42 @@ public final class ConcurrencyBenchmarkService {
         this.history = history;
     }
 
+    /** OLLAMA_NUM_PARALLEL as text: a number, {@link #SERVER_DEFAULT} when unset, or {@code null} when unknown. */
+    public static String serverParallelText(ServerSettings applied) {
+        if (applied == null) {
+            return null;
+        }
+        Integer parallel = applied.parallelism();
+        return parallel == null ? SERVER_DEFAULT : String.valueOf(parallel);
+    }
+
     /**
-     * Run the sweep. A cancelled run still returns and stores the stages finished so far, marked incomplete;
-     * it throws {@link OperationCancelledException} only when no stage finished.
+     * Run the sweep against the server at {@code endpoint}. {@code applied} are the settings the manager's own
+     * server runs with, recorded in the report together with its OLLAMA_NUM_PARALLEL; {@code null} for a server
+     * whose settings are unknown. A cancelled run still returns and stores the stages finished so far, marked
+     * incomplete; it throws {@link OperationCancelledException} only when no stage finished.
      */
-    public BenchmarkReport run(Endpoint endpoint, ConcurrencyBenchmarkRequest request, String serverNumParallel,
+    public BenchmarkReport run(Endpoint endpoint, ConcurrencyBenchmarkRequest request, ServerSettings applied,
                                Listener listener, CancellationToken cancellation) throws OperationException {
+        String serverNumParallel = serverParallelText(applied);
         long started = System.currentTimeMillis();
         ModelOptions options = new ModelOptions(request.numCtx(), request.maxTokens(), null, null);
         int totalSteps = request.levels().size() + 1;
 
         listener.phase("Loading " + request.model(), 0);
-        GenerationMetrics warmup = api.generate(endpoint, request.model(), "Hi",
-            new ModelOptions(request.numCtx(), 1, null, null), KEEP_ALIVE, cancellation);
+        GenerationMetrics warmup;
+        try {
+            warmup = api.generate(endpoint, request.model(), "Hi", new ModelOptions(request.numCtx(), 1, null, null),
+                KEEP_ALIVE, cancellation);
+        } catch (OperationCancelledException e) {
+            throw e;
+        } catch (OperationException e) {
+            String context = request.numCtx() == null ? "the server's default context size"
+                : "num_ctx " + request.numCtx();
+            throw new OperationException(e.kind(), "loading " + request.model() + " with " + context + " failed: "
+                + e.getMessage() + (request.numCtx() == null ? ". Set a context size in the benchmark settings;"
+                + " the default can be the model's full context" : ". Try a smaller context size"), e);
+        }
 
         List<StageResult> stages = new ArrayList<StageResult>();
         boolean complete = true;
@@ -93,7 +120,7 @@ public final class ConcurrencyBenchmarkService {
             throw new OperationCancelledException("benchmark cancelled");
         }
         BenchmarkReport report = new BenchmarkReport(UUID.randomUUID().toString(), started, request.model(),
-            request.numCtx(), request.maxTokens(), serverNumParallel, warmup.loadMillis(), stages,
+            request.numCtx(), request.maxTokens(), serverNumParallel, applied, warmup.loadMillis(), stages,
             complete);
         if (history != null) {
             history.save(report);

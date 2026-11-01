@@ -3,6 +3,7 @@ package com.aresstack.ollamamanager.swing.section;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkReport;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkRequest;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.swing.component.CardPanel;
@@ -109,8 +110,11 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         model.setPrototypeDisplayValue("some-model-name:latest-q4_K_M");
         levels.setToolTipText("How many chats to start at the same time, one stage per number, for example 1, 2, 4, 8.");
         maxTokens.setToolTipText("Tokens each chat generates per request. More tokens give steadier numbers but take longer.");
-        setContext.setToolTipText("Send num_ctx with every request. Larger contexts need more VRAM per chat.");
-        numCtx.setEnabled(false);
+        setContext.setToolTipText("Send num_ctx with every request. Larger contexts need more VRAM per chat; unticked, the"
+            + " server's default applies, which for some models is the model's full context and may not fit.");
+        // An explicit context is part of the measured setting; the server default can be the model's full context.
+        setContext.setSelected(true);
+        numCtx.setEnabled(true);
         setContext.addActionListener(event -> numCtx.setEnabled(setContext.isSelected()));
         rounds.setToolTipText("Requests each chat sends in a row per stage.");
         sweep.setToolTipText("Restart the manager's own server with each value, run all stages, then restore the"
@@ -280,7 +284,8 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         List<Integer> candidates = null;
         if (sweep.isSelected() && sweepAvailable) {
             try {
-                candidates = parseLevels(serverValues.getText());
+                // The same distinct, ascending order the sweep runs in, so that live labels match the server.
+                candidates = ParallelismSweepService.candidates(parseLevels(serverValues.getText()));
             } catch (IllegalArgumentException e) {
                 banner.error("Server values: " + e.getMessage());
                 return;
@@ -299,18 +304,23 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         if (candidates != null && !Dialogs.confirm(this, "Restart the server per value?", SWEEP_WARNING)) {
             return;
         }
+        boolean started = candidates != null ? presenter.runSweep(request, candidates) : presenter.run(request);
+        if (!started) {
+            return;
+        }
+        // Stage results arrive through later UI events, so the chart is prepared after the start.
         shown.clear();
         chart.clear();
         stageModel.setRows(Collections.<BenchmarkReport>emptyList());
         verdict.setText("Running…");
         if (candidates != null) {
+            sweepCandidates = candidates;
             currentSweepLabel = String.valueOf(candidates.get(0));
             chart.startSeries(seriesName(currentSweepLabel));
-            presenter.runSweep(request, candidates);
         } else {
+            sweepCandidates = Collections.emptyList();
             currentSweepLabel = "";
             chart.startSeries(name);
-            presenter.run(request);
         }
     }
 
@@ -325,9 +335,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             banner.warning("This run has no stable stage to save.");
             return;
         }
+        String serverValue = BenchmarkProfiles.hasServerValue(report)
+            ? "OLLAMA_NUM_PARALLEL=" + report.serverNumParallel() + " and the run's num_ctx"
+            : "OLLAMA_NUM_PARALLEL left unset (not measured) and the run's num_ctx";
         String name = (String) JOptionPane.showInputDialog(this,
             "Profile name for " + report.model() + " with " + optimum.parallel() + " parallel chats"
-                + " (" + tps(optimum.aggregateTps()) + " tok/s total):",
+                + " (" + tps(optimum.aggregateTps()) + " tok/s total).\nThe profile sets " + serverValue + ":",
             "Save as profile", JOptionPane.PLAIN_MESSAGE, null, null, BenchmarkProfiles.defaultName(report, optimum));
         if (name != null) {
             presenter.saveProfile(report, optimum, name);
@@ -471,28 +484,26 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         stageModel.add(liveLabel(), stage);
     }
 
-    /** Label of the server value a sweep is currently measuring, derived from the series started for it. */
+    /** Label of the server value a running sweep is currently measuring; empty for a plain run. */
     private String liveLabel() {
-        return sweep.isSelected() && sweepAvailable ? currentSweepLabel : "";
+        return currentSweepLabel;
     }
 
+    /** Server values of the running sweep in the order the sweep tries them; empty for a plain run. */
+    private List<Integer> sweepCandidates = Collections.emptyList();
     private String currentSweepLabel = "";
 
     @Override
     public void reportFinished(BenchmarkReport report) {
         shown.add(report);
-        // The next stages belong to the next server value; its label is only known once its report arrives,
-        // so the line is named after the position in the candidate list.
-        List<Integer> candidates;
-        try {
-            candidates = parseLevels(serverValues.getText());
-        } catch (IllegalArgumentException e) {
-            candidates = Collections.emptyList();
-        }
+        // The next stages belong to the next server value; after the last one no new line is started.
         int next = shown.size();
-        String nextLabel = next < candidates.size() ? seriesName(String.valueOf(candidates.get(next))) : "";
-        currentSweepLabel = next < candidates.size() ? String.valueOf(candidates.get(next)) : "";
-        chart.startSeries(nextLabel);
+        if (next < sweepCandidates.size()) {
+            currentSweepLabel = String.valueOf(sweepCandidates.get(next));
+            chart.startSeries(seriesName(currentSweepLabel));
+        } else {
+            currentSweepLabel = "";
+        }
         verdict.setText(verdictText(shown));
     }
 

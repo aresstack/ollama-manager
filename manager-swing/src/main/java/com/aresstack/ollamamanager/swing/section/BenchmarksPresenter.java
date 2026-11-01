@@ -6,6 +6,7 @@ import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkReq
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
+import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
@@ -30,7 +31,7 @@ import java.util.List;
 public final class BenchmarksPresenter {
 
     /** Marker for an owned server that runs without OLLAMA_NUM_PARALLEL set. */
-    static final String SERVER_DEFAULT = "default";
+    static final String SERVER_DEFAULT = ConcurrencyBenchmarkService.SERVER_DEFAULT;
     static final String SWEEP_NEEDS_OWNED =
         "Trying several server values restarts the server per value, which only works for a server started by the manager.";
 
@@ -62,9 +63,15 @@ public final class BenchmarksPresenter {
         return status.installation().endpoint();
     }
 
-    /** Reload the model list, the server's parallel setting and the stored runs. */
+    /**
+     * Reload the model list, the server's parallel setting and the stored runs. While a benchmark runs only the
+     * history is reloaded: a sweep restarts the server, and a refresh during that would report it as missing.
+     */
     public void refresh() {
         loadHistory();
+        if (running) {
+            return;
+        }
         final Endpoint endpoint = runningEndpoint();
         if (endpoint == null) {
             return;
@@ -93,35 +100,41 @@ public final class BenchmarksPresenter {
     }
 
     /**
-     * OLLAMA_NUM_PARALLEL as applied to the running server: the value of the owned server's actual settings,
-     * {@link #SERVER_DEFAULT} when it runs unset, or {@code null} for an external server whose environment the
-     * manager cannot read. Pending desired settings are never reported.
+     * The settings the owned server actually runs with, or {@code null} for an external server whose environment
+     * the manager cannot read. Pending desired settings are never reported.
      */
-    String serverParallelText() {
+    ServerSettings appliedSettings() {
         ServerLifecycleService lifecycle = services.serverLifecycle();
         if (lifecycle == null || lifecycle.status().ownership() != RuntimeOwnership.OWNED) {
             return null;
         }
-        ServerSettings applied = lifecycle.appliedSettings();
-        if (applied == null) {
-            return null;
-        }
-        Integer parallel = applied.parallelism();
-        return parallel == null ? SERVER_DEFAULT : String.valueOf(parallel);
+        return lifecycle.appliedSettings();
     }
 
-    /** Benchmark the running server as it is. */
-    public void run(final ConcurrencyBenchmarkRequest request) {
+    /**
+     * OLLAMA_NUM_PARALLEL as applied to the running server: a number, {@link #SERVER_DEFAULT} when the owned
+     * server runs unset, or {@code null} when unknown.
+     */
+    String serverParallelText() {
+        return ConcurrencyBenchmarkService.serverParallelText(appliedSettings());
+    }
+
+    /**
+     * Benchmark the running server as it is.
+     *
+     * @return whether a run was started
+     */
+    public boolean run(final ConcurrencyBenchmarkRequest request) {
         if (running) {
-            return;
+            return false;
         }
         final Endpoint endpoint = runningEndpoint();
         if (endpoint == null) {
-            return;
+            return false;
         }
         final ConcurrencyBenchmarkService service = services.benchmarks();
-        final String serverParallel = serverParallelText();
-        start("Benchmark " + request.model(), context -> service.run(endpoint, request, serverParallel,
+        final ServerSettings applied = appliedSettings();
+        start("Benchmark " + request.model(), context -> service.run(endpoint, request, applied,
             new ConcurrencyBenchmarkService.Listener() {
                 @Override
                 public void phase(String text, double fraction) {
@@ -133,17 +146,22 @@ public final class BenchmarksPresenter {
                     SwingUtilities.invokeLater(() -> view.stageFinished(stage));
                 }
             }, context.cancellation()), report -> view.showReport(report));
+        return true;
     }
 
-    /** Benchmark once per OLLAMA_NUM_PARALLEL candidate, restarting the owned server for each. */
-    public void runSweep(final ConcurrencyBenchmarkRequest request, final List<Integer> candidates) {
+    /**
+     * Benchmark once per OLLAMA_NUM_PARALLEL candidate, restarting the owned server for each.
+     *
+     * @return whether a sweep was started
+     */
+    public boolean runSweep(final ConcurrencyBenchmarkRequest request, final List<Integer> candidates) {
         if (running || runningEndpoint() == null) {
-            return;
+            return false;
         }
         final ParallelismSweepService sweeps = services.sweeps();
         if (sweeps == null || services.serverLifecycle().status().ownership() != RuntimeOwnership.OWNED) {
             view.setSweepAvailable(false, SWEEP_NEEDS_OWNED);
-            return;
+            return false;
         }
         start("Benchmark " + request.model() + " over server values", context -> sweeps.run(request, candidates,
             new ParallelismSweepService.Listener() {
@@ -161,7 +179,13 @@ public final class BenchmarksPresenter {
                 public void reportFinished(BenchmarkReport report) {
                     SwingUtilities.invokeLater(() -> view.reportFinished(report));
                 }
+
+                @Override
+                public void restoreFailed(OperationException failure) {
+                    SwingUtilities.invokeLater(() -> view.showFailure("Restore server settings", failure));
+                }
             }, context.cancellation()), reports -> view.showReports(reports));
+        return true;
     }
 
     private <T> void start(String title, JobWork<T> work, java.util.function.Consumer<T> onResult) {

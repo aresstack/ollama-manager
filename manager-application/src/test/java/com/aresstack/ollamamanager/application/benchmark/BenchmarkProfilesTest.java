@@ -19,7 +19,9 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class BenchmarkProfilesTest {
@@ -44,7 +46,11 @@ public class BenchmarkProfilesTest {
     }
 
     private static BenchmarkReport report(Integer numCtx, String serverParallel) {
-        return new BenchmarkReport("r1", 0, "llama3.1:8b", numCtx, 128, serverParallel, 100,
+        return report(numCtx, serverParallel, null);
+    }
+
+    private static BenchmarkReport report(Integer numCtx, String serverParallel, ServerSettings settings) {
+        return new BenchmarkReport("r1", 0, "llama3.1:8b", numCtx, 128, serverParallel, settings, 100,
             Arrays.asList(stage(1, 50), stage(4, 120), stage(8, 110)), true);
     }
 
@@ -79,16 +85,38 @@ public class BenchmarkProfilesTest {
     }
 
     @Test
-    public void fallsBackToOptimalChatsWhenServerValueUnknown() throws Exception {
+    public void prefersTheSettingsTheRunWasMeasuredWith() throws Exception {
         ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        configuration.update(current -> current.withDesiredServerSettings(
+            ServerSettings.defaults().with(ServerSettingCatalog.FLASH_ATTENTION, Boolean.FALSE)
+                .with(ServerSettingCatalog.PARALLELISM, 2)));
+        BenchmarkProfiles profiles = new BenchmarkProfiles(new ModelProfileRepository(configuration), configuration,
+            environment(new GpuFingerprint("rtx"), "0.40.13"));
+        ServerSettings measured = ServerSettings.defaults().with(ServerSettingCatalog.FLASH_ATTENTION, Boolean.TRUE)
+            .with(ServerSettingCatalog.PARALLELISM, 8);
+        BenchmarkReport report = report(null, "8", measured);
+        ModelProfile saved = profiles.save(report, report.optimum(), null, CancellationToken.none());
+        // The stored desired settings were never benchmarked; the run's settings were.
+        assertEquals(Boolean.TRUE, saved.serverSettings().flashAttention());
+        assertEquals(Integer.valueOf(8), saved.serverSettings().parallelism());
+    }
+
+    @Test
+    public void leavesServerValueUnsetWhenItWasNotMeasured() throws Exception {
+        ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        configuration.update(current -> current.withDesiredServerSettings(
+            ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 2)));
         BenchmarkProfiles profiles = new BenchmarkProfiles(new ModelProfileRepository(configuration), configuration,
             environment(GpuFingerprint.CPU_ONLY, "0.40.13"));
         BenchmarkReport report = report(null, null);
         ModelProfile saved = profiles.save(report, report.optimum(), "Mine", CancellationToken.none());
         assertEquals("Mine", saved.name());
-        assertEquals(Integer.valueOf(4), saved.serverSettings().parallelism());
+        // Four chats were optimal, but OLLAMA_NUM_PARALLEL=4 was never measured, so the profile does not claim it.
+        assertNull(saved.serverSettings().parallelism());
         assertNull(saved.modelOptions().numCtx());
-        assertEquals(4, BenchmarkProfiles.serverParallel(report(null, "default"), report.optimum()));
+        assertFalse(BenchmarkProfiles.hasServerValue(report(null, "default")));
+        assertTrue(BenchmarkProfiles.hasServerValue(report(null, "4")));
+        assertEquals(Integer.valueOf(4), BenchmarkProfiles.serverParallel(report(null, "4")));
     }
 
     @Test

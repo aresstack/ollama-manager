@@ -16,9 +16,11 @@ import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import java.util.UUID;
 
 /**
- * Turn a measured optimum into a model profile: the stored server settings with {@code OLLAMA_NUM_PARALLEL} set
- * to the measured server value (or, when the server value is unknown, to the optimal number of chats) and the
- * benchmark's {@code num_ctx} as model option. Saving goes through the shared profile repository.
+ * Turn a measured optimum into a model profile: the server settings the run was measured with (the stored
+ * desired settings when the run does not know them), with {@code OLLAMA_NUM_PARALLEL} set to the measured
+ * server value, and the benchmark's {@code num_ctx} as model option. When the run's server value is unknown or
+ * was Ollama's default, the profile leaves {@code OLLAMA_NUM_PARALLEL} unset rather than claim an unmeasured
+ * value; the optimal number of chats stays in the profile name. Saving goes through the shared profile repository.
  */
 public final class BenchmarkProfiles {
 
@@ -44,16 +46,27 @@ public final class BenchmarkProfiles {
         return report.model() + " - " + stage.parallel() + (stage.parallel() == 1 ? " chat" : " parallel chats");
     }
 
-    /** OLLAMA_NUM_PARALLEL the profile should set for {@code stage}. */
-    static int serverParallel(BenchmarkReport report, StageResult stage) {
+    /** OLLAMA_NUM_PARALLEL the profile should set: the run's measured server value, or {@code null} to leave it unset. */
+    static Integer serverParallel(BenchmarkReport report) {
         try {
             if (report.serverNumParallel() != null) {
-                return Integer.parseInt(report.serverNumParallel());
+                return Integer.valueOf(report.serverNumParallel());
             }
         } catch (NumberFormatException ignored) {
-            // "default" or unknown: fall back to the measured optimum.
+            // Ollama's default or an unknown value: no number was measured.
         }
-        return stage.parallel();
+        return null;
+    }
+
+    /** Whether a profile of {@code report} would carry a measured OLLAMA_NUM_PARALLEL. */
+    public static boolean hasServerValue(BenchmarkReport report) {
+        return serverParallel(report) != null;
+    }
+
+    /** Settings the profile is built from: those the run was measured with, else the stored desired settings. */
+    private ServerSettings baseSettings(BenchmarkReport report) throws OperationException {
+        return report.serverSettings() != null ? report.serverSettings()
+            : configuration.current().desiredServerSettings();
     }
 
     /**
@@ -78,8 +91,7 @@ public final class BenchmarkProfiles {
             }
         }
         ProfileScope scope = new ProfileScope(model, snapshot.gpuFingerprint(), snapshot.ollamaVersion(), WORKLOAD);
-        ServerSettings settings = configuration.current().desiredServerSettings()
-            .with(ServerSettingCatalog.PARALLELISM, serverParallel(report, stage));
+        ServerSettings settings = baseSettings(report).with(ServerSettingCatalog.PARALLELISM, serverParallel(report));
         ModelOptions options = report.numCtx() == null ? ModelOptions.none()
             : ModelOptions.none().withNumCtx(report.numCtx());
         String profileName = name == null || name.trim().isEmpty() ? defaultName(report, stage) : name.trim();
