@@ -9,15 +9,18 @@ import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.domain.profile.ProfileScope;
+import com.aresstack.ollamamanager.domain.server.ServerSetting;
 import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Turn a measured optimum into a model profile: the server settings the run was measured with (the stored
- * desired settings when the run does not know them), with {@code OLLAMA_NUM_PARALLEL} set to the measured
- * server value, and the benchmark's {@code num_ctx} as model option. When the run's server value is unknown or
+ * Turn a measured optimum into a model profile: the stored desired settings with the measurement-relevant
+ * settings of the run (when it recorded them) and {@code OLLAMA_NUM_PARALLEL} set to the measured server value, and the benchmark's {@code num_ctx} as model option. When the run's server value is unknown or
  * was Ollama's default, the profile leaves {@code OLLAMA_NUM_PARALLEL} unset rather than claim an unmeasured
  * value; the optimal number of chats stays in the profile name. Saving goes through the shared profile repository.
  */
@@ -25,6 +28,11 @@ public final class BenchmarkProfiles {
 
     /** Workload label of profiles created from a benchmark. */
     public static final String WORKLOAD = "parallel-chats";
+
+    /** Server settings that influence how many chats fit, carried from the run into the profile. */
+    static final List<ServerSetting<?>> MEASURED_SETTINGS = Collections.unmodifiableList(
+        Arrays.<ServerSetting<?>>asList(ServerSettingCatalog.PARALLELISM, ServerSettingCatalog.LOADED_MODELS,
+            ServerSettingCatalog.CONTEXT_LENGTH, ServerSettingCatalog.KV_CACHE, ServerSettingCatalog.FLASH_ATTENTION));
 
     private final ModelProfileRepository profiles;
     private final ConfigurationService configuration;
@@ -81,10 +89,25 @@ public final class BenchmarkProfiles {
             snapshot.ollamaVersion(), WORKLOAD);
     }
 
-    /** Settings the profile is built from: those the run was measured with, else the stored desired settings. */
+    /**
+     * Settings the profile is built from: the stored desired settings, with the settings that shape the
+     * measurement taken from the run when it recorded them. Model folder, bind address, keep-alive and queue stay
+     * as the user has them now; a profile must not drag an old model folder back.
+     */
     private ServerSettings baseSettings(BenchmarkReport report) throws OperationException {
-        return report.serverSettings() != null ? report.serverSettings()
-            : configuration.current().desiredServerSettings();
+        ServerSettings base = configuration.current().desiredServerSettings();
+        ServerSettings measured = report.serverSettings();
+        if (measured == null) {
+            return base;
+        }
+        for (ServerSetting<?> setting : MEASURED_SETTINGS) {
+            base = copy(base, measured, setting);
+        }
+        return base;
+    }
+
+    private static <T> ServerSettings copy(ServerSettings target, ServerSettings source, ServerSetting<T> setting) {
+        return target.with(setting, source.isChosen(setting) ? source.get(setting) : null);
     }
 
     /**

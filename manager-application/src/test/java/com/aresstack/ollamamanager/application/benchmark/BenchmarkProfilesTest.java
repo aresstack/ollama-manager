@@ -92,18 +92,22 @@ public class BenchmarkProfilesTest {
     @Test
     public void prefersTheSettingsTheRunWasMeasuredWith() throws Exception {
         ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        java.io.File models = new java.io.File("X:/models").getAbsoluteFile();
         configuration.update(current -> current.withDesiredServerSettings(
             ServerSettings.defaults().with(ServerSettingCatalog.FLASH_ATTENTION, Boolean.FALSE)
-                .with(ServerSettingCatalog.PARALLELISM, 2)));
+                .with(ServerSettingCatalog.PARALLELISM, 2).with(ServerSettingCatalog.MODEL_ROOT, models)));
         BenchmarkProfiles profiles = new BenchmarkProfiles(new ModelProfileRepository(configuration), configuration,
             environment(new GpuFingerprint("rtx"), "0.40.13"));
         ServerSettings measured = ServerSettings.defaults().with(ServerSettingCatalog.FLASH_ATTENTION, Boolean.TRUE)
-            .with(ServerSettingCatalog.PARALLELISM, 8);
+            .with(ServerSettingCatalog.PARALLELISM, 8).with(ServerSettingCatalog.MODEL_ROOT,
+                new java.io.File("old-models").getAbsoluteFile());
         BenchmarkReport report = report(null, "8", measured);
         ModelProfile saved = profiles.save(report, report.optimum(), null, CancellationToken.none());
-        // The stored desired settings were never benchmarked; the run's settings were.
+        // The stored desired settings were never benchmarked; the run's measurement-relevant settings were.
         assertEquals(Boolean.TRUE, saved.serverSettings().flashAttention());
         assertEquals(Integer.valueOf(8), saved.serverSettings().parallelism());
+        // The model folder is not part of the measurement and stays as the user has it now.
+        assertEquals(models, saved.serverSettings().modelRoot());
     }
 
     @Test
@@ -148,6 +152,12 @@ public class BenchmarkProfilesTest {
         BenchmarkReport report = report(null, "4", null, partial);
         ModelProfile saved = profiles.save(report, report.optimum(), null, CancellationToken.none());
         assertEquals("rtx", saved.scope().gpuFingerprint().value());
+        assertEquals("sha256:abc", saved.scope().model().digest());
+        // A recorded model without digest is incomplete too: the digest is resolved now instead.
+        BenchmarkEnvironment digestless = new BenchmarkEnvironment(new GpuFingerprint("old-gpu"), "0.40.13",
+            ModelIdentity.named("llama3.1:8b"));
+        assertFalse(digestless.isComplete());
+        saved = profiles.save(report(null, "4", null, digestless), report.optimum(), null, CancellationToken.none());
         assertEquals("sha256:abc", saved.scope().model().digest());
     }
 

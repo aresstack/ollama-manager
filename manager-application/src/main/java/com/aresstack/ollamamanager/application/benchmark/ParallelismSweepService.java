@@ -20,9 +20,9 @@ import java.util.List;
 
 /**
  * Run the concurrency benchmark once per {@code OLLAMA_NUM_PARALLEL} candidate. The owned server is restarted with
- * each candidate and, whatever happens, brought back to its original settings at the end, as long as it still
- * runs the way the sweep left it: a server the user stopped or restarted with other settings in the meantime is
- * left alone. The stored desired settings are never touched, so nothing in the configuration needs restoring.
+ * each candidate and, whatever happens, brought back to its original settings at the end. The whole sweep holds
+ * the lifecycle lock, so nothing else restarts or stops the server meanwhile; a server that died under a value is
+ * started again. The stored desired settings are never touched, so nothing in the configuration needs restoring.
  */
 public final class ParallelismSweepService {
 
@@ -35,11 +35,11 @@ public final class ParallelismSweepService {
         void reportFinished(BenchmarkReport report);
 
         /**
-         * The server could not be brought back to its original settings after a cancelled sweep; the cancelled
-         * run itself reports no error, so the failure is delivered here. After a failed or finished sweep the
-         * failure propagates from {@link #run} instead.
+         * The sweep or the restore of the server's settings failed while or after the user cancelled; a cancelled
+         * run reports no error, so the failure is delivered here. Without a cancel the failure propagates from
+         * {@link #run} instead.
          */
-        void restoreFailed(OperationException failure);
+        void failedAfterCancel(OperationException failure);
     }
 
     private final ServerLifecycleService lifecycle;
@@ -154,10 +154,19 @@ public final class ParallelismSweepService {
             failure = e;
         } finally {
             listener.phase("Restoring the server's previous settings", 1);
-            restore.run(listener, failure, cancellation.isCancelled());
+            OperationException restoreFailure = restore.run();
+            if (restoreFailure != null) {
+                failure = failure == null ? restoreFailure : new OperationException(failure.kind(),
+                    failure.getMessage() + ". Afterwards " + restoreFailure.getMessage(), failure);
+            }
         }
         if (failure != null) {
-            throw failure;
+            // A job whose token is cancelled reports no error, so a failure after a cancel goes to the listener.
+            if (cancellation.isCancelled()) {
+                listener.failedAfterCancel(failure);
+            } else {
+                throw failure;
+            }
         }
         if (reports.isEmpty() && cancellation.isCancelled()) {
             throw new OperationCancelledException("benchmark cancelled");
@@ -167,15 +176,16 @@ public final class ParallelismSweepService {
     }
 
     /**
-     * Restart the owned server with {@code candidate}. Refuses when the server is no longer running as the sweep
-     * left it, which means the user stopped it meanwhile; the sweep then ends without touching it.
+     * Restart the owned server with {@code candidate}. Refuses when the server is no longer running: under the
+     * lock nobody else can stop it, so it exited on its own, most likely under the previous value.
      */
     private ServerStatus restartWith(ServerSettings candidate, Restore restore, CancellationToken cancellation)
         throws OperationException {
         ServerStatus now = lifecycle.status();
         if (now.ownership() != RuntimeOwnership.OWNED || now.state() != ServerState.RUNNING) {
-            throw new OperationException(ErrorKind.INVALID_STATE,
-                "the server was stopped during the benchmark; start it again to continue");
+            throw new OperationException(now.state() == ServerState.FAILED ? ErrorKind.PROCESS_FAILED
+                : ErrorKind.INVALID_STATE, "the server is not running any more (" + now.message()
+                + "); it is started again with its previous settings");
         }
         restore.restartAttempted();
         ServerStatus restarted = lifecycle.restart(candidate, cancellation);
@@ -212,10 +222,15 @@ public final class ParallelismSweepService {
 
         /**
          * Bring the server back with its original settings when it still runs on a sweep value, or start it again
-         * when a restart of the sweep itself left it down. A server the user stopped or restarted with other
-         * settings is not touched.
+         * when it is down after the sweep changed it (a restart of the sweep failed, or the process died under a
+         * value). A server that meanwhile runs with other settings is not touched.
+         *
+         * @return the failure of the restore, or {@code null}; nothing is thrown so the caller decides how to
+         *         deliver it
          */
-        void run(Listener listener, OperationException earlier, boolean cancelled) throws OperationException {
+        OperationException run() {
+            // Closing the window interrupts job threads; the restore still has to finish, so run it uninterrupted.
+            boolean interrupted = Thread.interrupted();
             try {
                 ServerStatus now = lifecycle.status();
                 boolean running = now.ownership() == RuntimeOwnership.OWNED && now.state() == ServerState.RUNNING;
@@ -223,19 +238,16 @@ public final class ParallelismSweepService {
                     if (applied != null && applied.equals(lifecycle.appliedSettings())) {
                         lifecycle.restart(original, CancellationToken.none());
                     }
-                } else if (restartPending) {
+                } else if (restartPending || applied != null) {
                     lifecycle.start(installation, original, CancellationToken.none());
                 }
+                return null;
             } catch (OperationException e) {
-                OperationException failure = new OperationException(e.kind(), "the server could not be brought "
-                    + "back to its previous settings: " + e.getMessage() + ". Restart it from the dashboard.", e);
-                if (cancelled) {
-                    // A cancelled run reports no error, so the failure goes through the listener.
-                    listener.restoreFailed(failure);
-                } else if (earlier == null) {
-                    throw failure;
-                } else {
-                    earlier.addSuppressed(failure);
+                return new OperationException(e.kind(), "the server could not be brought back to its previous "
+                    + "settings: " + e.getMessage() + ". Restart it from the dashboard.", e);
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
                 }
             }
         }

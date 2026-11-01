@@ -28,6 +28,9 @@ public interface BenchmarksView {
 
     void setRunning(boolean running);
 
+    /** A run ended without a result: cancelled, or failed when {@code failed}; the failure itself is shown separately. */
+    void runEnded(boolean failed);
+
     /** A stage of the running sweep finished; draw it right away. */
     void stageFinished(StageResult stage);
 

@@ -215,8 +215,8 @@ public final class BenchmarksPresenter {
                 }
 
                 @Override
-                public void restoreFailed(OperationException failure) {
-                    SwingUtilities.invokeLater(() -> view.showFailure("Restore server settings", failure));
+                public void failedAfterCancel(OperationException failure) {
+                    SwingUtilities.invokeLater(() -> view.showFailure("Benchmark", failure));
                 }
             }, context.cancellation()), reports -> view.showReports(reports));
         return true;
@@ -231,11 +231,15 @@ public final class BenchmarksPresenter {
             loadHistory();
         }, error -> {
             finish();
+            view.runEnded(true);
             view.showFailure("Benchmark", error);
+            // Reports finished before the failure are stored already.
+            loadHistory();
         });
         job.addListener(current -> {
             if (current.state() == JobState.CANCELLED) {
                 finish();
+                view.runEnded(false);
                 loadHistory();
             }
         });

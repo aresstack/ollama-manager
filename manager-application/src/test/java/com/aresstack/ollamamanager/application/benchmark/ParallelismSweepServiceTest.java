@@ -190,7 +190,7 @@ public class ParallelismSweepServiceTest {
         }
 
         @Override
-        public void restoreFailed(OperationException failure) {
+        public void failedAfterCancel(OperationException failure) {
             restoreFailure = failure;
         }
     }
@@ -351,27 +351,61 @@ public class ParallelismSweepServiceTest {
     }
 
     @Test
-    public void leavesAServerTheUserStoppedAlone() throws Exception {
-        Recorder stopper = new Recorder() {
+    public void startsAServerAgainThatDiedUnderASweepValue() throws Exception {
+        Recorder crash = new Recorder() {
             @Override
             public void stageFinished(StageResult stage) {
-                try {
-                    lifecycle.stop();
-                } catch (OperationException e) {
-                    throw new AssertionError(e);
-                }
+                // The process exits under the current value.
+                runtime.current.exitCode = 3;
             }
         };
         try {
-            service.run(request(), Arrays.asList(2, 4), stopper, CancellationToken.none());
-            fail("expected INVALID_STATE");
+            service.run(request(), Arrays.asList(2, 4), crash, CancellationToken.none());
+            fail("expected PROCESS_FAILED");
         } catch (OperationException e) {
-            assertEquals(ErrorKind.INVALID_STATE, e.kind());
-            assertEquals(0, e.getSuppressed().length);
+            assertEquals(ErrorKind.PROCESS_FAILED, e.kind());
+            assertTrue(e.getMessage(), e.getMessage().contains("exited unexpectedly with code 3"));
         }
-        // No restore start: the user wanted the server down.
-        assertEquals(Arrays.asList(null, 2), runtime.startedWith);
-        assertNull(lifecycle.appliedSettings());
+        // Started again with the original (unset) value, not left down.
+        assertEquals(Arrays.asList(null, 2, null), runtime.startedWith);
+        assertNull(lifecycle.appliedSettings().parallelism());
+    }
+
+    @Test
+    public void restoreFailureAfterAFailedSweepIsPartOfTheMessage() throws Exception {
+        // Initial start, candidate 2, candidate 4 fails, the restore start fails too.
+        runtime.failStartNumber = 3;
+        FakeRuntime twice = runtime;
+        try {
+            service.run(request(), Arrays.asList(2, 4), new Recorder() {
+                @Override
+                public void phase(String text, double fraction) {
+                    super.phase(text, fraction);
+                    if (text.startsWith("Restoring")) {
+                        twice.failStartNumber = 4;
+                    }
+                }
+            }, CancellationToken.none());
+            fail("expected failure");
+        } catch (OperationException e) {
+            assertEquals(ErrorKind.PROCESS_FAILED, e.kind());
+            assertTrue(e.getMessage(), e.getMessage().contains("Afterwards"));
+            assertTrue(e.getMessage(), e.getMessage().contains("dashboard"));
+        }
+        assertEquals(Arrays.asList(null, 2, 4, null), runtime.startedWith);
+    }
+
+    @Test
+    public void cancelDuringTheRestoreStillReportsItsFailure() throws Exception {
+        final CancellationToken token = new CancellationToken();
+        runtime.userToken = token;
+        // Initial start, candidate 2, then the restore's start: the user cancels while it runs and it fails.
+        runtime.cancelStartNumber = 3;
+        Recorder recorder = new Recorder();
+        List<BenchmarkReport> reports = service.run(request(), Arrays.asList(2), recorder, token);
+        assertEquals(1, reports.size());
+        assertTrue(recorder.restoreFailure != null);
+        assertTrue(recorder.restoreFailure.getMessage(), recorder.restoreFailure.getMessage().contains("dashboard"));
     }
 
     @Test

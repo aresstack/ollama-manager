@@ -46,9 +46,9 @@ public final class BenchmarkEnvironment {
         return model;
     }
 
-    /** Whether every value a profile scope needs is known. */
+    /** Whether every value a profile scope needs is known, including the model's digest. */
     public boolean isComplete() {
-        return gpuFingerprint != null && ollamaVersion != null && model != null;
+        return gpuFingerprint != null && ollamaVersion != null && model != null && model.isVerifiable();
     }
 
     @Override

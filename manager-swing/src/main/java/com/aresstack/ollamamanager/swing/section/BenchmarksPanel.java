@@ -341,9 +341,9 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             banner.warning("This run has no stable stage to save.");
             return;
         }
-        String serverValue = BenchmarkProfiles.hasServerValue(report)
-            ? "OLLAMA_NUM_PARALLEL=" + report.serverNumParallel() + " and the run's num_ctx"
-            : "OLLAMA_NUM_PARALLEL left unset (not measured) and the run's num_ctx";
+        String serverValue = (BenchmarkProfiles.hasServerValue(report)
+            ? "OLLAMA_NUM_PARALLEL=" + report.serverNumParallel() : "OLLAMA_NUM_PARALLEL left unset (not measured)")
+            + (report.numCtx() == null ? " and no num_ctx (server default)" : " and num_ctx=" + report.numCtx());
         String name = (String) JOptionPane.showInputDialog(this,
             "Profile name for " + report.model() + " with " + optimum.parallel() + " parallel chats"
                 + " (" + tps(optimum.aggregateTps()) + " tok/s total).\nThe profile sets " + serverValue + ":",
@@ -475,11 +475,21 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         stopWhenUnstable.setEnabled(!isRunning);
         sweep.setEnabled(!isRunning && sweepAvailable);
         serverValues.setEnabled(!isRunning && sweepAvailable && sweep.isSelected());
-        if (!isRunning && "Running…".equals(verdict.getText())) {
+        updateButtons();
+    }
+
+    @Override
+    public void runEnded(boolean failed) {
+        if (!"Running…".equals(verdict.getText())) {
+            return;
+        }
+        if (failed) {
+            verdict.setText(chart.pointCount() == 0 ? "Failed before the first stage finished; see the message above."
+                : "Failed; stages so far are shown. See the message above.");
+        } else {
             verdict.setText(chart.pointCount() == 0 ? "Cancelled before the first stage finished."
                 : "Cancelled; stages so far are shown.");
         }
-        updateButtons();
     }
 
     @Override
