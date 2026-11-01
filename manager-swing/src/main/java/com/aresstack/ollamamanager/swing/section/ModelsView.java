@@ -12,6 +12,14 @@ public interface ModelsView {
 
     void showModels(List<ModelEntry> entries);
 
+    /** Show the {@code /api/show} capability tags per model name once they are read. */
+    default void showCapabilities(java.util.Map<String, List<String>> capabilities) {
+    }
+
+    /** Show where and when the listed models were read, so stale or foreign data is recognisable. */
+    default void showSource(String text) {
+    }
+
     /** Show why the model list is not available, for example because no server is running. */
     void showUnavailable(String reason);
 

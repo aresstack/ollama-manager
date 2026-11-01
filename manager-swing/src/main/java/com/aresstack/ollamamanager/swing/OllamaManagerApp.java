@@ -1,7 +1,11 @@
 package com.aresstack.ollamamanager.swing;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
+import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
 import com.aresstack.ollamamanager.application.hardware.PackageAdvisor;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
@@ -11,6 +15,7 @@ import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.application.server.ServerParallelismService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
@@ -18,13 +23,16 @@ import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistribut
 import com.aresstack.ollamamanager.infrastructure.hardware.SystemHardwareProbe;
 import com.aresstack.ollamamanager.infrastructure.json.Json;
 import com.aresstack.ollamamanager.infrastructure.ollamaapi.HttpOllamaApiClient;
+import com.aresstack.ollamamanager.infrastructure.persistence.JsonBenchmarkHistory;
 import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationRepository;
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
+import com.aresstack.ollamamanager.infrastructure.runtime.ExternalServerControls;
+import com.aresstack.ollamamanager.infrastructure.runtime.SystemInstalledEnvironment;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
+import com.aresstack.ollamamanager.swing.component.ComicStyle;
 import java.io.File;
 import java.util.Arrays;
 
@@ -38,6 +46,8 @@ public final class OllamaManagerApp {
     static final String PORTABLE_DIRECTORY = "ollama";
     /** Time an owned server gets to exit on its own before it is killed. */
     static final long STOP_GRACE_PERIOD_MILLIS = 5000;
+    /** How long to wait for the port after an external server was stopped. */
+    static final long PORT_RELEASE_MILLIS = 10000;
 
     private OllamaManagerApp() {
     }
@@ -64,7 +74,8 @@ public final class OllamaManagerApp {
         ProcessOllamaRuntime runtime = new ProcessOllamaRuntime(portableRoot);
         LifecycleLock lifecycleLock = new LifecycleLock();
         ServerLifecycleService lifecycle =
-            new ServerLifecycleService(runtime, STOP_GRACE_PERIOD_MILLIS, lifecycleLock);
+            new ServerLifecycleService(runtime, STOP_GRACE_PERIOD_MILLIS, lifecycleLock,
+                ExternalServerControls.forCurrentSystem(), PORT_RELEASE_MILLIS);
         PortableInstallationService installations = new PortableInstallationService(
             GitHubReleaseCatalog.defaults(), PortableDistributionInstaller.defaults(), portableRoot,
             new OwnedServerUsage(lifecycle), lifecycleLock);
@@ -72,16 +83,28 @@ public final class OllamaManagerApp {
             new PackageAdvisor(new GpuCompatibilityRules()), installations);
         ModelService models = new ModelService(api);
         ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models, api);
+        JsonBenchmarkHistory benchmarkHistory = new JsonBenchmarkHistory(dataDirectory);
+        ConcurrencyBenchmarkService benchmarks =
+            new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory, profileEnvironment);
+        ModelProfileRepository profileRepository = new ModelProfileRepository(configuration);
+        ExistingSettingsImport existingSettings =
+            new ExistingSettingsImport(configuration, SystemInstalledEnvironment.forCurrentSystem());
         return ConsoleServices.builder(configuration)
+            .benchmarks(benchmarks, benchmarkHistory)
+            .sweeps(new ParallelismSweepService(lifecycle, benchmarks, lifecycleLock))
+            .benchmarkProfiles(new BenchmarkProfiles(profileRepository, configuration, profileEnvironment))
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
             .models(models)
+            .modelInstallConfiguration(new File(new File(dataDirectory, "model-install"), "askai-java8.properties"))
             .installations(installations)
             .profiles(new ProfileActivationService(configuration, profileEnvironment, lifecycle,
                 lifecycleLock))
-            .profileRepository(new ModelProfileRepository(configuration))
+            .profileRepository(profileRepository)
             .setup(setup)
+            .existingSettings(existingSettings)
+            .serverParallelism(new ServerParallelismService(lifecycle, configuration, existingSettings, lifecycleLock))
             .build();
     }
 
@@ -97,11 +120,8 @@ public final class OllamaManagerApp {
     }
 
     private static void openMainFrame(ConsoleServices services) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
-            // Keep the default look and feel.
-        }
+        // As askai-java8: Metal stays the base look and feel, the comic theme goes on top before any component exists.
+        ComicStyle.installTheme();
         new MainFrame(services, new BackgroundTasks()).setVisible(true);
     }
 }

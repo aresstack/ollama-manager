@@ -74,6 +74,30 @@ public final class ModelService {
         throw new OperationException(ErrorKind.INVALID_STATE, name + " is not reported as loaded after preload");
     }
 
+    /**
+     * Return the {@code /api/show} capability tags per model name. A model whose details cannot be read gets an
+     * empty list, so one broken model never hides the others.
+     */
+    public java.util.Map<String, List<String>> capabilities(Endpoint endpoint, List<String> modelNames,
+                                                            CancellationToken cancellation)
+        throws OperationException {
+        java.util.Map<String, List<String>> result = new java.util.LinkedHashMap<String, List<String>>();
+        for (String name : modelNames) {
+            if (cancellation.isCancelled()) {
+                break;
+            }
+            try {
+                result.put(name, api.show(endpoint, name, cancellation).capabilities());
+            } catch (OperationException e) {
+                if (e.kind() == ErrorKind.CONNECTION_FAILED) {
+                    throw e;
+                }
+                result.put(name, Collections.<String>emptyList());
+            }
+        }
+        return result;
+    }
+
     public void unload(Endpoint endpoint, String modelName, CancellationToken cancellation)
         throws OperationException {
         api.unload(endpoint, modelName, cancellation);

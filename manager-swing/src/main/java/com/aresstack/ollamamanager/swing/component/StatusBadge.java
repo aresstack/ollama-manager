@@ -37,7 +37,6 @@ public final class StatusBadge extends JLabel {
         this.tone = tone == null ? Theme.Tone.NEUTRAL : tone;
         setText(text == null || text.isEmpty() ? "—" : text);
         setIcon(new Dot());
-        getAccessibleContext().setAccessibleDescription(this.tone.name().toLowerCase(java.util.Locale.ROOT));
         repaint();
     }
 

@@ -2,7 +2,7 @@
 
 allprojects {
     group = 'com.aresstack.ollamamanager'
-    version = '0.1.0-SNAPSHOT'
+    version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
 
     repositories {
         mavenCentral()
@@ -84,3 +84,7 @@ subprojects {
         dependsOn rootProject.tasks.named('verifyArchitecture')
     }
 }
+
+// The third-party library list of Help > About (oss-licenses.json in manager-askai's resources), as in askai.
+ext.ossLicenseTargetProjectPath = ':manager-askai'
+apply from: "$rootDir/gradle/oss-licenses.gradle"

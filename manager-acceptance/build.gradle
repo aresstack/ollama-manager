@@ -1,0 +1,31 @@
+// Native acceptance harness for issue #16. Not part of the shipped JAR; runs only via an explicit opt-in.
+
+dependencies {
+    implementation project(':manager-infrastructure')
+}
+
+def optIn = project.findProperty('nativeAcceptance') == 'true'
+def defaultWorkDir = new File(System.getProperty('java.io.tmpdir'),
+    'ollama-acceptance-' + new Date().format('yyyyMMdd-HHmmss')).absolutePath
+
+tasks.register('nativeAcceptance', JavaExec) {
+    group = 'verification'
+    description = 'Runs native Ollama acceptance stages against an isolated test server. Requires -PnativeAcceptance=true.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.aresstack.ollamamanager.acceptance.NativeAcceptanceMain'
+    // Forward only acceptance.* properties; everything else keeps its defaults.
+    systemProperty 'acceptance.workDir', project.findProperty('acceptance.workDir') ?: defaultWorkDir
+    ['stages', 'port', 'testModel', 'ollamaVersion', 'rollbackVersion', 'binaryDir', 'minFreeGb', 'referencePort'].each { key ->
+        def value = project.findProperty('acceptance.' + key)
+        if (value != null) {
+            systemProperty 'acceptance.' + key, value
+        }
+    }
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (!optIn) {
+            throw new GradleException('Native acceptance writes files, downloads and starts processes. '
+                + 'Run it explicitly with -PnativeAcceptance=true (see docs/NATIVE-ACCEPTANCE.md).')
+        }
+    }
+}

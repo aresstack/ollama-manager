@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
+import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.application.profile.ProfileValidity;
@@ -279,11 +280,39 @@ public class ProfilesPresenterTest {
         return presenter;
     }
 
+    @Test
+    public void deactivateLeavesNoActiveProfile() throws Exception {
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
+        ProfilesPresenter presenter = presenter(services);
+        presenter.activate("p1");
+        presenter.deactivate();
+
+        assertNull(services.configuration().current().activeProfileId());
+        assertTrue(view.notices.contains(ProfilesPresenter.DEACTIVATED_NOTICE));
+        assertFalse(view.rows.get(0).isActive());
+    }
+
+    @Test
+    public void deleteNeedsConfirmation() throws Exception {
+        ConsoleServices services = services(TestServices.stoppedLifecycle(lock), ServerSettings.defaults());
+        ProfilesPresenter presenter = presenter(services);
+        view.acceptDelete = false;
+        presenter.delete("p1");
+        assertEquals(1, services.configuration().current().profiles().size());
+
+        view.acceptDelete = true;
+        presenter.delete("p1");
+        assertEquals(2, view.deleteQuestions);
+        assertTrue(services.configuration().current().profiles().isEmpty());
+        assertTrue(view.rows.isEmpty());
+    }
+
     private ConsoleServices services(ServerLifecycleService lifecycle, ServerSettings profileSettings)
         throws Exception {
         ConsoleServices base = TestServices.builder().build();
         base.configuration().update(current -> current.withProfile(profile(profileSettings)));
         return ConsoleServices.builder(base.configuration()).serverLifecycle(lifecycle)
+            .profileRepository(new ModelProfileRepository(base.configuration()))
             .profiles(new ProfileActivationService(base.configuration(), cancellation -> {
                 captures++;
                 return environment;
@@ -302,6 +331,8 @@ public class ProfilesPresenterTest {
         boolean acceptRestart = true;
         int unverifiedQuestions;
         int restartQuestions;
+        int deleteQuestions;
+        boolean acceptDelete = true;
         Job tracked;
 
         @Override
@@ -332,6 +363,12 @@ public class ProfilesPresenterTest {
         public boolean confirmUnverifiedActivation(ProfileRow row) {
             unverifiedQuestions++;
             return acceptUnverified;
+        }
+
+        @Override
+        public boolean confirmDelete(ProfileRow row) {
+            deleteQuestions++;
+            return acceptDelete;
         }
 
         @Override

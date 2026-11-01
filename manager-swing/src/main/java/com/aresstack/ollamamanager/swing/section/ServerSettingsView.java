@@ -22,6 +22,14 @@ public interface ServerSettingsView {
      */
     void showApplied(Map<ServerSetting<?>, String> applied, Set<ServerSetting<?>> pendingRestart, String source);
 
+    /**
+     * Mark settings whose stored value was taken over from the existing installation's configuration.
+     *
+     * @param imported settings to mark; empty clears all marks
+     * @param source   where the values come from, or {@code null} when nothing could be read
+     */
+    void showImported(Set<ServerSetting<?>> imported, String source);
+
     /** Current editor contents. */
     Map<ServerSetting<?>, String> editedValues();
 

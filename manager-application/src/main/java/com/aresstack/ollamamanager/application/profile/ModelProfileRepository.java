@@ -5,6 +5,9 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
+import com.aresstack.ollamamanager.domain.server.ServerSetting;
+import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,10 +65,47 @@ public final class ModelProfileRepository {
         });
     }
 
-    /** Remove a profile; if it was active, no profile is active afterwards. Unknown ids are ignored. */
+    /**
+     * Remove a profile. If it was active, no profile is active afterwards and the server settings it chose are
+     * unset again (see {@link #deactivate()}). Unknown ids are ignored.
+     */
     public void delete(String id) throws OperationException {
-        configurations.update(configuration -> configuration.findProfile(id) == null
-            ? configuration : without(configuration, id));
+        configurations.update(configuration -> {
+            if (configuration.findProfile(id) == null) {
+                return configuration;
+            }
+            ManagerConfiguration base = id.equals(configuration.activeProfileId())
+                ? deactivated(configuration) : configuration;
+            return without(base, id);
+        });
+    }
+
+    /**
+     * Make no profile active. Every server setting the active profile chose is unset again, so the server runs
+     * with Ollama's defaults for them after its next (re)start; settings the profile does not touch, such as an
+     * imported model folder, stay as they are. Does nothing if no profile is active.
+     */
+    public void deactivate() throws OperationException {
+        configurations.update(ModelProfileRepository::deactivated);
+    }
+
+    private static ManagerConfiguration deactivated(ManagerConfiguration configuration) {
+        String activeId = configuration.activeProfileId();
+        if (activeId == null) {
+            return configuration;
+        }
+        ServerSettings desired = configuration.desiredServerSettings();
+        for (String key : configuration.findProfile(activeId).serverSettings().toEncodedMap().keySet()) {
+            ServerSetting<?> setting = ServerSettingCatalog.byId(key);
+            if (setting != null) {
+                desired = unset(desired, setting);
+            }
+        }
+        return configuration.withDesiredServerSettings(desired).withActiveProfileId(null);
+    }
+
+    private static <T> ServerSettings unset(ServerSettings settings, ServerSetting<T> setting) {
+        return settings.with(setting, null);
     }
 
     private static ManagerConfiguration without(ManagerConfiguration configuration, String id) {

@@ -3,6 +3,10 @@ package com.aresstack.ollamamanager.swing.section;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
+import com.aresstack.ollamamanager.swing.component.Spacing;
+import com.aresstack.ollamamanager.swing.component.Tables;
+import com.aresstack.ollamamanager.swing.component.Theme;
+import com.aresstack.ollamamanager.swing.job.JobState;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
@@ -13,11 +17,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
-import javax.swing.UIManager;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
-import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,12 +32,17 @@ public final class JobsPanel extends SectionPanel {
     private final JobTableModel model = new JobTableModel();
     private final JTable table = new JTable(model);
     private final JobProgressPanel progress = new JobProgressPanel();
-    private final JTextArea log = new JTextArea();
+    private final JTextArea log = new com.aresstack.comiccontrols.control.ComicTextArea();
 
     public JobsPanel(ConsoleServices services, JobManager jobs) {
         super(Section.JOBS.title(), Section.JOBS.description());
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setFillsViewportHeight(true);
+        Tables.setup(table, "Jobs");
+        table.setAutoCreateRowSorter(false);
+        table.getColumnModel().getColumn(2).setCellRenderer(Tables.toneRenderer(JobsPanel::stateTone));
+        Tables.setWidthInChars(table, 0, 4);
+        Tables.setWidthInChars(table, 1, 24);
+        Tables.setWidthInChars(table, 2, 10);
+        Tables.setWidthInChars(table, 3, 40);
         table.getSelectionModel().addListSelectionListener(event -> {
             int row = table.getSelectedRow();
             progress.attach(row < 0 ? null : model.job(table.convertRowIndexToModel(row)));
@@ -44,7 +50,7 @@ public final class JobsPanel extends SectionPanel {
         jobs.addListener(model::changed);
 
         log.setEditable(false);
-        log.setFont(new Font(Font.MONOSPACED, Font.PLAIN, log.getFont().getSize()));
+        log.setFont(Theme.monospace());
         log.getAccessibleContext().setAccessibleName("Server log");
 
         JButton reloadLog = new JButton("Reload log");
@@ -52,31 +58,36 @@ public final class JobsPanel extends SectionPanel {
         reloadLog.addActionListener(event -> loadLog(services.serverLifecycle(), jobs));
         addToolbarItem(reloadLog);
 
-        javax.swing.JPanel top = new javax.swing.JPanel(new BorderLayout(0, 4));
+        javax.swing.JPanel top = new javax.swing.JPanel(new BorderLayout(0, Spacing.GAP));
+        top.setOpaque(false);
         top.add(new JScrollPane(table), BorderLayout.CENTER);
         top.add(progress, BorderLayout.SOUTH);
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, new JScrollPane(log));
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, com.aresstack.ollamamanager.swing.component.ComicStyle.fieldScroll(log));
         split.setResizeWeight(0.5);
         setBody(split);
         loadLog(services.serverLifecycle(), jobs);
-        fitRowHeight();
     }
 
     @Override
     public void updateUI() {
         super.updateUI();
         if (table != null) {
-            fitRowHeight();
+            Tables.fitRowHeight(table);
+            log.setFont(Theme.monospace());
         }
     }
 
-    /** Size table rows to the current (possibly scaled) table font. */
-    private void fitRowHeight() {
-        Font font = UIManager.getFont("Table.font");
-        if (font == null) {
-            font = table.getFont();
+    static Theme.Tone stateTone(Object value) {
+        if (JobState.SUCCEEDED.label().equals(value)) {
+            return Theme.Tone.SUCCESS;
         }
-        table.setRowHeight(table.getFontMetrics(font).getHeight() + 4);
+        if (JobState.FAILED.label().equals(value)) {
+            return Theme.Tone.ERROR;
+        }
+        if (JobState.RUNNING.label().equals(value) || JobState.CANCELLING.label().equals(value)) {
+            return Theme.Tone.INFO;
+        }
+        return Theme.Tone.NEUTRAL;
     }
 
     private void loadLog(ServerLifecycleService lifecycle, JobManager jobs) {

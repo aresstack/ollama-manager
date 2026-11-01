@@ -82,7 +82,7 @@ public class DashboardPresenterTest {
         assertTrue(presenter.canStop(lifecycle.status()));
 
         presenter.stopRequested();
-        assertEquals("[stop:false]", view.events.toString());
+        assertEquals("[confirmStop:false, stop:false, restart:false]", view.events.toString());
         assertFalse(presenter.canStop(lifecycle.status()));
 
         presenter.stopRequested();
@@ -94,6 +94,53 @@ public class DashboardPresenterTest {
         assertTrue(view.events.get(view.events.size() - 1).startsWith("status:"));
         assertFalse(view.events.contains("failure:Stop server"));
         assertFalse(presenter.canStop(lifecycle.status()));
+    }
+
+    @Test
+    public void externalServerWithoutControlCannotBeStoppedOrRestarted() throws Exception {
+        ServerLifecycleService lifecycle = TestServices.externalLifecycle();
+        DashboardPresenter presenter = new DashboardPresenter(services().serverLifecycle(lifecycle).build(), jobs);
+        presenter.bind(view);
+
+        assertFalse(presenter.canStop(lifecycle.status()));
+        assertFalse(presenter.canRestart(lifecycle.status()));
+        presenter.stopRequested();
+        presenter.restartRequested();
+        assertEquals(0, view.confirmations);
+    }
+
+    @Test
+    public void externalServerIsStoppedAfterExternalConfirmation() throws Exception {
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        ServerLifecycleService lifecycle = TestServices.externalLifecycle(control);
+        DashboardPresenter presenter = new DashboardPresenter(services().serverLifecycle(lifecycle).build(), jobs);
+        presenter.bind(view);
+        assertTrue(presenter.canStop(lifecycle.status()));
+        assertTrue(presenter.canRestart(lifecycle.status()));
+
+        presenter.stopRequested();
+
+        assertTrue(view.events.contains("confirmStop:true"));
+        assertEquals(1, control.terminated.size());
+        assertEquals(ServerState.STOPPED, lifecycle.status().state());
+        assertFalse(view.events.contains("failure:Stop server"));
+    }
+
+    @Test
+    public void externalServerIsRestartedAsOwnServerFromItsBinary() throws Exception {
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        ServerLifecycleService lifecycle = TestServices.externalLifecycle(control);
+        DashboardPresenter presenter = new DashboardPresenter(services().serverLifecycle(lifecycle).build(), jobs);
+        presenter.bind(view);
+
+        presenter.restartRequested();
+
+        assertTrue(view.events.contains("confirmRestart:true"));
+        assertFalse(view.events.toString(), view.events.contains("failure:Restart server"));
+        assertEquals(ServerState.RUNNING, lifecycle.status().state());
+        assertEquals(com.aresstack.ollamamanager.domain.server.RuntimeOwnership.OWNED,
+            lifecycle.status().ownership());
+        assertEquals(control.binary.getParentFile(), lifecycle.status().installation().binaryDirectory());
     }
 
     private static ConsoleServices.Builder services() {
@@ -140,8 +187,21 @@ public class DashboardPresenterTest {
         }
 
         @Override
-        public boolean confirmStop() {
+        public void setRestartEnabled(boolean enabled) {
+            events.add("restart:" + enabled);
+        }
+
+        @Override
+        public boolean confirmStop(boolean external) {
             confirmations++;
+            events.add("confirmStop:" + external);
+            return true;
+        }
+
+        @Override
+        public boolean confirmRestart(boolean external) {
+            confirmations++;
+            events.add("confirmRestart:" + external);
             return true;
         }
     }

@@ -2,27 +2,30 @@ package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.domain.profile.ProfileActivationPlan;
 import com.aresstack.ollamamanager.domain.server.ServerSetting;
+import com.aresstack.ollamamanager.swing.component.ActionBar;
 import com.aresstack.ollamamanager.swing.component.Dialogs;
+import com.aresstack.ollamamanager.swing.component.EmptyState;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
+import com.aresstack.ollamamanager.swing.component.MessageBanner;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
+import com.aresstack.ollamamanager.swing.component.Tables;
+import com.aresstack.ollamamanager.swing.component.Theme;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
 import javax.swing.JButton;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import com.aresstack.comiccontrols.control.ComicTextArea;
+import com.aresstack.ollamamanager.swing.component.ComicStyle;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
-import javax.swing.UIManager;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.Font;
+import java.awt.CardLayout;
 import java.awt.event.HierarchyEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,9 +39,17 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
 
     private final ProfileTableModel model = new ProfileTableModel();
     private final JTable table = new JTable(model);
-    private final JTextArea details = new JTextArea(4, 40);
-    private final JLabel notice = new JLabel(" ");
+    private JScrollPane detailsScroll;
+    private JSplitPane split;
+    private final JTextArea details = new ComicTextArea(4, 40);
+    private final MessageBanner notice = new MessageBanner();
+    private final EmptyState empty = new EmptyState("No profiles stored yet",
+        "Profiles are created from benchmark results or scenario presets.");
+    private final CardLayout listCards = new CardLayout();
+    private final JPanel list = new JPanel(listCards);
     private final JButton activate = new JButton("Activate…");
+    private final JButton deactivate = new JButton("Deactivate");
+    private final JButton delete = new JButton("Delete…");
     private final JButton refresh = new JButton("Refresh");
     private final JobProgressPanel progress = new JobProgressPanel();
     private boolean busy;
@@ -49,9 +60,11 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         refresh.addActionListener(event -> presenter.refresh());
         addToolbarItem(refresh);
 
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setFillsViewportHeight(true);
-        table.getAccessibleContext().setAccessibleName("Profiles");
+        Tables.setup(table, "Profiles");
+        table.getColumnModel().getColumn(4).setCellRenderer(Tables.toneRenderer(ProfilesPanel::checkTone));
+        table.getColumnModel().getColumn(5).setCellRenderer(Tables.toneRenderer(
+            value -> "yes".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.NEUTRAL));
+        Tables.setWidthInChars(table, 0, 24);
         table.getSelectionModel().addListSelectionListener(event -> showSelection());
         details.setEditable(false);
         details.setLineWrap(true);
@@ -67,21 +80,41 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
             }
         });
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        buttons.add(activate);
+        deactivate.setMnemonic('D');
+        deactivate.setToolTipText("Make no profile active. The server uses Ollama's defaults for the profile's"
+            + " settings after its next restart.");
+        deactivate.addActionListener(event -> presenter.deactivate());
+        delete.setMnemonic('L');
+        delete.setToolTipText("Delete the selected profile for good, after a confirmation.");
+        delete.addActionListener(event -> {
+            ProfileRow row = selected();
+            if (row != null) {
+                presenter.delete(row.profile().id());
+            }
+        });
+
+        ActionBar buttons = new ActionBar().addAction(activate).addAction(deactivate).addAction(delete);
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
-        south.add(notice, BorderLayout.NORTH);
+        south.setOpaque(false);
         south.add(buttons, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(table),
-            new JScrollPane(details));
+        list.setOpaque(false);
+        list.add(new JScrollPane(table), "table");
+        list.add(empty, "empty");
+        detailsScroll = ComicStyle.fieldScroll(details);
+        split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, list, detailsScroll);
         split.setResizeWeight(0.7);
+        split.setBorder(null);
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
+        body.setOpaque(false);
+        body.add(notice, BorderLayout.NORTH);
         body.add(split, BorderLayout.CENTER);
         body.add(south, BorderLayout.SOUTH);
         setBody(body);
-        fitRowHeight();
+        listCards.show(list, "empty");
+        detailsScroll.setVisible(false);
+        split.setDividerSize(0);
         updateButtons();
         presenter.bind(this);
         addHierarchyListener(event -> {
@@ -95,20 +128,34 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
     public void updateUI() {
         super.updateUI();
         if (table != null) {
-            fitRowHeight();
+            Tables.fitRowHeight(table);
         }
     }
 
     @Override
     public void showProfiles(List<ProfileRow> rows) {
         model.setRows(rows);
+        listCards.show(list, rows.isEmpty() ? "empty" : "table");
+        // The empty state already says there are no profiles; the check details only appear with profiles.
+        detailsScroll.setVisible(!rows.isEmpty());
+        split.setDividerSize(rows.isEmpty() ? 0 : new JSplitPane().getDividerSize());
+        split.revalidate();
         if (rows.isEmpty()) {
-            details.setText("No profiles stored yet. Profiles are created from benchmark results or scenario"
-                + " presets.");
+            details.setText("");
         } else {
             showSelection();
         }
         updateButtons();
+    }
+
+    static Theme.Tone checkTone(Object value) {
+        if ("valid".equals(value)) {
+            return Theme.Tone.SUCCESS;
+        }
+        if ("outdated".equals(value)) {
+            return Theme.Tone.WARNING;
+        }
+        return "not verifiable".equals(value) ? Theme.Tone.ERROR : Theme.Tone.NEUTRAL;
     }
 
     @Override
@@ -120,7 +167,11 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
 
     @Override
     public void showNotice(String text) {
-        notice.setText(text == null || text.isEmpty() ? " " : text);
+        if (text == null || text.isEmpty()) {
+            notice.clear();
+        } else {
+            notice.show(text.startsWith("Not activated") ? Theme.Tone.WARNING : Theme.Tone.INFO, text);
+        }
     }
 
     @Override
@@ -156,6 +207,16 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         return Dialogs.confirm(this, "Restart server", text.toString());
     }
 
+    @Override
+    public boolean confirmDelete(ProfileRow row) {
+        String text = "Delete the profile \"" + row.profile().name() + "\"? This cannot be undone.";
+        if (row.isActive()) {
+            text += "\n\nIt is the active profile. No profile will be active afterwards, and the server uses"
+                + " Ollama's defaults for its settings after the next restart.";
+        }
+        return Dialogs.confirm(this, "Delete profile", text);
+    }
+
     private static String label(ProfileRow row) {
         return row.validity() == null ? "not checked" : row.validity().result().label();
     }
@@ -189,17 +250,23 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
 
     private void updateButtons() {
         activate.setEnabled(!busy && selected() != null);
-    }
-
-    private void fitRowHeight() {
-        Font font = UIManager.getFont("Table.font");
-        table.setRowHeight(table.getFontMetrics(font == null ? table.getFont() : font).getHeight() + 4);
+        delete.setEnabled(!busy && selected() != null);
+        deactivate.setEnabled(!busy && model.hasActive());
     }
 
     private static final class ProfileTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
         private static final String[] COLUMNS = {"Profile", "Model", "Workload", "Ollama", "Check", "Active"};
         private final List<ProfileRow> rows = new ArrayList<ProfileRow>();
+
+        boolean hasActive() {
+            for (ProfileRow row : rows) {
+                if (row.isActive()) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         ProfileRow row(int index) {
             return rows.get(index);

@@ -1,12 +1,30 @@
 package com.aresstack.ollamamanager.swing.shell;
 
+import com.aresstack.askai.java8.ui.AppIcon;
+import com.aresstack.askai.java8.ui.FooterScreen;
+import com.aresstack.askai.java8.ui.OllamaAboutPanel;
+import com.aresstack.askai.java8.ui.about.CopyrightFooter;
+import com.aresstack.askai.java8.ui.AskAiTitleBar;
+import com.aresstack.comiccontrols.control.ComicWindowDragger;
+import com.aresstack.comiccontrols.control.ComicWindowResizer;
+import com.aresstack.comiccontrols.control.ComicWindowShape;
+import com.aresstack.comiccontrols.theme.ComicPalette;
+import com.aresstack.comiccontrols.theme.ResearchUiMetrics;
+import com.aresstack.comiccontrols.theme.ThemeColor;
+import com.aresstack.ollamamanager.swing.component.ComicStyle;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import com.aresstack.ollamamanager.swing.job.JobManager;
+import com.aresstack.ollamamanager.swing.section.BenchmarksPanel;
+import com.aresstack.ollamamanager.swing.section.BenchmarksPresenter;
 import com.aresstack.ollamamanager.swing.section.DashboardPanel;
 import com.aresstack.ollamamanager.swing.section.DashboardPresenter;
 import com.aresstack.ollamamanager.swing.section.JobsPanel;
+import com.aresstack.ollamamanager.swing.section.InstallModelsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPresenter;
-import com.aresstack.ollamamanager.swing.section.PlannedSectionPanel;
+import com.aresstack.ollamamanager.swing.section.SetupPanel;
+import com.aresstack.ollamamanager.swing.section.SetupPresenter;
 import com.aresstack.ollamamanager.swing.section.ProfilesPanel;
 import com.aresstack.ollamamanager.swing.section.ProfilesPresenter;
 import com.aresstack.ollamamanager.swing.section.ServerSettingsPanel;
@@ -15,14 +33,13 @@ import com.aresstack.ollamamanager.swing.section.ServerSettingsPresenter;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JDialog;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -52,24 +69,29 @@ public class ConsoleShell extends JFrame {
     private final JPanel content = new JPanel(cards);
     private final NavigationList navigation = new NavigationList();
     private final Map<Section, JComponent> panels = new EnumMap<Section, JComponent>(Section.class);
+    private final JSplitPane split;
+    /** The frameless window's ink-contour padding (doubles as the resize grip zone), as in askai. */
+    private static final int WINDOW_PADDING = 4;
+    private static final int RESIZE_GRIP = 6;
 
     public ConsoleShell(ConsoleServices services, JobManager jobs, AutoCloseable onClose) {
         super("Ollama Manager");
+        // As askai's AskAiFrame: frameless, with the askai title bar and the comic window contour.
+        setUndecorated(true);
+        AppIcon.apply(this);
         this.jobs = jobs;
         fontScale.apply(state.fontScale());
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
         DashboardPresenter dashboard = new DashboardPresenter(services, jobs);
         panels.put(Section.DASHBOARD, new DashboardPanel(dashboard));
-        panels.put(Section.SETUP, new PlannedSectionPanel(Section.SETUP,
-            "Setup wizard: detect an existing Ollama or install a portable version with progress and Cancel."
-                + " Connected in the next step."));
+        panels.put(Section.SETUP, new SetupPanel(new SetupPresenter(services, jobs)));
         panels.put(Section.MODELS, new ModelsPanel(new ModelsPresenter(services, jobs)));
+        panels.put(Section.INSTALL, new InstallModelsPanel(services));
         panels.put(Section.SERVER_SETTINGS, new ServerSettingsPanel(new ServerSettingsPresenter(services, jobs)));
         panels.put(Section.PROFILES, new ProfilesPanel(new ProfilesPresenter(services, jobs)));
         panels.put(Section.JOBS, new JobsPanel(services, jobs));
-        panels.put(Section.BENCHMARKS, new PlannedSectionPanel(Section.BENCHMARKS,
-            "Benchmarks follow with issue #8."));
+        panels.put(Section.BENCHMARKS, new BenchmarksPanel(new BenchmarksPresenter(services, jobs)));
         for (Map.Entry<Section, JComponent> entry : panels.entrySet()) {
             content.add(entry.getValue(), entry.getKey().name());
         }
@@ -79,17 +101,38 @@ public class ConsoleShell extends JFrame {
                 show(navigation.getSelectedValue());
             }
         });
-        JScrollPane navScroll = new JScrollPane(navigation);
-        navScroll.setMinimumSize(new Dimension(160, 100));
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navScroll, content);
-        split.setDividerLocation(190);
+        navigation.setMinimumSize(new Dimension(160, 100));
+        content.setMinimumSize(new Dimension(400, 100));
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navigation, content);
+        split.setDividerLocation(state.dividerLocation(220));
         split.setContinuousLayout(true);
+        split.setBorder(null);
 
         JPanel root = new JPanel(new BorderLayout());
         root.add(split, BorderLayout.CENTER);
         root.add(new StatusBar(jobs), BorderLayout.SOUTH);
-        setContentPane(root);
-        setJMenuBar(menuBar());
+        AskAiTitleBar titleBar = new AskAiTitleBar(getTitle(),
+            () -> setState(Frame.ICONIFIED),
+            () -> dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING)));
+        // Title bar ABOVE the menu bar, both inside the frameless window's ink contour (as in askai).
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.setOpaque(false);
+        titleBar.setAlignmentX(LEFT_ALIGNMENT);
+        header.add(titleBar);
+        JMenuBar menus = menuBar();
+        menus.setAlignmentX(LEFT_ALIGNMENT);
+        menus.setMaximumSize(new Dimension(Integer.MAX_VALUE, menus.getPreferredSize().height));
+        header.add(menus);
+        JPanel windowSurface = new JPanel(new BorderLayout());
+        windowSurface.add(header, BorderLayout.NORTH);
+        windowSurface.add(root, BorderLayout.CENTER);
+        setContentPane(windowSurface);
+        ComicWindowShape.install(this, windowSurface, ComicPalette.defaultPalette(), WINDOW_PADDING,
+            ResearchUiMetrics.RADIUS_WINDOW);
+        ComicWindowResizer.install(windowSurface, RESIZE_GRIP);
+        ComicWindowDragger.install(titleBar);
+        ComicStyle.apply(getRootPane());
 
         setMinimumSize(new Dimension(720, 480));
         restoreBounds();
@@ -104,6 +147,7 @@ public class ConsoleShell extends JFrame {
             @Override
             public void windowClosing(WindowEvent event) {
                 state.save(ConsoleShell.this);
+                state.saveDividerLocation(split.getDividerLocation());
             }
 
             @Override
@@ -131,7 +175,7 @@ public class ConsoleShell extends JFrame {
     public final void setFontScale(float scale) {
         fontScale.apply(scale);
         state.saveFontScale(fontScale.scale());
-        SwingUtilities.updateComponentTreeUI(this);
+        ComicStyle.refresh(this);
         validate();
         repaint();
     }
@@ -153,9 +197,29 @@ public class ConsoleShell extends JFrame {
         }
     }
 
+    /** Help > About: the askai About screen (logo, version, open-source licenses) in a modal dialog. */
+    private void showAbout() {
+        JDialog dialog = new JDialog(this, "About Ollama Manager", true);
+        FooterScreen screen = new FooterScreen(new OllamaAboutPanel(), dialog::dispose)
+            .withCenter(OllamaAboutPanel.createCopyDiagnosticsButton())
+            .withTrailing(new CopyrightFooter());
+        dialog.setContentPane(screen);
+        dialog.setSize(960, 700);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private JMenuBar menuBar() {
         int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
         JMenuBar bar = new JMenuBar();
+        // Accent strip: the comic surface darkened towards the ink, so the menus stand out from the page.
+        ComicPalette palette = ComicPalette.defaultPalette();
+        bar.setOpaque(true);
+        // Darker brown than the page: the surface pulled towards the ink and the orange accent.
+        bar.setBackground(ThemeColor.mix(ThemeColor.mix(palette.getSurface(), palette.getAccentOrange(), 0.22f),
+            palette.getInk(), 0.18f));
+        bar.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0,
+            ThemeColor.mix(palette.getSurface(), palette.getInk(), 0.45f)));
 
         JMenu file = new JMenu("File");
         file.setMnemonic('F');
@@ -180,6 +244,11 @@ public class ConsoleShell extends JFrame {
         view.add(item("Normal text size", 'N', KeyStroke.getKeyStroke(KeyEvent.VK_0, mask),
             () -> setFontScale(1f)));
         bar.add(view);
+
+        JMenu help = new JMenu("Help");
+        help.setMnemonic('H');
+        help.add(item("About", 'A', null, this::showAbout));
+        bar.add(help);
         // Also accept Ctrl+Plus on the numeric keypad.
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
             .put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, mask), "font.larger");

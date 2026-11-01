@@ -48,6 +48,11 @@ public final class FormPanel extends JPanel {
         return label;
     }
 
+    /** Forget the row counter after {@code removeAll()}, so new rows start at the top again. */
+    public void reset() {
+        row = 0;
+    }
+
     /** Push all rows to the top. */
     public void addFiller() {
         GridBagConstraints filler = new GridBagConstraints();

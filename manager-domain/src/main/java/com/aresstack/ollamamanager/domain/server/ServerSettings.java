@@ -22,7 +22,7 @@ public final class ServerSettings {
         this.values = Collections.unmodifiableMap(new LinkedHashMap<ServerSetting<?>, Object>(values));
     }
 
-    /** Return settings where every entry uses its default (loopback bind, everything else unset). */
+    /** Return settings where nothing is chosen; every effective value is Ollama's own default. */
     public static ServerSettings defaults() {
         return DEFAULTS;
     }
@@ -68,6 +68,14 @@ public final class ServerSettings {
         return new ServerSettings(copy);
     }
 
+    /**
+     * Return whether the user chose a value for {@code setting}, including a value equal to the default. Only chosen
+     * settings are passed to the server as environment variables.
+     */
+    public boolean isChosen(ServerSetting<?> setting) {
+        return values.containsKey(Preconditions.requireNonNull(setting, "setting"));
+    }
+
     public Endpoint bind() {
         return get(ServerSettingCatalog.BIND);
     }
@@ -105,15 +113,16 @@ public final class ServerSettings {
     }
 
     /**
-     * Return the {@code OLLAMA_*} entries for {@code ProcessBuilder.environment()}. Unset settings are omitted;
-     * callers must first remove {@link ServerSettingCatalog#environmentVariables()} from the inherited environment.
+     * Return the {@code OLLAMA_*} entries for {@code ProcessBuilder.environment()}: only settings the user chose,
+     * never a default the user did not pick, so Ollama applies its own default. A default the user picked on purpose
+     * is set. Callers must first remove {@link ServerSettingCatalog#environmentVariables()} from the inherited
+     * environment.
      */
     public Map<String, String> toEnvironment() {
         Map<String, String> environment = new LinkedHashMap<String, String>();
         for (ServerSetting<?> setting : ServerSettingCatalog.all()) {
-            String encoded = encodedValue(setting);
-            if (encoded != null) {
-                environment.put(setting.environmentVariable(), encoded);
+            if (isChosen(setting)) {
+                environment.put(setting.environmentVariable(), encodedValue(setting));
             }
         }
         return Collections.unmodifiableMap(environment);

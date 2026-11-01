@@ -1,6 +1,11 @@
 package com.aresstack.ollamamanager.swing.shell;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
+import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
@@ -8,6 +13,7 @@ import com.aresstack.ollamamanager.application.port.HardwareProbePort;
 import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.application.server.ServerParallelismService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
 
 /**
@@ -26,6 +32,13 @@ public final class ConsoleServices {
     private final ProfileActivationService profiles;
     private final SetupService setup;
     private final ModelProfileRepository profileRepository;
+    private final ConcurrencyBenchmarkService benchmarks;
+    private final BenchmarkHistoryPort benchmarkHistory;
+    private final ParallelismSweepService sweeps;
+    private final BenchmarkProfiles benchmarkProfiles;
+    private final ExistingSettingsImport existingSettings;
+    private final ServerParallelismService serverParallelism;
+    private final java.io.File modelInstallConfiguration;
 
     private ConsoleServices(Builder builder) {
         if (builder.configuration == null) {
@@ -40,6 +53,13 @@ public final class ConsoleServices {
         this.profiles = builder.profiles;
         this.setup = builder.setup;
         this.profileRepository = builder.profileRepository;
+        this.benchmarks = builder.benchmarks;
+        this.benchmarkHistory = builder.benchmarkHistory;
+        this.sweeps = builder.sweeps;
+        this.benchmarkProfiles = builder.benchmarkProfiles;
+        this.existingSettings = builder.existingSettings;
+        this.serverParallelism = builder.serverParallelism;
+        this.modelInstallConfiguration = builder.modelInstallConfiguration;
     }
 
     /** Start a builder around the single shared configuration service. */
@@ -94,7 +114,44 @@ public final class ConsoleServices {
         return profileRepository;
     }
 
-    /** Collects optional services. */
+    /** @return the concurrency benchmark, or {@code null} when not wired */
+    public ConcurrencyBenchmarkService benchmarks() {
+        return benchmarks;
+    }
+
+    /** @return stored benchmark reports, or {@code null} when not wired */
+    public BenchmarkHistoryPort benchmarkHistory() {
+        return benchmarkHistory;
+    }
+
+    /** @return the sweep over OLLAMA_NUM_PARALLEL values, or {@code null} when not wired */
+    public ParallelismSweepService sweeps() {
+        return sweeps;
+    }
+
+    /** @return the use case that saves a measured optimum as profile, or {@code null} when not wired */
+    public BenchmarkProfiles benchmarkProfiles() {
+        return benchmarkProfiles;
+    }
+
+    /** @return the import of an existing installation's settings, or {@code null} when not wired */
+    public ExistingSettingsImport existingSettings() {
+        return existingSettings;
+    }
+
+    /** @return the use case that restarts the server with another OLLAMA_NUM_PARALLEL, or {@code null} */
+    public ServerParallelismService serverParallelism() {
+        return serverParallelism;
+    }
+
+    /**
+     * @return the settings file of the model installer taken over from askai-java8 (Hugging Face token, search
+     *         filters, download folder), or {@code null} when model installation is not wired
+     */
+    public java.io.File modelInstallConfiguration() {
+        return modelInstallConfiguration;
+    }
+
     public static final class Builder {
         private final ConfigurationService configuration;
         private ServerLifecycleService serverLifecycle;
@@ -105,6 +162,13 @@ public final class ConsoleServices {
         private ProfileActivationService profiles;
         private SetupService setup;
         private ModelProfileRepository profileRepository;
+        private ConcurrencyBenchmarkService benchmarks;
+        private BenchmarkHistoryPort benchmarkHistory;
+        private ParallelismSweepService sweeps;
+        private BenchmarkProfiles benchmarkProfiles;
+        private ExistingSettingsImport existingSettings;
+        private ServerParallelismService serverParallelism;
+        private java.io.File modelInstallConfiguration;
 
         private Builder(ConfigurationService configuration) {
             this.configuration = configuration;
@@ -147,6 +211,37 @@ public final class ConsoleServices {
 
         public Builder profileRepository(ModelProfileRepository value) {
             this.profileRepository = value;
+            return this;
+        }
+
+        public Builder benchmarks(ConcurrencyBenchmarkService value, BenchmarkHistoryPort history) {
+            this.benchmarks = value;
+            this.benchmarkHistory = history;
+            return this;
+        }
+
+        public Builder sweeps(ParallelismSweepService value) {
+            this.sweeps = value;
+            return this;
+        }
+
+        public Builder benchmarkProfiles(BenchmarkProfiles value) {
+            this.benchmarkProfiles = value;
+            return this;
+        }
+
+        public Builder existingSettings(ExistingSettingsImport value) {
+            this.existingSettings = value;
+            return this;
+        }
+
+        public Builder serverParallelism(ServerParallelismService value) {
+            this.serverParallelism = value;
+            return this;
+        }
+
+        public Builder modelInstallConfiguration(java.io.File value) {
+            this.modelInstallConfiguration = value;
             return this;
         }
 

@@ -25,7 +25,7 @@ public class ChildEnvironmentTest {
 
         assertEquals("C:\\Windows", environment.get("Path"));
         assertEquals("1", environment.get("OLLAMA_DEBUG"));
-        assertEquals("127.0.0.1:11434", environment.get("OLLAMA_HOST"));
+        assertFalse("an unchosen default must not be set", environment.containsKey("OLLAMA_HOST"));
         assertEquals("2", environment.get("OLLAMA_NUM_PARALLEL"));
         assertFalse(environment.containsKey("ollama_host"));
         assertFalse(environment.containsKey("Ollama_Num_Parallel"));

@@ -14,6 +14,21 @@ import static org.junit.Assert.assertTrue;
 public class WidgetsTest {
 
     @Test
+    public void meterBarCanTreatAHighFillAsGood() {
+        MeterBar meter = new MeterBar();
+        meter.setHigherIsBetter(true);
+        meter.setThresholds(0.25, 0.10);
+        meter.show(0.85, "free");
+        assertEquals(Theme.Tone.SUCCESS, meter.tone());
+        meter.show(0.20, "free");
+        assertEquals(Theme.Tone.WARNING, meter.tone());
+        meter.show(0.05, "free");
+        assertEquals(Theme.Tone.ERROR, meter.tone());
+        meter.show(-1, "unknown");
+        assertEquals(Theme.Tone.NEUTRAL, meter.tone());
+    }
+
+    @Test
     public void meterBarMapsFractionToTone() {
         MeterBar meter = new MeterBar();
         assertEquals(Theme.Tone.NEUTRAL, meter.tone());
@@ -54,6 +69,7 @@ public class WidgetsTest {
         assertEquals(Theme.Tone.NEUTRAL, badge.tone());
         badge.show("running", Theme.Tone.SUCCESS);
         assertEquals(Theme.Tone.SUCCESS, badge.tone());
+        assertEquals("running", badge.getAccessibleContext().getAccessibleName());
         assertTrue(badge.getIcon().getIconWidth() >= 8);
     }
 
