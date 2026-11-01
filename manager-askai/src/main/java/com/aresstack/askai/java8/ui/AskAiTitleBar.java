@@ -3,7 +3,7 @@ package com.aresstack.askai.java8.ui;
 import com.aresstack.askai.plugin.api.agent.AgentSession;
 import com.aresstack.askai.plugin.api.agent.search.AgentSearchContribution;
 import com.aresstack.comiccontrols.control.ComicSearchTag;
-import com.aresstack.comiccontrols.control.ComicWindowHoldCloseButton;
+import com.aresstack.comiccontrols.control.ComicWindowChipButton;
 import com.aresstack.comiccontrols.theme.ComicPalette;
 import com.aresstack.comiccontrols.theme.ResearchUiTypography;
 
@@ -23,7 +23,7 @@ import java.util.function.Supplier;
 /**
  * AskAI's own window title bar (the window is frameless): on the LEFT the app icon and the window title,
  * exactly where Windows shows them; in the CENTER the title-bar SEARCH of the active agent; on the RIGHT the
- * comic window control (click minimizes, hold closes). The whole bar is the drag handle (double-click
+ * minimize chip (blue) and close chip (red, single click). The whole bar is the drag handle (double-click
  * maximizes) — wired by the frame.
  *
  * <p>The search is a container: the host owns ONE field, the active agent's {@link AgentSearchContribution}
@@ -83,7 +83,12 @@ public final class AskAiTitleBar extends JPanel {
         right.setOpaque(false);
         right.add(trailingControls);
         right.add(Box.createHorizontalStrut(6));
-        right.add(new ComicWindowHoldCloseButton(ComicPalette.defaultPalette(), minimizeAction, closeAction, 24));
+        // Ollama Manager: separate minimize (blue) and close (red, single click) chips instead of askai's hold-to-close.
+        right.add(new ComicWindowChipButton(ComicPalette.defaultPalette(), ComicWindowChipButton.Kind.MINIMIZE,
+                minimizeAction, 24));
+        right.add(Box.createHorizontalStrut(4));
+        right.add(new ComicWindowChipButton(ComicPalette.defaultPalette(), ComicWindowChipButton.Kind.CLOSE,
+                closeAction, 24));
         trailingControls.setLayout(new BoxLayout(trailingControls, BoxLayout.X_AXIS));
         trailingControls.setOpaque(false);
         add(right, BorderLayout.EAST);
