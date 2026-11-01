@@ -1,6 +1,8 @@
 package com.aresstack.ollamamanager.swing;
 
+import com.aresstack.ollamamanager.application.benchmark.BenchmarkProfiles;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
@@ -81,9 +83,13 @@ public final class OllamaManagerApp {
         ModelService models = new ModelService(api);
         ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models, api);
         JsonBenchmarkHistory benchmarkHistory = new JsonBenchmarkHistory(dataDirectory);
+        ConcurrencyBenchmarkService benchmarks =
+            new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory, profileEnvironment);
+        ModelProfileRepository profileRepository = new ModelProfileRepository(configuration);
         return ConsoleServices.builder(configuration)
-            .benchmarks(new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory),
-                benchmarkHistory)
+            .benchmarks(benchmarks, benchmarkHistory)
+            .sweeps(new ParallelismSweepService(lifecycle, benchmarks, lifecycleLock))
+            .benchmarkProfiles(new BenchmarkProfiles(profileRepository, configuration, profileEnvironment))
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
@@ -92,7 +98,7 @@ public final class OllamaManagerApp {
             .installations(installations)
             .profiles(new ProfileActivationService(configuration, profileEnvironment, lifecycle,
                 lifecycleLock))
-            .profileRepository(new ModelProfileRepository(configuration))
+            .profileRepository(profileRepository)
             .setup(setup)
             .existingSettings(new ExistingSettingsImport(configuration, SystemInstalledEnvironment.forCurrentSystem()))
             .build();

@@ -7,6 +7,8 @@ import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.application.port.OllamaApiPort;
+import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
+import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
 import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
@@ -15,6 +17,8 @@ import com.aresstack.ollamamanager.domain.model.ModelDetails;
 import com.aresstack.ollamamanager.domain.model.ModelIdentity;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -139,6 +143,35 @@ public class ConcurrencyBenchmarkServiceTest {
 
     private static ConcurrencyBenchmarkRequest request(Integer... levels) {
         return new ConcurrencyBenchmarkRequest("m", Arrays.asList(levels), null, 50, 1, null, true);
+    }
+
+    @Test
+    public void recordsTheServerSettingsTheRunWasMeasuredWith() throws Exception {
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(new FakeApi(), null, null);
+        BenchmarkReport unknown = service.run(ENDPOINT, request(1), null, NO_LISTENER, CancellationToken.none());
+        assertNull(unknown.serverNumParallel());
+        assertNull(unknown.serverSettings());
+        BenchmarkReport unset = service.run(ENDPOINT, request(1), ServerSettings.defaults(), NO_LISTENER,
+            CancellationToken.none());
+        assertEquals(ConcurrencyBenchmarkService.SERVER_DEFAULT, unset.serverNumParallel());
+        assertNull(unset.serverSettings().parallelism());
+        ServerSettings four = ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 4);
+        BenchmarkReport set = service.run(ENDPOINT, request(1), four, NO_LISTENER, CancellationToken.none());
+        assertEquals("4", set.serverNumParallel());
+        assertEquals(four, set.serverSettings());
+    }
+
+    @Test
+    public void recordsTheEnvironmentTheRunWasMeasuredOn() throws Exception {
+        ProfileEnvironment environment = cancellation -> new ProfileEnvironment.Snapshot(new GpuFingerprint("rtx"),
+            "0.40.13", Collections.singletonList(new ModelIdentity("m", "sha256:abc", "Q4_K_M")));
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(new FakeApi(), null, null, environment);
+        BenchmarkReport report = service.run(ENDPOINT, request(1), null, NO_LISTENER, CancellationToken.none());
+        assertNotNull(report.environment());
+        assertTrue(report.environment().isComplete());
+        assertEquals("rtx", report.environment().gpuFingerprint().value());
+        assertEquals("0.40.13", report.environment().ollamaVersion());
+        assertEquals("sha256:abc", report.environment().model().digest());
     }
 
     @Test
