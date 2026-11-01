@@ -1,8 +1,6 @@
 package com.aresstack.ollamamanager.swing.component;
 
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 
 /**
@@ -14,9 +12,7 @@ public final class PlaceholderPanel extends JPanel {
 
     public PlaceholderPanel(String message) {
         super(new BorderLayout());
-        JLabel label = new JLabel("<html><div style='text-align:center'>" + Html.escape(message) + "</div></html>",
-            SwingConstants.CENTER);
-        label.setEnabled(false);
-        add(label, BorderLayout.CENTER);
+        setOpaque(false);
+        add(new EmptyState("Not available yet", message), BorderLayout.CENTER);
     }
 }

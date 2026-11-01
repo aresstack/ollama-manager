@@ -3,14 +3,18 @@ package com.aresstack.ollamamanager.swing.section;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.model.ModelPlacement;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
+import com.aresstack.ollamamanager.swing.component.ActionBar;
 import com.aresstack.ollamamanager.swing.component.Dialogs;
+import com.aresstack.ollamamanager.swing.component.EmptyState;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
+import com.aresstack.ollamamanager.swing.component.MessageBanner;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
+import com.aresstack.ollamamanager.swing.component.Tables;
+import com.aresstack.ollamamanager.swing.component.Theme;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -18,12 +22,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.ListSelectionModel;
-import javax.swing.UIManager;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.event.HierarchyEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,15 +42,20 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final ModelTableModel model = new ModelTableModel();
     private final JTable table = new JTable(model);
     private final JLabel notice = new JLabel(" ");
+    private final MessageBanner banner = new MessageBanner();
+    private final EmptyState empty = new EmptyState("No models on this server",
+        "Pull a model from the Ollama library to get started.");
+    private final CardLayout listCards = new CardLayout();
+    private final JPanel list = new JPanel(listCards);
     private final JTextField pullName = new JTextField(24);
     private final JButton pull = new JButton("Pull");
     private final JButton load = new JButton("Load");
     private final JButton unload = new JButton("Unload");
     private final JButton delete = new JButton("Delete…");
+    private final JButton pullShortcut = new JButton("Pull a model…");
     private final JobProgressPanel progress = new JobProgressPanel();
     private boolean actionsEnabled = true;
     private boolean mutationsAllowed;
-    private final JLabel readOnly = new JLabel(" ");
 
     public ModelsPanel(ModelsPresenter presenter) {
         super(Section.MODELS.title(), Section.MODELS.description());
@@ -59,10 +66,12 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         refresh.addActionListener(event -> presenter.refresh());
         addToolbarItem(refresh);
 
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setFillsViewportHeight(true);
-        table.setAutoCreateRowSorter(true);
-        table.getAccessibleContext().setAccessibleName("Models");
+        Tables.setup(table, "Models");
+        Tables.alignRight(table, 1, 6, 7);
+        table.getColumnModel().getColumn(5).setCellRenderer(Tables.toneRenderer(ModelsPanel::placementTone));
+        table.getColumnModel().getColumn(4).setCellRenderer(Tables.toneRenderer(
+            value -> "yes".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.NEUTRAL));
+        Tables.setWidthInChars(table, 0, 28);
         table.getSelectionModel().addListSelectionListener(event -> updateButtons());
 
         pullName.setToolTipText("Model name as in the Ollama library, for example llama3.2:3b");
@@ -87,27 +96,35 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         pullRow.add(pullLabel);
         pullRow.add(pullName);
         pullRow.add(pull);
-        JPanel selectionRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        selectionRow.add(new JLabel("Selected model:"));
-        selectionRow.add(load);
-        selectionRow.add(unload);
-        selectionRow.add(delete);
+        pullRow.setOpaque(false);
+        ActionBar selectionRow = new ActionBar();
+        selectionRow.addAction(new JLabel("Selected model:")).addAction(load).addAction(unload)
+            .addTrailing(delete);
 
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
-        JPanel actions = new JPanel(new BorderLayout());
-        actions.add(readOnly, BorderLayout.NORTH);
-        actions.add(selectionRow, BorderLayout.CENTER);
-        south.add(actions, BorderLayout.NORTH);
+        south.setOpaque(false);
+        south.add(selectionRow, BorderLayout.NORTH);
         south.add(pullRow, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
+        pullShortcut.addActionListener(event -> pullName.requestFocusInWindow());
+        empty.setAction(pullShortcut);
+        list.setOpaque(false);
+        list.add(new JScrollPane(table), "table");
+        list.add(empty, "empty");
+
+        JPanel north = new JPanel(new BorderLayout(0, Spacing.GAP));
+        north.setOpaque(false);
+        north.add(banner, BorderLayout.NORTH);
+        notice.setForeground(Theme.mutedForeground());
+        north.add(notice, BorderLayout.CENTER);
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
-        notice.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
-        body.add(notice, BorderLayout.NORTH);
-        body.add(new JScrollPane(table), BorderLayout.CENTER);
+        body.setOpaque(false);
+        body.add(north, BorderLayout.NORTH);
+        body.add(list, BorderLayout.CENTER);
         body.add(south, BorderLayout.SOUTH);
         setBody(body);
-        fitRowHeight();
+        showList(false);
         updateButtons();
         presenter.bind(this);
         // Load when the section becomes visible, so a server started meanwhile is picked up.
@@ -122,31 +139,62 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     public void updateUI() {
         super.updateUI();
         if (table != null) {
-            fitRowHeight();
+            Tables.fitRowHeight(table);
+            notice.setForeground(Theme.mutedForeground());
         }
     }
 
     @Override
     public void showModels(List<ModelEntry> entries) {
-        notice.setText(entries.isEmpty() ? "No models installed on this server." : entries.size() + " models");
+        int loaded = 0;
+        for (ModelEntry entry : entries) {
+            if (entry.isLoaded()) {
+                loaded++;
+            }
+        }
+        notice.setText(entries.isEmpty() ? " " : entries.size() + (entries.size() == 1 ? " model, " : " models, ")
+            + loaded + " loaded");
+        empty.setText("No models on this server", "Pull a model from the Ollama library to get started.");
         model.setRows(entries);
+        showList(!entries.isEmpty());
         updateButtons();
     }
 
     @Override
     public void setMutationsAllowed(boolean allowed, String reason) {
         mutationsAllowed = allowed;
-        readOnly.setText(allowed || reason == null ? " " : reason);
+        if (allowed || reason == null) {
+            banner.clear();
+        } else {
+            banner.warning(reason);
+        }
         updateButtons();
     }
 
     @Override
     public void showUnavailable(String reason) {
         mutationsAllowed = false;
-        readOnly.setText(" ");
-        notice.setText(reason);
+        banner.clear();
+        notice.setText(" ");
+        empty.setText("Model library unavailable", reason);
         model.setRows(new ArrayList<ModelEntry>());
+        showList(false);
         updateButtons();
+    }
+
+    /** Show the table, or the empty state while there is nothing to list. */
+    private void showList(boolean hasRows) {
+        listCards.show(list, hasRows ? "table" : "empty");
+    }
+
+    static Theme.Tone placementTone(Object value) {
+        if ("gpu".equals(value)) {
+            return Theme.Tone.SUCCESS;
+        }
+        if ("split".equals(value)) {
+            return Theme.Tone.WARNING;
+        }
+        return "cpu".equals(value) ? Theme.Tone.ERROR : Theme.Tone.NEUTRAL;
     }
 
     @Override
@@ -184,14 +232,10 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         boolean enabled = actionsEnabled && mutationsAllowed;
         pull.setEnabled(enabled);
         pullName.setEnabled(enabled);
+        pullShortcut.setEnabled(enabled);
         load.setEnabled(enabled && entry != null && entry.isInstalled());
         unload.setEnabled(enabled && entry != null && entry.isLoaded());
         delete.setEnabled(enabled && entry != null && entry.isInstalled());
-    }
-
-    private void fitRowHeight() {
-        Font font = UIManager.getFont("Table.font");
-        table.setRowHeight(table.getFontMetrics(font == null ? table.getFont() : font).getHeight() + 4);
     }
 
     private static final class ModelTableModel extends AbstractTableModel {
