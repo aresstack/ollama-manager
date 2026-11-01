@@ -192,7 +192,7 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
             for (GpuUsageSample sample : samples) {
                 MeterBar meter = new MeterBar();
                 meter.show(fraction(sample), usageCaption(sample));
-                gpuUsage.addRow(sample.gpuName(), meter, "Free VRAM reported by the driver: room for more models or chats.");
+                gpuUsage.addRow(sample.gpuName(), meter, "VRAM in use and GPU utilisation reported by the driver.");
             }
         }
         gpuUsage.addFiller();
@@ -200,28 +200,25 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         gpuUsage.repaint();
     }
 
-    /** The free share of the VRAM, which is what the green bar shows; negative when unknown. */
     static double fraction(GpuUsageSample sample) {
-        Long free = freeVramBytes(sample);
-        return free == null ? -1 : free / (double) sample.totalVramBytes();
-    }
-
-    private static Long freeVramBytes(GpuUsageSample sample) {
         if (sample.usedVramBytes() == null || sample.totalVramBytes() == null || sample.totalVramBytes() <= 0) {
-            return null;
+            return -1;
         }
-        return Math.max(0, sample.totalVramBytes() - sample.usedVramBytes());
+        return sample.usedVramBytes() / (double) sample.totalVramBytes();
     }
 
-    /** "13.5 GiB free of 15.9 GiB VRAM, 85 % free", or that the VRAM is unknown. */
     static String usageCaption(GpuUsageSample sample) {
-        Long free = freeVramBytes(sample);
-        if (free == null) {
-            return "VRAM unknown";
+        StringBuilder text = new StringBuilder();
+        if (sample.usedVramBytes() != null && sample.totalVramBytes() != null) {
+            text.append(Format.bytes(sample.usedVramBytes())).append(" / ")
+                .append(Format.bytes(sample.totalVramBytes())).append(" VRAM");
+        } else {
+            text.append("VRAM unknown");
         }
-        long percent = Math.round(100.0 * free / sample.totalVramBytes());
-        return Format.bytes(free) + " free of " + Format.bytes(sample.totalVramBytes()) + " VRAM, " + percent
-            + " % free";
+        if (sample.utilizationPercent() != null) {
+            text.append(", ").append(sample.utilizationPercent()).append(" % busy");
+        }
+        return text.toString();
     }
 
     static Theme.Tone stateTone(ServerState state) {
