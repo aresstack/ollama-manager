@@ -196,15 +196,17 @@ public class ParallelismSweepServiceTest {
     }
 
     private final FakeRuntime runtime = new FakeRuntime();
+    private final LifecycleLock lock = new LifecycleLock();
     private ServerLifecycleService lifecycle;
     private ParallelismSweepService service;
 
     @Before
     public void startOwnedServer() throws Exception {
-        lifecycle = new ServerLifecycleService(runtime, 0, new LifecycleLock());
+        lifecycle = new ServerLifecycleService(runtime, 0, lock);
         // The original server runs with OLLAMA_NUM_PARALLEL unset.
         lifecycle.start(INSTALLATION, ServerSettings.defaults(), CancellationToken.none());
-        service = new ParallelismSweepService(lifecycle, new ConcurrencyBenchmarkService(new FakeApi(), null, null));
+        service = new ParallelismSweepService(lifecycle, new ConcurrencyBenchmarkService(new FakeApi(), null, null),
+            lock);
     }
 
     private static ConcurrencyBenchmarkRequest request() {
@@ -293,6 +295,62 @@ public class ParallelismSweepServiceTest {
     }
 
     @Test
+    public void holdsTheLifecycleLockSoOtherOperationsFailFast() throws Exception {
+        final List<ErrorKind> otherThread = new ArrayList<ErrorKind>();
+        final List<Boolean> held = new ArrayList<Boolean>();
+        Recorder prober = new Recorder() {
+            @Override
+            public void stageFinished(StageResult stage) {
+                held.add(lock.isHeld());
+                Thread dashboard = new Thread(() -> {
+                    try {
+                        lifecycle.stop();
+                        otherThread.add(null);
+                    } catch (OperationException e) {
+                        otherThread.add(e.kind());
+                    }
+                });
+                dashboard.start();
+                try {
+                    dashboard.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
+        List<BenchmarkReport> reports = service.run(request(), Arrays.asList(2), prober, CancellationToken.none());
+        assertEquals(1, reports.size());
+        assertEquals(Arrays.asList(true, true), held);
+        // A stop from the dashboard during the measurement is refused instead of changing the server.
+        assertEquals(Arrays.asList(ErrorKind.INVALID_STATE, ErrorKind.INVALID_STATE), otherThread);
+        assertEquals(Arrays.asList(null, 2, null), runtime.startedWith);
+        assertFalse(lock.isHeld());
+    }
+
+    @Test
+    public void refusesWhileAnotherLifecycleOperationHoldsTheLock() throws Exception {
+        final List<ErrorKind> kinds = new ArrayList<ErrorKind>();
+        lock.run("test", () -> {
+            Thread sweep = new Thread(() -> {
+                try {
+                    service.run(request(), Arrays.asList(2), new Recorder(), CancellationToken.none());
+                } catch (OperationException e) {
+                    kinds.add(e.kind());
+                }
+            });
+            sweep.start();
+            try {
+                sweep.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+        assertEquals(Arrays.asList(ErrorKind.INVALID_STATE), kinds);
+        assertEquals(Arrays.asList((Integer) null), runtime.startedWith);
+    }
+
+    @Test
     public void leavesAServerTheUserStoppedAlone() throws Exception {
         Recorder stopper = new Recorder() {
             @Override
@@ -344,10 +402,11 @@ public class ParallelismSweepServiceTest {
 
     @Test
     public void refusesExternalServers() throws Exception {
-        ServerLifecycleService external = new ServerLifecycleService(new FakeRuntime(), 0, new LifecycleLock());
+        LifecycleLock externalLock = new LifecycleLock();
+        ServerLifecycleService external = new ServerLifecycleService(new FakeRuntime(), 0, externalLock);
         external.attachExternal(OllamaInstallation.external("0.1.0", ENDPOINT), "0.1.0");
         ParallelismSweepService sweeps = new ParallelismSweepService(external,
-            new ConcurrencyBenchmarkService(new FakeApi(), null, null));
+            new ConcurrencyBenchmarkService(new FakeApi(), null, null), externalLock);
         try {
             sweeps.run(request(), Arrays.asList(4), new Recorder(), CancellationToken.none());
             fail("expected NOT_OWNED");

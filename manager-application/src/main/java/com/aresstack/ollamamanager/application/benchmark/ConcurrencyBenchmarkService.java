@@ -5,6 +5,7 @@ import com.aresstack.ollamamanager.application.common.OperationCancelledExceptio
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.application.port.OllamaApiPort;
+import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
@@ -43,18 +44,30 @@ public final class ConcurrencyBenchmarkService {
     private final OllamaApiPort api;
     private final GpuTelemetryPort telemetry;
     private final BenchmarkHistoryPort history;
+    private final ProfileEnvironment environment;
 
     /**
      * @param telemetry may be {@code null}; VRAM is then reported as unknown
      * @param history   may be {@code null}; reports are then not stored
      */
     public ConcurrencyBenchmarkService(OllamaApiPort api, GpuTelemetryPort telemetry, BenchmarkHistoryPort history) {
+        this(api, telemetry, history, null);
+    }
+
+    /**
+     * @param telemetry   may be {@code null}; VRAM is then reported as unknown
+     * @param history     may be {@code null}; reports are then not stored
+     * @param environment may be {@code null}; reports then do not record GPU, server version and model digest
+     */
+    public ConcurrencyBenchmarkService(OllamaApiPort api, GpuTelemetryPort telemetry, BenchmarkHistoryPort history,
+                                       ProfileEnvironment environment) {
         if (api == null) {
             throw new IllegalArgumentException("api must not be null");
         }
         this.api = api;
         this.telemetry = telemetry;
         this.history = history;
+        this.environment = environment;
     }
 
     /** OLLAMA_NUM_PARALLEL as text: a number, {@link #SERVER_DEFAULT} when unset, or {@code null} when unknown. */
@@ -94,6 +107,10 @@ public final class ConcurrencyBenchmarkService {
                 + " the default can be the model's full context" : ". Try a smaller context size"), e);
         }
 
+        // Record what is measured on while the model is loaded, so a profile saved later is scoped to this run.
+        BenchmarkEnvironment measuredOn = environment == null ? null
+            : BenchmarkEnvironment.from(environment.capture(cancellation), request.model());
+
         List<StageResult> stages = new ArrayList<StageResult>();
         boolean complete = true;
         int step = 1;
@@ -120,8 +137,8 @@ public final class ConcurrencyBenchmarkService {
             throw new OperationCancelledException("benchmark cancelled");
         }
         BenchmarkReport report = new BenchmarkReport(UUID.randomUUID().toString(), started, request.model(),
-            request.numCtx(), request.maxTokens(), serverNumParallel, applied, warmup.loadMillis(), stages,
-            complete);
+            request.numCtx(), request.maxTokens(), serverNumParallel, applied, measuredOn, warmup.loadMillis(),
+            stages, complete);
         if (history != null) {
             history.save(report);
         }

@@ -50,7 +50,12 @@ public class BenchmarkProfilesTest {
     }
 
     private static BenchmarkReport report(Integer numCtx, String serverParallel, ServerSettings settings) {
-        return new BenchmarkReport("r1", 0, "llama3.1:8b", numCtx, 128, serverParallel, settings, 100,
+        return report(numCtx, serverParallel, settings, null);
+    }
+
+    private static BenchmarkReport report(Integer numCtx, String serverParallel, ServerSettings settings,
+                                          BenchmarkEnvironment environment) {
+        return new BenchmarkReport("r1", 0, "llama3.1:8b", numCtx, 128, serverParallel, settings, environment, 100,
             Arrays.asList(stage(1, 50), stage(4, 120), stage(8, 110)), true);
     }
 
@@ -117,6 +122,33 @@ public class BenchmarkProfilesTest {
         assertFalse(BenchmarkProfiles.hasServerValue(report(null, "default")));
         assertTrue(BenchmarkProfiles.hasServerValue(report(null, "4")));
         assertEquals(Integer.valueOf(4), BenchmarkProfiles.serverParallel(report(null, "4")));
+    }
+
+    @Test
+    public void scopesTheProfileToTheEnvironmentOfTheRunNotOfTheSave() throws Exception {
+        ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        // The server was upgraded and the model tag re-pulled since the run.
+        BenchmarkProfiles profiles = new BenchmarkProfiles(new ModelProfileRepository(configuration), configuration,
+            environment(new GpuFingerprint("rtx"), "0.41.0"));
+        BenchmarkEnvironment measured = new BenchmarkEnvironment(new GpuFingerprint("old-gpu"), "0.40.13",
+            new ModelIdentity("llama3.1:8b", "sha256:old", "Q4_K_M"));
+        BenchmarkReport report = report(null, "4", null, measured);
+        ModelProfile saved = profiles.save(report, report.optimum(), null, CancellationToken.none());
+        assertEquals("old-gpu", saved.scope().gpuFingerprint().value());
+        assertEquals("0.40.13", saved.scope().ollamaVersion());
+        assertEquals("sha256:old", saved.scope().model().digest());
+    }
+
+    @Test
+    public void fallsBackToTheCurrentEnvironmentWhenTheRunRecordedAnIncompleteOne() throws Exception {
+        ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        BenchmarkProfiles profiles = new BenchmarkProfiles(new ModelProfileRepository(configuration), configuration,
+            environment(new GpuFingerprint("rtx"), "0.40.13"));
+        BenchmarkEnvironment partial = new BenchmarkEnvironment(null, "0.40.13", ModelIdentity.named("llama3.1:8b"));
+        BenchmarkReport report = report(null, "4", null, partial);
+        ModelProfile saved = profiles.save(report, report.optimum(), null, CancellationToken.none());
+        assertEquals("rtx", saved.scope().gpuFingerprint().value());
+        assertEquals("sha256:abc", saved.scope().model().digest());
     }
 
     @Test

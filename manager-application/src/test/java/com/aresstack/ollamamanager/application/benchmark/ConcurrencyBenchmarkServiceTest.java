@@ -7,6 +7,8 @@ import com.aresstack.ollamamanager.application.common.ProgressListener;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.application.port.OllamaApiPort;
+import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
+import com.aresstack.ollamamanager.domain.hardware.GpuFingerprint;
 import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
 import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
@@ -157,6 +159,19 @@ public class ConcurrencyBenchmarkServiceTest {
         BenchmarkReport set = service.run(ENDPOINT, request(1), four, NO_LISTENER, CancellationToken.none());
         assertEquals("4", set.serverNumParallel());
         assertEquals(four, set.serverSettings());
+    }
+
+    @Test
+    public void recordsTheEnvironmentTheRunWasMeasuredOn() throws Exception {
+        ProfileEnvironment environment = cancellation -> new ProfileEnvironment.Snapshot(new GpuFingerprint("rtx"),
+            "0.40.13", Collections.singletonList(new ModelIdentity("m", "sha256:abc", "Q4_K_M")));
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(new FakeApi(), null, null, environment);
+        BenchmarkReport report = service.run(ENDPOINT, request(1), null, NO_LISTENER, CancellationToken.none());
+        assertNotNull(report.environment());
+        assertTrue(report.environment().isComplete());
+        assertEquals("rtx", report.environment().gpuFingerprint().value());
+        assertEquals("0.40.13", report.environment().ollamaVersion());
+        assertEquals("sha256:abc", report.environment().model().digest());
     }
 
     @Test

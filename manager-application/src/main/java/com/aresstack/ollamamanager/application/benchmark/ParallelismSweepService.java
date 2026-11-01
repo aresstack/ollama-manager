@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.application.benchmark;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
@@ -43,13 +44,20 @@ public final class ParallelismSweepService {
 
     private final ServerLifecycleService lifecycle;
     private final ConcurrencyBenchmarkService benchmarks;
+    private final LifecycleLock lock;
 
-    public ParallelismSweepService(ServerLifecycleService lifecycle, ConcurrencyBenchmarkService benchmarks) {
-        if (lifecycle == null || benchmarks == null) {
-            throw new IllegalArgumentException("lifecycle and benchmarks must not be null");
+    /**
+     * @param lock the lock the lifecycle service uses; the whole sweep runs under it, so that a stop, restart or
+     *             profile activation from elsewhere fails fast instead of changing the server under measurement
+     */
+    public ParallelismSweepService(ServerLifecycleService lifecycle, ConcurrencyBenchmarkService benchmarks,
+                                   LifecycleLock lock) {
+        if (lifecycle == null || benchmarks == null || lock == null) {
+            throw new IllegalArgumentException("lifecycle, benchmarks and lock must not be null");
         }
         this.lifecycle = lifecycle;
         this.benchmarks = benchmarks;
+        this.lock = lock;
     }
 
     /** Distinct candidates in ascending order; each between 1 and 256. */
@@ -73,13 +81,21 @@ public final class ParallelismSweepService {
      * finished.
      *
      * @throws OperationException {@code NOT_OWNED} for an external server, {@code INVALID_STATE} without a running
-     *                            server or when it is stopped during the sweep, or the failure of a restart or
-     *                            benchmark; the original settings are restored before the exception propagates
+     *                            server, while another lifecycle operation holds the lock, or when the server is
+     *                            stopped during the sweep, or the failure of a restart or benchmark; the original
+     *                            settings are restored before the exception propagates
      */
-    public List<BenchmarkReport> run(ConcurrencyBenchmarkRequest request, List<Integer> rawCandidates,
+    public List<BenchmarkReport> run(final ConcurrencyBenchmarkRequest request, List<Integer> rawCandidates,
                                      final Listener listener, final CancellationToken cancellation)
         throws OperationException {
-        List<Integer> values = candidates(rawCandidates);
+        final List<Integer> values = candidates(rawCandidates);
+        // The lock is reentrant for this thread, so the sweep's own restarts still go through.
+        return lock.run("benchmark server values", () -> runUnderLock(request, values, listener, cancellation));
+    }
+
+    private List<BenchmarkReport> runUnderLock(ConcurrencyBenchmarkRequest request, List<Integer> values,
+                                               final Listener listener, final CancellationToken cancellation)
+        throws OperationException {
         ServerStatus status = lifecycle.status();
         if (status.state() != ServerState.RUNNING || status.installation() == null) {
             throw new OperationException(ErrorKind.INVALID_STATE, "no running server to benchmark");

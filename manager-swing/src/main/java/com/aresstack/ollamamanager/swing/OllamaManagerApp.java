@@ -87,11 +87,11 @@ public final class OllamaManagerApp {
         ProfileEnvironment profileEnvironment = ProfileEnvironment.live(hardwareProbe, lifecycle, models, api);
         JsonBenchmarkHistory benchmarkHistory = new JsonBenchmarkHistory(dataDirectory);
         ConcurrencyBenchmarkService benchmarks =
-            new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory);
+            new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory, profileEnvironment);
         ModelProfileRepository profileRepository = new ModelProfileRepository(configuration);
         return ConsoleServices.builder(configuration)
             .benchmarks(benchmarks, benchmarkHistory)
-            .sweeps(new ParallelismSweepService(lifecycle, benchmarks))
+            .sweeps(new ParallelismSweepService(lifecycle, benchmarks, lifecycleLock))
             .benchmarkProfiles(new BenchmarkProfiles(profileRepository, configuration, profileEnvironment))
             .serverLifecycle(lifecycle)
             .hardwareProbe(hardwareProbe)

@@ -6,7 +6,6 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
-import com.aresstack.ollamamanager.domain.model.ModelIdentity;
 import com.aresstack.ollamamanager.domain.model.ModelOptions;
 import com.aresstack.ollamamanager.domain.profile.ModelProfile;
 import com.aresstack.ollamamanager.domain.profile.ProfileScope;
@@ -63,6 +62,25 @@ public final class BenchmarkProfiles {
         return serverParallel(report) != null;
     }
 
+    /**
+     * The scope of a profile of {@code report}: the GPU, server version and model digest recorded during the run,
+     * so that a run from an older server version or another GPU yields a profile the validity check flags as
+     * outdated. Runs stored without that record fall back to the environment at save time.
+     */
+    private ProfileScope scope(BenchmarkReport report, CancellationToken cancellation) throws OperationException {
+        BenchmarkEnvironment measured = report.environment();
+        if (measured != null && measured.isComplete()) {
+            return new ProfileScope(measured.model(), measured.gpuFingerprint(), measured.ollamaVersion(), WORKLOAD);
+        }
+        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
+        if (snapshot.gpuFingerprint() == null || snapshot.ollamaVersion() == null) {
+            throw new OperationException(ErrorKind.INVALID_STATE,
+                "cannot save a profile: GPU or server version unknown; is the server running?");
+        }
+        return new ProfileScope(BenchmarkEnvironment.from(snapshot, report.model()).model(), snapshot.gpuFingerprint(),
+            snapshot.ollamaVersion(), WORKLOAD);
+    }
+
     /** Settings the profile is built from: those the run was measured with, else the stored desired settings. */
     private ServerSettings baseSettings(BenchmarkReport report) throws OperationException {
         return report.serverSettings() != null ? report.serverSettings()
@@ -77,20 +95,7 @@ public final class BenchmarkProfiles {
      */
     public ModelProfile save(BenchmarkReport report, StageResult stage, String name, CancellationToken cancellation)
         throws OperationException {
-        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
-        if (snapshot.gpuFingerprint() == null || snapshot.ollamaVersion() == null) {
-            throw new OperationException(ErrorKind.INVALID_STATE,
-                "cannot save a profile: GPU or server version unknown; is the server running?");
-        }
-        ModelIdentity model = ModelIdentity.named(report.model());
-        if (snapshot.installedModels() != null) {
-            for (ModelIdentity installed : snapshot.installedModels()) {
-                if (installed.name().equalsIgnoreCase(model.name())) {
-                    model = installed;
-                }
-            }
-        }
-        ProfileScope scope = new ProfileScope(model, snapshot.gpuFingerprint(), snapshot.ollamaVersion(), WORKLOAD);
+        ProfileScope scope = scope(report, cancellation);
         ServerSettings settings = baseSettings(report).with(ServerSettingCatalog.PARALLELISM, serverParallel(report));
         ModelOptions options = report.numCtx() == null ? ModelOptions.none()
             : ModelOptions.none().withNumCtx(report.numCtx());
