@@ -1,4 +1,4 @@
-# Ollama Manager
+![Ollama Manager](docs/branding/banner.png)
 
 Standalone desktop manager and optimizer for a local [Ollama](https://ollama.com) server.
 Java 8 + Swing, MIT licensed. Windows x64 is the first supported platform.
