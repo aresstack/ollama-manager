@@ -1,5 +1,6 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.KvCacheType;
 import com.aresstack.ollamamanager.domain.server.ServerSetting;
 import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
@@ -21,13 +22,16 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
+import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.border.Border;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -36,10 +40,14 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Editor for the desired server-wide settings, grouped by topic. Every field shows what it does, what Ollama
@@ -74,6 +82,7 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         JPanel column = new JPanel();
         column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
         column.setOpaque(false);
+        appliedSource.setAlignmentX(LEFT_ALIGNMENT);
         column.add(appliedSource);
         column.add(Box.createVerticalStrut(Spacing.GAP));
         column.add(card("Network", "Where the server listens. Clients must use the same address.",
@@ -92,8 +101,9 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             ServerSettingCatalog.KEEP_ALIVE, ServerSettingCatalog.MODEL_ROOT));
         column.add(Box.createVerticalStrut(Spacing.GAP));
         legend.setText("All settings here need a server restart. Save stores them; the next start, or a restart"
-            + " from the Profiles section, applies them. An empty field means the variable is not set at all and"
-            + " Ollama uses its built-in value; a value you enter is set even if it equals the default.");
+            + " from the Profiles section, applies them. A setting is only passed to the server when its"
+            + " \"Set\" box is ticked (or a field is filled, or a choice is made); otherwise the variable stays unset"
+            + " and Ollama uses its built-in value. A value you set is passed even if it equals the default.");
         legend.setAlignmentX(LEFT_ALIGNMENT);
         column.add(legend);
 
@@ -140,7 +150,9 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             row.setAlignmentX(LEFT_ALIGNMENT);
             content.add(row);
         }
-        return new CardPanel(title, content);
+        CardPanel card = new CardPanel(title, content);
+        card.setAlignmentX(LEFT_ALIGNMENT);
+        return card;
     }
 
     static String tooltip(ServerSetting<?> setting) {
@@ -266,8 +278,12 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
     private static Editor editorFor(ServerSetting<?> setting) {
         switch (setting.optionType()) {
             case INTEGER:
-                return new IntegerEditor(setting.minimum(), setting.maximum(), unit(setting),
-                    DEFAULTS.get(setting.id()));
+                if (setting == ServerSettingCatalog.CONTEXT_LENGTH) {
+                    return new ContextLengthEditor(setting.minimum(), setting.maximum(), 4096);
+                }
+                return new SpinnerEditor(setting.minimum(), setting.maximum(), unit(setting),
+                    setting == ServerSettingCatalog.PARALLELISM ? 4
+                        : setting == ServerSettingCatalog.LOADED_MODELS ? 3 : 512);
             case BOOLEAN:
                 return new ChoiceEditor(new String[]{"1", "0"}, new String[]{"On", "Off"});
             case CHOICE:
@@ -279,12 +295,12 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
                 }
                 return new ChoiceEditor(values.toArray(new String[0]), labels.toArray(new String[0]));
             case DURATION:
-                return new DurationEditor(DEFAULTS.get(setting.id()));
+                return new DurationEditor();
             case DIRECTORY:
                 return new DirectoryEditor(DEFAULTS.get(setting.id()));
             case ENDPOINT:
             default:
-                return new TextEditor(DEFAULTS.get(setting.id()));
+                return new EndpointEditor();
         }
     }
 
@@ -334,6 +350,9 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             setOpaque(false);
             label.setText(setting.label() + ":");
             label.setLabelFor(editor.focusTarget());
+            if (editor instanceof ToggledEditor) {
+                ((ToggledEditor) editor).set.getAccessibleContext().setAccessibleName("Set " + setting.label());
+            }
             label.setToolTipText(tooltip(setting));
             editor.component().setToolTipText(tooltip(setting));
             String fallback = DEFAULTS.get(setting.id());
@@ -428,11 +447,454 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         /** The component that takes keyboard focus and the error border. */
         JComponent focusTarget();
 
+        /** Encoded value, or empty when the variable is not set. */
         String text();
 
         void setText(String text);
 
         void setEnabled(boolean enabled);
+    }
+
+    /**
+     * Editor whose control cannot be empty (spinner, slider, combo pair). A "Set" box in front of it decides
+     * whether the variable is passed at all; while it is unticked the control is greyed and shows Ollama's default.
+     */
+    private abstract static class ToggledEditor implements Editor {
+        final JCheckBox set = new JCheckBox("Set");
+        final JPanel panel = new JPanel(new GridBagLayout());
+        private boolean enabled = true;
+
+        ToggledEditor() {
+            panel.setOpaque(false);
+            set.setOpaque(false);
+            set.setToolTipText("Unticked: the variable is not set and Ollama uses its own default."
+                + " Ticked: the value shown is passed to the server, even if it equals the default.");
+            set.addActionListener(event -> {
+                if (set.isSelected()) {
+                    showDefault();
+                }
+                applyEnabled();
+            });
+        }
+
+        /** Place the control(s) to the right of the Set box. */
+        final void layout(JComponent control, boolean fill) {
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridx = 0;
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.WEST;
+            c.insets = new Insets(0, 0, 0, Spacing.GAP);
+            panel.add(set, c);
+            c.gridx = 1;
+            c.weightx = 1;
+            c.fill = fill ? GridBagConstraints.HORIZONTAL : GridBagConstraints.NONE;
+            c.insets = new Insets(0, 0, 0, 0);
+            panel.add(control, c);
+        }
+
+        /** Put Ollama's default into the control (shown greyed while unset, kept as start value when set). */
+        abstract void showDefault();
+
+        /** Encoded value of the control. */
+        abstract String controlText();
+
+        /** Apply an encoded value to the control. */
+        abstract void applyText(String text);
+
+        /** Enable or disable the control(s). */
+        abstract void enableControl(boolean enabled);
+
+        @Override
+        public final JComponent component() {
+            return panel;
+        }
+
+        @Override
+        public final String text() {
+            return set.isSelected() ? controlText() : "";
+        }
+
+        @Override
+        public final void setText(String text) {
+            boolean chosen = text != null && !text.trim().isEmpty();
+            set.setSelected(chosen);
+            if (chosen) {
+                try {
+                    applyText(text.trim());
+                } catch (RuntimeException e) {
+                    // Malformed stored value: keep the box ticked so the presenter's error points at it.
+                    showDefault();
+                }
+            } else {
+                showDefault();
+            }
+            applyEnabled();
+        }
+
+        @Override
+        public final void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+            applyEnabled();
+        }
+
+        private void applyEnabled() {
+            set.setEnabled(enabled);
+            enableControl(enabled && set.isSelected());
+        }
+    }
+
+    /** Whole number with a spinner; the unit and allowed range sit next to it. */
+    private static final class SpinnerEditor extends ToggledEditor {
+        private final JSpinner spinner;
+        private final JLabel unit;
+        private final int fallback;
+
+        SpinnerEditor(int minimum, int maximum, String unitText, int fallback) {
+            this.fallback = fallback;
+            spinner = new JSpinner(new SpinnerNumberModel(fallback, minimum, maximum, 1));
+            fitColumns(spinner, 7);
+            unit = new JLabel(unitText + "  (" + minimum + " to " + maximum + ")");
+            unit.setForeground(Theme.mutedForeground());
+            JPanel control = new JPanel(new BorderLayout(Spacing.GAP, 0));
+            control.setOpaque(false);
+            control.add(spinner, BorderLayout.WEST);
+            control.add(unit, BorderLayout.CENTER);
+            layout(control, true);
+        }
+
+        @Override
+        public JComponent focusTarget() {
+            return spinner;
+        }
+
+        @Override
+        void showDefault() {
+            spinner.setValue(fallback);
+        }
+
+        @Override
+        String controlText() {
+            return String.valueOf(spinner.getValue());
+        }
+
+        @Override
+        void applyText(String text) {
+            spinner.setValue(Integer.valueOf(text));
+        }
+
+        @Override
+        void enableControl(boolean enabled) {
+            spinner.setEnabled(enabled);
+            unit.setEnabled(enabled);
+        }
+    }
+
+    /**
+     * Context length: a slider over powers of two (256 … 1M tokens) coupled with a spinner for exact values.
+     */
+    static final class ContextLengthEditor extends ToggledEditor {
+        private final int minimum;
+        private final JSlider slider;
+        private final JSpinner spinner;
+        private final JLabel unit = new JLabel("tokens");
+        private final int fallback;
+        private boolean syncing;
+
+        ContextLengthEditor(int minimum, int maximum, int fallback) {
+            this.minimum = minimum;
+            this.fallback = fallback;
+            int steps = 0;
+            while (minimum << (steps + 1) <= maximum) {
+                steps++;
+            }
+            slider = new JSlider(0, steps, position(fallback));
+            slider.setOpaque(false);
+            slider.setMajorTickSpacing(2);
+            slider.setMinorTickSpacing(1);
+            slider.setPaintTicks(true);
+            slider.setPaintLabels(true);
+            slider.setSnapToTicks(true);
+            Hashtable<Integer, JComponent> labels = new Hashtable<Integer, JComponent>();
+            for (int step = 0; step <= steps; step += 2) {
+                JLabel label = new JLabel(tokens(minimum << step));
+                label.setFont(Theme.derived(0.85f, false));
+                label.setForeground(Theme.mutedForeground());
+                labels.put(step, label);
+            }
+            slider.setLabelTable(labels);
+            slider.setToolTipText("Drag to a power of two; type an exact number in the box.");
+            spinner = new JSpinner(new SpinnerNumberModel(fallback, minimum, maximum, 256));
+            fitColumns(spinner, 8);
+            unit.setForeground(Theme.mutedForeground());
+
+            slider.addChangeListener(event -> {
+                if (!syncing) {
+                    sync(() -> spinner.setValue(minimum << slider.getValue()));
+                }
+            });
+            spinner.addChangeListener(event -> {
+                if (!syncing) {
+                    sync(() -> slider.setValue(position((Integer) spinner.getValue())));
+                }
+            });
+
+            JPanel box = new JPanel(new BorderLayout(Spacing.GAP, 0));
+            box.setOpaque(false);
+            box.add(spinner, BorderLayout.WEST);
+            box.add(unit, BorderLayout.CENTER);
+            JPanel control = new JPanel(new BorderLayout(Spacing.GAP, 0));
+            control.setOpaque(false);
+            control.add(slider, BorderLayout.CENTER);
+            control.add(box, BorderLayout.EAST);
+            layout(control, true);
+        }
+
+        private void sync(Runnable update) {
+            syncing = true;
+            try {
+                update.run();
+            } finally {
+                syncing = false;
+            }
+        }
+
+        private int position(int tokens) {
+            return (int) Math.round(Math.log((double) tokens / minimum) / Math.log(2));
+        }
+
+        static String tokens(int count) {
+            if (count >= 1 << 20) {
+                return (count >> 20) + "M";
+            }
+            return count >= 1024 ? (count >> 10) + "k" : String.valueOf(count);
+        }
+
+        @Override
+        public JComponent focusTarget() {
+            return spinner;
+        }
+
+        @Override
+        void showDefault() {
+            spinner.setValue(fallback);
+        }
+
+        @Override
+        String controlText() {
+            return String.valueOf(spinner.getValue());
+        }
+
+        @Override
+        void applyText(String text) {
+            spinner.setValue(Integer.valueOf(text));
+        }
+
+        @Override
+        void enableControl(boolean enabled) {
+            slider.setEnabled(enabled);
+            spinner.setEnabled(enabled);
+            unit.setEnabled(enabled);
+        }
+    }
+
+    /**
+     * Keep-alive: "Unload idle models after" a time, or never. Unticking the unload box sends -1 (keep forever);
+     * a time of 0 unloads right after each request.
+     */
+    private static final class DurationEditor extends ToggledEditor {
+        private static final String[] UNITS = {"seconds", "minutes", "hours"};
+        private static final String[] SUFFIXES = {"s", "m", "h"};
+
+        private final JCheckBox unload = new JCheckBox("Unload idle models after", true);
+        private final JSpinner amount = new JSpinner(new SpinnerNumberModel(5, 0, 1000000, 1));
+        private final JComboBox<String> unit = new JComboBox<String>(UNITS);
+        private final JLabel hint = new JLabel();
+        private boolean enabled = true;
+
+        DurationEditor() {
+            unload.setOpaque(false);
+            unload.setToolTipText("Ticked: a model leaves memory after this idle time (0 = right after each request)."
+                + " Unticked: models stay loaded until the server stops (OLLAMA_KEEP_ALIVE=-1).");
+            unload.addActionListener(event -> refresh());
+            amount.addChangeListener(event -> refresh());
+            unit.addActionListener(event -> refresh());
+            fitColumns(amount, 7);
+            hint.setForeground(Theme.mutedForeground());
+            JPanel control = new JPanel(new GridBagLayout());
+            control.setOpaque(false);
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.WEST;
+            c.insets = new Insets(0, 0, 0, Spacing.GAP);
+            control.add(unload, c);
+            control.add(amount, c);
+            control.add(unit, c);
+            c.weightx = 1;
+            c.insets = new Insets(0, 0, 0, 0);
+            control.add(hint, c);
+            layout(control, true);
+            refresh();
+        }
+
+        private void refresh() {
+            boolean timed = enabled && unload.isSelected();
+            amount.setEnabled(timed);
+            unit.setEnabled(timed);
+            hint.setEnabled(enabled);
+            if (!unload.isSelected()) {
+                hint.setText("never unloaded");
+            } else if (((Integer) amount.getValue()) == 0) {
+                hint.setText("unloaded right after each request");
+            } else {
+                hint.setText("");
+            }
+        }
+
+        @Override
+        public JComponent focusTarget() {
+            return unload;
+        }
+
+        @Override
+        void showDefault() {
+            unload.setSelected(true);
+            amount.setValue(5);
+            unit.setSelectedIndex(1);
+            refresh();
+        }
+
+        @Override
+        String controlText() {
+            if (!unload.isSelected()) {
+                return "-1";
+            }
+            int value = (Integer) amount.getValue();
+            return value == 0 ? "0" : value + SUFFIXES[unit.getSelectedIndex()];
+        }
+
+        @Override
+        void applyText(String text) {
+            if (text.equals("-1")) {
+                unload.setSelected(false);
+                refresh();
+                return;
+            }
+            unload.setSelected(true);
+            if (text.equals("0")) {
+                amount.setValue(0);
+                refresh();
+                return;
+            }
+            Matcher matcher = DURATION.matcher(text);
+            if (!matcher.matches()) {
+                throw new IllegalArgumentException("not a duration: " + text);
+            }
+            int value = Integer.parseInt(matcher.group(1));
+            String suffix = matcher.group(2);
+            if (suffix.equals("ms")) {
+                // Milliseconds are allowed by Ollama but pointless here: round to whole seconds.
+                value = (value + 500) / 1000;
+                suffix = "s";
+            }
+            amount.setValue(value);
+            unit.setSelectedIndex(Arrays.asList(SUFFIXES).indexOf(suffix));
+            refresh();
+        }
+
+        @Override
+        void enableControl(boolean enabled) {
+            this.enabled = enabled;
+            unload.setEnabled(enabled);
+            refresh();
+        }
+    }
+
+    /** Network address: a host choice (editable for other interfaces) and a port spinner. */
+    private static final class EndpointEditor extends ToggledEditor {
+        private static final String LOCAL = "127.0.0.1";
+        private static final String ALL = "0.0.0.0";
+
+        private final JComboBox<String> host = new JComboBox<String>(new String[]{LOCAL, ALL});
+        private final JSpinner port = new JSpinner(new SpinnerNumberModel(Endpoint.DEFAULT_PORT, 1, 65535, 1));
+        private final JLabel hostHint = new JLabel();
+        private final JLabel portLabel = new JLabel("port");
+
+        EndpointEditor() {
+            host.setEditable(true);
+            host.setToolTipText("127.0.0.1: only programs on this computer. 0.0.0.0: every network interface,"
+                + " reachable from other machines. Or type a specific address.");
+            host.addActionListener(event -> updateHint());
+            fitColumns(port, 6);
+            hostHint.setForeground(Theme.mutedForeground());
+            portLabel.setForeground(Theme.mutedForeground());
+            JPanel control = new JPanel(new GridBagLayout());
+            control.setOpaque(false);
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.WEST;
+            c.insets = new Insets(0, 0, 0, Spacing.GAP);
+            control.add(host, c);
+            control.add(portLabel, c);
+            control.add(port, c);
+            c.weightx = 1;
+            c.insets = new Insets(0, 0, 0, 0);
+            control.add(hostHint, c);
+            layout(control, true);
+            updateHint();
+        }
+
+        private String hostText() {
+            Object item = host.getEditor().getItem();
+            return item == null ? "" : item.toString().trim();
+        }
+
+        private void updateHint() {
+            String text = hostText();
+            hostHint.setText(ALL.equals(text) ? "reachable from other machines"
+                : LOCAL.equals(text) || text.equalsIgnoreCase("localhost") ? "only this computer" : "");
+        }
+
+        @Override
+        public JComponent focusTarget() {
+            return host;
+        }
+
+        @Override
+        void showDefault() {
+            host.setSelectedItem(LOCAL);
+            port.setValue(Endpoint.DEFAULT_PORT);
+        }
+
+        @Override
+        String controlText() {
+            return hostText() + ":" + port.getValue();
+        }
+
+        @Override
+        void applyText(String text) {
+            Endpoint endpoint = Endpoint.parse(text);
+            host.setSelectedItem(endpoint.host());
+            port.setValue(endpoint.port());
+        }
+
+        @Override
+        void enableControl(boolean enabled) {
+            host.setEnabled(enabled);
+            port.setEnabled(enabled);
+            portLabel.setEnabled(enabled);
+            hostHint.setEnabled(enabled);
+        }
+    }
+
+    private static final Pattern DURATION = Pattern.compile("(\\d+)(ms|s|m|h)");
+
+    /** Size a spinner's text field by character count instead of its model's widest value. */
+    private static void fitColumns(JSpinner spinner, int columns) {
+        spinner.setEditor(new JSpinner.NumberEditor(spinner, "#"));
+        JComponent editor = spinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor) {
+            ((JSpinner.DefaultEditor) editor).getTextField().setColumns(columns);
+        }
     }
 
     /** Free text with the Ollama default as placeholder. */
@@ -510,38 +972,11 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         }
     }
 
-    /** Number field that stays empty for the Ollama default; the unit and allowed range sit next to it. */
-    private static final class IntegerEditor extends TextEditor {
-        private final JPanel panel = new JPanel(new BorderLayout(Spacing.GAP, 0));
-        private final JLabel unit;
-
-        IntegerEditor(Integer minimum, Integer maximum, String unitText, String placeholder) {
-            super(placeholder);
-            field.setColumns(12);
-            unit = new JLabel(unitText + (minimum == null || maximum == null ? ""
-                : "  (" + minimum + " to " + maximum + ")"));
-            unit.setForeground(Theme.mutedForeground());
-            panel.setOpaque(false);
-            panel.add(field, BorderLayout.WEST);
-            panel.add(unit, BorderLayout.CENTER);
-        }
-
-        @Override
-        public JComponent component() {
-            return panel;
-        }
-
-        @Override
-        public void setEnabled(boolean enabled) {
-            super.setEnabled(enabled);
-            unit.setEnabled(enabled);
-        }
-    }
-
     /** Combo box whose first entry means "not set". */
     private static final class ChoiceEditor implements Editor {
         private final String[] values;
         private final JComboBox<String> box;
+        private final JPanel panel = new JPanel(new BorderLayout());
 
         ChoiceEditor(String[] values, String[] labels) {
             this.values = values;
@@ -559,11 +994,13 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
                 }
                 return cell;
             });
+            panel.setOpaque(false);
+            panel.add(box, BorderLayout.WEST);
         }
 
         @Override
         public JComponent component() {
-            return box;
+            return panel;
         }
 
         @Override
@@ -591,32 +1028,6 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         @Override
         public void setEnabled(boolean enabled) {
             box.setEnabled(enabled);
-        }
-    }
-
-    /** Duration text such as 30s, 5m or 1h; empty keeps Ollama's default. */
-    private static final class DurationEditor extends TextEditor {
-        private final JPanel panel = new JPanel(new BorderLayout(Spacing.GAP, 0));
-        private final JLabel hint = new JLabel("examples: 30s, 5m, 1h · 0 = unload at once · -1 = keep forever");
-
-        DurationEditor(String placeholder) {
-            super(placeholder);
-            field.setColumns(10);
-            hint.setForeground(Theme.mutedForeground());
-            panel.setOpaque(false);
-            panel.add(field, BorderLayout.WEST);
-            panel.add(hint, BorderLayout.CENTER);
-        }
-
-        @Override
-        public JComponent component() {
-            return panel;
-        }
-
-        @Override
-        public void setEnabled(boolean enabled) {
-            super.setEnabled(enabled);
-            hint.setEnabled(enabled);
         }
     }
 
