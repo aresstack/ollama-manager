@@ -304,6 +304,19 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
     }
 
     /** One setting: label, editor, running value, description and inline error. */
+    private static final int MAX_BADGE_CHARS = 24;
+
+    /**
+     * Keep the running-value badge short so a long value (a model folder path)
+     * never squeezes the editor out of its row; the full value stays in the tooltip.
+     */
+    static String shorten(String value) {
+        if (value.length() <= MAX_BADGE_CHARS) {
+            return value;
+        }
+        return "\u2026" + value.substring(value.length() - MAX_BADGE_CHARS + 1);
+    }
+
     private static final class Row extends JPanel {
         private static final long serialVersionUID = 1L;
         private final ServerSetting<?> setting;
@@ -364,7 +377,7 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
                 applied.setVisible(false);
                 return;
             }
-            applied.show("running: " + value, pending ? Theme.Tone.WARNING : Theme.Tone.SUCCESS);
+            applied.show("running: " + shorten(value), pending ? Theme.Tone.WARNING : Theme.Tone.SUCCESS);
             applied.setToolTipText("<html>Running server: " + Html.escape(value) + "<br>" + (pending
                 ? "The stored value differs; restart the server to apply it."
                 : "The running server uses this value.") + "</html>");
