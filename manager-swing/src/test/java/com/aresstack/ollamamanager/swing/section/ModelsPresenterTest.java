@@ -104,7 +104,7 @@ public class ModelsPresenterTest {
     }
 
     @Test
-    public void externalServerIsReadOnly() throws Exception {
+    public void externalServerAllowsModelOperations() throws Exception {
         ModelsPresenter presenter = new ModelsPresenter(TestServices.builder()
             .serverLifecycle(TestServices.externalLifecycle()).models(new ModelService(api)).build(),
             new JobManager(Runnable::run, UiDispatcher.inline()));
@@ -117,9 +117,12 @@ public class ModelsPresenterTest {
         presenter.unload("llama3.2:3b");
         presenter.delete("llama3.2:3b");
 
-        assertEquals("[installed@127.0.0.1:11499, loaded@127.0.0.1:11499]", api.calls.toString());
-        assertTrue(view.events.contains("mutations:false"));
-        assertFalse(view.events.contains("mutations:true"));
+        assertTrue(api.calls.toString(), api.calls.contains("pull:llama3.2:3b"));
+        assertTrue(api.calls.toString(), api.calls.contains("preload:llama3.2:3b"));
+        assertTrue(api.calls.toString(), api.calls.contains("unload:llama3.2:3b"));
+        assertTrue(api.calls.toString(), api.calls.contains("delete:llama3.2:3b"));
+        assertTrue(view.events.contains("mutations:true"));
+        assertFalse(view.events.contains("mutations:false"));
     }
 
     @Test

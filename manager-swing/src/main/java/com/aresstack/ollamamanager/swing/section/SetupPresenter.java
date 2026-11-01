@@ -33,15 +33,16 @@ import java.util.Set;
 
 /**
  * Setup assistant: detect a running server and installations on disk, then either use the running server
- * read-only, select an installation, or install a portable version with progress and Cancel. Every step goes
+ * as it is, select an installation, or install a portable version with progress and Cancel. Every step goes
  * through {@link SetupService}; the shared lifecycle lock in the application layer refuses an uninstall while a
  * start or stop runs, which shows up here as INVALID_STATE.
  */
 public final class SetupPresenter {
 
     static final String NOT_WIRED = "Setup is not connected in this build.";
-    static final String ATTACHED = "Using the running server read-only. The manager shows it but never stops,"
-        + " restarts or reconfigures it.";
+    static final String ATTACHED = "Using the running server. Models can be pulled, loaded and deleted on it; the"
+        + " manager never stops or restarts it. To use your own server settings, start an installation as the"
+        + " manager's server on another port.";
     static final String SELECTED = "Installation selected. Start it here or from the dashboard.";
     static final String INSTALLED = "Portable version installed and selected.";
     static final String INSTALL_CANCELLED = "Installation cancelled. Nothing was selected.";
@@ -53,7 +54,7 @@ public final class SetupPresenter {
     static final String DETACHED = "No longer using the external server. It keeps running unchanged.";
     static final String DETACH_FIRST = "The manager still uses an external server. Choose \"Stop using it\" first;"
         + " the external server itself is not touched.";
-    static final String PORT_TAKEN = "A server already answers on %s. Use it read-only, or change Bind in the"
+    static final String PORT_TAKEN = "A server already answers on %s. Use it, or change the network address in the"
         + " server settings to start the manager's own server on another port.";
     static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it on the dashboard"
         + " before starting another installation.";
@@ -103,7 +104,7 @@ public final class SetupPresenter {
         view.trackJob(job);
     }
 
-    /** Use the server found on the endpoint read-only; it is attached as external and never controlled. */
+    /** Use the server found on the endpoint; it is attached as external and never stopped or restarted. */
     public void useRunningServer() {
         final SetupService setup = services.setup();
         if (busy || setup == null || detection == null || !detection.isServerRunning()) {

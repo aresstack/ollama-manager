@@ -133,8 +133,9 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         version.show(status.reportedVersion());
         stop.setEnabled(presenter.canStop(status));
         if (status.ownership() == RuntimeOwnership.EXTERNAL) {
-            banner.info("This server was found running but not started by Ollama Manager. It is shown read-only:"
-                + " it is never stopped, restarted or changed from here.");
+            banner.info("This server was found running but not started by Ollama Manager. Models can be managed"
+                + " on it; it is never stopped or restarted from here. To run it with your own server settings,"
+                + " start an installation from Setup on another port.");
         } else if (status.state() == ServerState.FAILED) {
             banner.error("The managed server failed." + (status.message().isEmpty() ? "" : " " + status.message())
                 + " See Jobs & logs for the server log.");
@@ -240,7 +241,7 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
             case OWNED:
                 return "started by Ollama Manager";
             case EXTERNAL:
-                return "external (read-only)";
+                return "external (not started by the manager)";
             case NONE:
             default:
                 return "no server";

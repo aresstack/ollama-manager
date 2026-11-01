@@ -65,7 +65,7 @@ public final class SetupDetection {
         return settings;
     }
 
-    /** @return whether the manager currently uses an external server read-only */
+    /** @return whether the manager currently uses an external server it did not start */
     public boolean isExternalAttached() {
         return externalAttached;
     }

@@ -27,8 +27,9 @@ public final class ServerSettingsPresenter {
     static final String RUNNING_OWNED = "The right column shows what the running server started by the manager uses.";
     static final String NO_OWNED_SERVER = "No server started by the manager is running; stored values apply on"
         + " the next start.";
-    static final String EXTERNAL_UNKNOWN = "External server: its actual settings are unknown and are not changed"
-        + " by the manager.";
+    static final String EXTERNAL_UNKNOWN = "External server: its running values are unknown. Stored values apply"
+        + " when the manager starts an installation, for example the existing one from Setup on another port. The"
+        + " external server only uses them after you restart it yourself with these variables.";
     static final String SERVER_FAILED = "The server started by the manager is not running (it exited"
         + " unexpectedly); stored values apply on the next start.";
     static final String SERVER_TRANSITION = "The server is starting or stopping; its running values are shown once"

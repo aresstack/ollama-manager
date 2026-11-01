@@ -51,7 +51,7 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     private final StatusBadge runningState = new StatusBadge("Not checked yet", Theme.Tone.NEUTRAL);
     private final WrapLabel runningText = new WrapLabel("Detection runs when this section opens.");
-    private final JButton useRunning = new JButton("Use running server (read-only)");
+    private final JButton useRunning = new JButton("Use running server");
     private final JButton stopUsing = new JButton("Stop using it");
 
     private final InstallationTableModel installationModel = new InstallationTableModel();
@@ -214,11 +214,13 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         detection = value;
         String host = value.endpoint().toHostValue();
         if (value.isServerRunning()) {
-            runningState.show(value.isExternalAttached() ? "in use, read-only" : "running", Theme.Tone.SUCCESS);
+            runningState.show(value.isExternalAttached() ? "in use" : "running", Theme.Tone.SUCCESS);
             runningText.setText("Ollama " + value.runningVersion() + " answers on " + host + "."
                 + (value.isExternalAttached()
-                    ? " The manager uses this external server read-only: it is never stopped, restarted or changed."
-                    : " You can use it read-only, or stop it yourself and start an installation below."));
+                    ? " The manager uses this server: models can be managed on it, and it is never stopped or"
+                        + " restarted from here."
+                    : " Use it as it is, or start an installation below as the manager's own server on another"
+                        + " port."));
         } else if (value.probeFailure() != null) {
             runningState.show("occupied, not usable", Theme.Tone.WARNING);
             runningText.setText(host + " is occupied but does not answer like an Ollama server: "
