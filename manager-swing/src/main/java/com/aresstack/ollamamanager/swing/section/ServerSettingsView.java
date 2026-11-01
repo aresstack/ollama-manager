@@ -38,6 +38,16 @@ public interface ServerSettingsView {
 
     void setBusy(boolean busy);
 
+    /**
+     * Enable or disable "Save permanently".
+     *
+     * @param target where the values are written, or {@code null} when this system does not support it
+     */
+    void setPermanentTarget(String target);
+
+    /** Ask before overwriting the user environment; {@code true} to go ahead. */
+    boolean confirmPermanent(String message);
+
     /** Show the save outcome or restart notice; {@code null} clears it. */
     void showNotice(String notice);
 

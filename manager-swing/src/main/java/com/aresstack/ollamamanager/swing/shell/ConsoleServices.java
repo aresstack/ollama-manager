@@ -6,6 +6,7 @@ import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkSer
 import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
+import com.aresstack.ollamamanager.application.configuration.PermanentEnvironmentService;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
@@ -38,6 +39,7 @@ public final class ConsoleServices {
     private final BenchmarkProfiles benchmarkProfiles;
     private final ExistingSettingsImport existingSettings;
     private final ServerParallelismService serverParallelism;
+    private final PermanentEnvironmentService permanentEnvironment;
     private final java.io.File modelInstallConfiguration;
 
     private ConsoleServices(Builder builder) {
@@ -58,6 +60,7 @@ public final class ConsoleServices {
         this.sweeps = builder.sweeps;
         this.benchmarkProfiles = builder.benchmarkProfiles;
         this.existingSettings = builder.existingSettings;
+        this.permanentEnvironment = builder.permanentEnvironment;
         this.serverParallelism = builder.serverParallelism;
         this.modelInstallConfiguration = builder.modelInstallConfiguration;
     }
@@ -135,6 +138,11 @@ public final class ConsoleServices {
     }
 
     /** @return the import of an existing installation's settings, or {@code null} when not wired */
+    /** @return the service that writes settings into the user environment, or {@code null} */
+    public PermanentEnvironmentService permanentEnvironment() {
+        return permanentEnvironment;
+    }
+
     public ExistingSettingsImport existingSettings() {
         return existingSettings;
     }
@@ -168,6 +176,7 @@ public final class ConsoleServices {
         private BenchmarkProfiles benchmarkProfiles;
         private ExistingSettingsImport existingSettings;
         private ServerParallelismService serverParallelism;
+        private PermanentEnvironmentService permanentEnvironment;
         private java.io.File modelInstallConfiguration;
 
         private Builder(ConfigurationService configuration) {
@@ -242,6 +251,11 @@ public final class ConsoleServices {
 
         public Builder modelInstallConfiguration(java.io.File value) {
             this.modelInstallConfiguration = value;
+            return this;
+        }
+
+        public Builder permanentEnvironment(PermanentEnvironmentService value) {
+            this.permanentEnvironment = value;
             return this;
         }
 
