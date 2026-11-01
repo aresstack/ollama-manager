@@ -58,4 +58,15 @@ public interface OllamaApiPort {
                                        String keepAlive, CancellationToken cancellation) throws OperationException {
         throw new OperationException(ErrorKind.INVALID_STATE, "generate is not supported by this client");
     }
+
+    /**
+     * Embed one {@code input} with {@code POST /api/embed} and return its timing: the input tokens as prompt
+     * tokens with the server's processing time, no generated tokens, and the whole request, including the wait
+     * for a free slot on the server, as time to first token. The vectors are discarded. Implementations must
+     * honour cancellation by aborting the request.
+     */
+    default GenerationMetrics embed(Endpoint endpoint, String modelName, String input, ModelOptions options,
+                                    String keepAlive, CancellationToken cancellation) throws OperationException {
+        throw new OperationException(ErrorKind.INVALID_STATE, "embed is not supported by this client");
+    }
 }

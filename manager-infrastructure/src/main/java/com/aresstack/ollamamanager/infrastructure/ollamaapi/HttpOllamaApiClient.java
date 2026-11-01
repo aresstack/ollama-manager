@@ -247,6 +247,46 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         throw new OperationException(ErrorKind.IO, "generate stream ended before done");
     }
 
+    @Override
+    public GenerationMetrics embed(Endpoint endpoint, String modelName, String input, ModelOptions options,
+                                   String keepAlive, CancellationToken cancellation) throws OperationException {
+        Map<String, Object> body = modelBody(modelName);
+        body.put("input", input == null ? "" : input);
+        if (keepAlive != null) {
+            body.put("keep_alive", keepAlive);
+        }
+        Map<String, Object> requestOptions = (options == null ? ModelOptions.none() : options).toRequestOptions();
+        if (!requestOptions.isEmpty()) {
+            body.put("options", requestOptions);
+        }
+        long start = System.nanoTime();
+        Object root = exchange(longClient, endpoint, "POST", "/api/embed", body, cancellation, true);
+        long wallMillis = (System.nanoTime() - start) / 1_000_000L;
+        return embedMetrics(root, wallMillis);
+    }
+
+    /** Map the {@code /api/embed} statistics; the whole request counts as time to first token. */
+    static GenerationMetrics embedMetrics(Object root, long wallMillis) throws OperationException {
+        Map<String, Object> response;
+        try {
+            response = OllamaResponseMapper.asMap(root, "embed response");
+        } catch (IllegalArgumentException e) {
+            throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid embed response", e);
+        }
+        String error = OllamaResponseMapper.errorMessage(response);
+        if (error != null) {
+            throw new OperationException(ErrorKind.HTTP_ERROR, "embed failed: " + error);
+        }
+        long load = nonNegative(response, "load_duration");
+        long total = nonNegative(response, "total_duration");
+        try {
+            return new GenerationMetrics(wallMillis, wallMillis, load, (int) nonNegative(response, "prompt_eval_count"),
+                Math.max(0, total - load), 0, 0);
+        } catch (IllegalArgumentException e) {
+            throw new OperationException(ErrorKind.NOT_OLLAMA, "invalid embed statistics", e);
+        }
+    }
+
     private static long nonNegative(Map<String, Object> map, String key) {
         Long value = OllamaResponseMapper.optionalLong(map, key);
         return value == null || value < 0 ? 0 : value;

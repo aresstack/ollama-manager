@@ -5,6 +5,7 @@ import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
+import com.aresstack.ollamamanager.domain.benchmark.GenerationMetrics;
 import com.aresstack.ollamamanager.domain.model.InstalledModel;
 import com.aresstack.ollamamanager.domain.model.LoadedModel;
 import com.aresstack.ollamamanager.domain.model.ModelDetails;
@@ -400,6 +401,32 @@ public class HttpOllamaApiClientTest {
         client.unload(endpoint, "nomic-embed-text:latest", CancellationToken.none());
         assertEquals("/api/embed", server.last().path);
         assertEquals(0L, body(server.last()).get("keep_alive"));
+    }
+
+    @Test
+    public void embedSendsInputAndReadsItsStatistics() throws Exception {
+        server.json("POST", "/api/embed", 200, "{\"model\":\"nomic-embed-text:latest\",\"embeddings\":[[0.1,0.2]],"
+            + "\"total_duration\":900000000,\"load_duration\":100000000,\"prompt_eval_count\":40}");
+        GenerationMetrics metrics = client.embed(endpoint, "nomic-embed-text:latest", "some text",
+            new ModelOptions(2048, null, null, null), "10m", CancellationToken.none());
+        Map<String, Object> request = body(server.last());
+        assertEquals("some text", request.get("input"));
+        assertEquals("10m", request.get("keep_alive"));
+        assertEquals(2048L, ((Map<?, ?>) request.get("options")).get("num_ctx"));
+        assertNull(request.get("stream"));
+        assertEquals(40, metrics.promptTokens());
+        assertEquals(100, metrics.loadMillis());
+        assertEquals(0, metrics.evalTokens());
+        // 40 tokens in the 800 ms the server spent after loading.
+        assertEquals(50.0, metrics.promptTokensPerSecond(), 0.01);
+        assertEquals(metrics.wallMillis(), metrics.ttftMillis());
+    }
+
+    @Test
+    public void embedReportsTheServersError() throws Exception {
+        server.json("POST", "/api/embed", 400, "{\"error\":\"\\\"llama3.1:8b\\\" does not support embeddings\"}");
+        assertKind(ErrorKind.HTTP_ERROR, () -> client.embed(endpoint, "llama3.1:8b", "x", ModelOptions.none(), null,
+            CancellationToken.none()));
     }
 
     @Test

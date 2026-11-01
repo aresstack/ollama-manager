@@ -45,10 +45,22 @@ public class ConcurrencyBenchmarkServiceTest {
         double gpuShare = 1.0;
         int tokens = 50;
         long sleepMillis = 20;
+        /** Capabilities {@code /api/show} reports; {@code null} makes show fail. */
+        List<String> capabilities;
+        /** Whether generate answers like Ollama does for an embedding-only model. */
+        boolean generateUnsupported;
+        final AtomicInteger generateCalls = new AtomicInteger();
+        final AtomicInteger embedCalls = new AtomicInteger();
+        final List<String> embedInputs = Collections.synchronizedList(new ArrayList<String>());
 
         @Override
         public GenerationMetrics generate(Endpoint endpoint, String modelName, String prompt, ModelOptions options,
                                           String keepAlive, CancellationToken cancellation) throws OperationException {
+            generateCalls.incrementAndGet();
+            if (generateUnsupported) {
+                throw new OperationException(ErrorKind.HTTP_ERROR,
+                    "HTTP 400: \"" + modelName + "\" does not support generate");
+            }
             int now = inFlight.incrementAndGet();
             try {
                 observedConcurrency.add(now);
@@ -89,8 +101,36 @@ public class ConcurrencyBenchmarkServiceTest {
         }
 
         @Override
-        public ModelDetails show(Endpoint endpoint, String modelName, CancellationToken cancellation) {
-            throw new UnsupportedOperationException();
+        public GenerationMetrics embed(Endpoint endpoint, String modelName, String input, ModelOptions options,
+                                       String keepAlive, CancellationToken cancellation) throws OperationException {
+            embedCalls.incrementAndGet();
+            embedInputs.add(input);
+            int now = inFlight.incrementAndGet();
+            try {
+                observedConcurrency.add(now);
+                if (now > failAbove) {
+                    throw new OperationException(ErrorKind.SERVICE_UNAVAILABLE, "HTTP 503");
+                }
+                Thread.sleep(sleepMillis);
+                // Input tokens are what the server counts; it processes 2000 tok/s shared between requests.
+                int inputTokens = input.isEmpty() ? 0 : input.split(" ").length;
+                long promptNanos = inputTokens * now * 500_000L;
+                return new GenerationMetrics(20, 20, 300_000_000L, inputTokens, promptNanos, 0, 0);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new OperationException(ErrorKind.CANCELLED, "interrupted");
+            } finally {
+                inFlight.decrementAndGet();
+            }
+        }
+
+        @Override
+        public ModelDetails show(Endpoint endpoint, String modelName, CancellationToken cancellation)
+            throws OperationException {
+            if (capabilities == null) {
+                throw new OperationException(ErrorKind.NOT_FOUND, "no details");
+            }
+            return new ModelDetails(modelName, null, null, null, null, null, capabilities);
         }
 
         @Override
@@ -312,5 +352,92 @@ public class ConcurrencyBenchmarkServiceTest {
         assertTrue(ConcurrencyBenchmarkService.matches("llama3:latest", "llama3"));
         assertTrue(ConcurrencyBenchmarkService.matches("llama3:8b", "LLAMA3:8b"));
         assertFalse(ConcurrencyBenchmarkService.matches("llama3:8b", "llama3"));
+    }
+
+    @Test
+    public void measuresAnEmbeddingModelWithParallelEmbedRequests() throws Exception {
+        FakeApi api = new FakeApi();
+        api.capabilities = Collections.singletonList("embedding");
+        MemoryHistory history = new MemoryHistory();
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(api, null, history);
+        final List<String> phases = new ArrayList<String>();
+        BenchmarkReport report = service.run(ENDPOINT, new ConcurrencyBenchmarkRequest("m",
+            Arrays.asList(1, 4), 2048, 40, 1, null, true), null, new ConcurrencyBenchmarkService.Listener() {
+                @Override
+                public void phase(String text, double fraction) {
+                    phases.add(text);
+                }
+
+                @Override
+                public void stageFinished(StageResult stage) {
+                }
+            }, CancellationToken.none());
+
+        assertTrue(report.embedding());
+        assertEquals(0, api.generateCalls.get());
+        // One warm-up plus one request per parallel slot of each stage.
+        assertEquals(1 + 1 + 4, api.embedCalls.get());
+        assertEquals(40, api.embedInputs.get(1).split(" ").length);
+        assertTrue(phases.toString(), phases.contains("4 embeddings at once"));
+        assertEquals(2, report.stages().size());
+        StageResult four = report.stages().get(1);
+        assertEquals(4, four.requests());
+        assertEquals(0, four.failures());
+        // Four inputs of 40 tokens each went through in the stage's wall time; input tokens count, not generated.
+        assertTrue(String.valueOf(four.aggregateTps()), four.aggregateTps() > 0);
+        assertTrue(String.valueOf(four.perChatTpsAvg()), four.perChatTpsAvg() > 0);
+        assertEquals(300, report.loadMillis());
+        assertEquals(1, history.saved.size());
+        assertTrue(history.saved.get(0).embedding());
+    }
+
+    @Test
+    public void switchesToEmbedWhenTheServerRejectsGeneration() throws Exception {
+        FakeApi api = new FakeApi();
+        api.capabilities = null;
+        api.generateUnsupported = true;
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(api, null, null);
+        BenchmarkReport report = service.run(ENDPOINT, request(2), null, NO_LISTENER, CancellationToken.none());
+        assertTrue(report.embedding());
+        assertEquals(1, api.generateCalls.get());
+        assertEquals(1 + 2, api.embedCalls.get());
+        assertEquals(2, report.stages().get(0).requests());
+    }
+
+    @Test
+    public void aChatModelWithBothCapabilitiesStillChats() throws Exception {
+        FakeApi api = new FakeApi();
+        api.capabilities = Arrays.asList("completion", "embedding", "tools");
+        ConcurrencyBenchmarkService service = new ConcurrencyBenchmarkService(api, null, null);
+        BenchmarkReport report = service.run(ENDPOINT, request(1), null, NO_LISTENER, CancellationToken.none());
+        assertFalse(report.embedding());
+        assertEquals(0, api.embedCalls.get());
+        assertEquals(2, api.generateCalls.get());
+    }
+
+    @Test
+    public void loadFailureNamesTheContextOnlyWhenItCanBeTheCause() {
+        ConcurrencyBenchmarkRequest withContext = new ConcurrencyBenchmarkRequest("m", Arrays.asList(1), 4096, 50, 1,
+            null, true);
+        String rejected = ConcurrencyBenchmarkService.loadFailure(withContext,
+            new OperationException(ErrorKind.HTTP_ERROR, "HTTP 400: \"m\" does not support embeddings"));
+        assertTrue(rejected, rejected.startsWith("loading m with num_ctx 4096 failed: HTTP 400"));
+        assertFalse(rejected, rejected.contains("context size"));
+        String memory = ConcurrencyBenchmarkService.loadFailure(withContext,
+            new OperationException(ErrorKind.HTTP_ERROR, "HTTP 500: out of memory"));
+        assertTrue(memory, memory.endsWith("Try a smaller context size"));
+        String defaults = ConcurrencyBenchmarkService.loadFailure(request(1),
+            new OperationException(ErrorKind.HTTP_ERROR, "HTTP 500: out of memory"));
+        assertTrue(defaults, defaults.contains("Set a context size in the benchmark settings"));
+    }
+
+    @Test
+    public void embeddingInputHasAboutTheRequestedNumberOfTokens() {
+        assertEquals(128, ConcurrencyBenchmarkService.embeddingInput(128).split(" ").length);
+        assertEquals(1, ConcurrencyBenchmarkService.embeddingInput(0).split(" ").length);
+        assertTrue(ConcurrencyBenchmarkService.isEmbeddingOnly(Arrays.asList("embedding")));
+        assertFalse(ConcurrencyBenchmarkService.isEmbeddingOnly(Arrays.asList("completion", "embedding")));
+        assertFalse(ConcurrencyBenchmarkService.isEmbeddingOnly(Collections.<String>emptyList()));
+        assertFalse(ConcurrencyBenchmarkService.isEmbeddingOnly(null));
     }
 }

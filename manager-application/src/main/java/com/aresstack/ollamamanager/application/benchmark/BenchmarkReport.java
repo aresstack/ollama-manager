@@ -22,6 +22,7 @@ public final class BenchmarkReport {
     private final long loadMillis;
     private final List<StageResult> stages;
     private final boolean complete;
+    private final boolean embedding;
 
     /** A report of a run whose server settings are unknown, for example against an external server. */
     public BenchmarkReport(String id, long startedAtEpochMillis, String model, Integer numCtx, int maxTokens,
@@ -34,6 +35,17 @@ public final class BenchmarkReport {
     public BenchmarkReport(String id, long startedAtEpochMillis, String model, Integer numCtx, int maxTokens,
                            String serverNumParallel, ServerSettings serverSettings, BenchmarkEnvironment environment,
                            long loadMillis, List<StageResult> stages, boolean complete) {
+        this(id, startedAtEpochMillis, model, numCtx, maxTokens, serverNumParallel, serverSettings, environment,
+            loadMillis, stages, complete, false);
+    }
+
+    /**
+     * @param embedding whether the run measured parallel embedding requests, so its tokens are input tokens and
+     *                  {@code maxTokens} is the size of each input, instead of generated tokens per chat
+     */
+    public BenchmarkReport(String id, long startedAtEpochMillis, String model, Integer numCtx, int maxTokens,
+                           String serverNumParallel, ServerSettings serverSettings, BenchmarkEnvironment environment,
+                           long loadMillis, List<StageResult> stages, boolean complete, boolean embedding) {
         if (id == null || model == null || stages == null) {
             throw new IllegalArgumentException("id, model and stages must not be null");
         }
@@ -48,6 +60,12 @@ public final class BenchmarkReport {
         this.loadMillis = loadMillis;
         this.stages = Collections.unmodifiableList(new ArrayList<StageResult>(stages));
         this.complete = complete;
+        this.embedding = embedding;
+    }
+
+    /** Whether the run measured parallel embedding requests instead of chats. */
+    public boolean embedding() {
+        return embedding;
     }
 
     public String id() {

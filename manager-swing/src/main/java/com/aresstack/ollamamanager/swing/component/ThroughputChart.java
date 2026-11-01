@@ -19,7 +19,8 @@ import java.util.Locale;
  * Line chart of total tokens per second over the number of parallel chats, one line per series (one benchmark
  * run, usually one server setting). With a single series the per-chat speed is drawn on a second axis. Each
  * series' optimum, the stable point with the highest total throughput, is ringed; unstable points are hollow.
- * Pure painting, no external library.
+ * For an embedding benchmark the axes speak of requests and input tokens instead of chats. Pure painting, no
+ * external library.
  */
 public final class ThroughputChart extends JComponent {
 
@@ -29,6 +30,9 @@ public final class ThroughputChart extends JComponent {
     private static final int PAD_TOP = 28;
     private static final int PAD_BOTTOM = 40;
     private static final int LEGEND_ROW = 16;
+
+    /** Whether the points are parallel embedding requests (input tokens) rather than chats (generated tokens). */
+    private boolean embedding;
 
     /** One measured stage. */
     public static final class Point {
@@ -143,7 +147,7 @@ public final class ThroughputChart extends JComponent {
 
             if (pointCount() == 0) {
                 g.setColor(Theme.mutedForeground());
-                String text = "Run a benchmark to see tokens per second over parallel chats.";
+                String text = "Run a benchmark to see tokens per second over parallel " + unitPlural() + ".";
                 g.drawString(text, (width - fm.stringWidth(text)) / 2, height / 2);
                 return;
             }
@@ -195,14 +199,14 @@ public final class ThroughputChart extends JComponent {
                     lastLabelEnd = start + fm.stringWidth(label);
                 }
             }
-            String xTitle = "parallel chats";
+            String xTitle = "parallel " + unitPlural();
             g.drawString(xTitle, plotX + (plotW - fm.stringWidth(xTitle)) / 2,
                 plotY + plotH + fm.getAscent() * 2 + 8);
             g.setColor(totalColor);
-            g.drawString("total tokens/s", plotX, plotY - 10);
+            g.drawString(embedding ? "total input tokens/s" : "total tokens/s", plotX, plotY - 10);
             if (single) {
                 g.setColor(perChatColor);
-                String right = "tokens/s per chat";
+                String right = "tokens/s per " + unit();
                 g.drawString(right, plotX + plotW - fm.stringWidth(right), plotY - 10);
                 drawSeries(g, series.get(0), perChatColor, maxParallel, maxPerChat, plotX, plotY, plotW, plotH,
                     false);
@@ -223,7 +227,7 @@ public final class ThroughputChart extends JComponent {
                     g.setColor(Theme.foreground());
                     Series s = series.get(i);
                     Integer optimum = s.optimum();
-                    String text = s.name + (optimum == null ? "" : "   optimum " + optimum + " chats, "
+                    String text = s.name + (optimum == null ? "" : "   optimum " + optimum + " " + unitPlural() + ", "
                         + format(totalAt(s, optimum)) + " tok/s");
                     g.drawString(text, plotX + 16, y);
                     y += LEGEND_ROW;
@@ -232,6 +236,26 @@ public final class ThroughputChart extends JComponent {
         } finally {
             g.dispose();
         }
+    }
+
+    /** Label the axes for embedding requests ({@code true}) or chats ({@code false}). */
+    public void setEmbedding(boolean embedding) {
+        if (this.embedding != embedding) {
+            this.embedding = embedding;
+            repaint();
+        }
+    }
+
+    public boolean isEmbedding() {
+        return embedding;
+    }
+
+    private String unit() {
+        return embedding ? "request" : "chat";
+    }
+
+    private String unitPlural() {
+        return embedding ? "requests" : "chats";
     }
 
     private static double totalAt(Series s, int parallel) {
@@ -255,7 +279,7 @@ public final class ThroughputChart extends JComponent {
         g.setStroke(new BasicStroke(2f));
         g.draw(new Ellipse2D.Double(x - 8, y - 8, 16, 16));
         if (label) {
-            String text = "optimum: " + optimum + (optimum == 1 ? " chat, " : " chats, ")
+            String text = "optimum: " + optimum + " " + (optimum == 1 ? unit() : unitPlural()) + ", "
                 + format(totalAt(s, optimum)) + " tok/s";
             int lx = Math.min(x + 12, plotX + plotW - fm.stringWidth(text));
             g.drawString(text, Math.max(plotX, lx), Math.max(plotY + fm.getAscent(), y - 12));

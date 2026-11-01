@@ -23,11 +23,16 @@ import java.util.UUID;
  * settings of the run (when it recorded them) and {@code OLLAMA_NUM_PARALLEL} set to the measured server value, and the benchmark's {@code num_ctx} as model option. When the run's server value is unknown or
  * was Ollama's default, the profile leaves {@code OLLAMA_NUM_PARALLEL} unset rather than claim an unmeasured
  * value; the optimal number of chats stays in the profile name. Saving goes through the shared profile repository.
+ * A profile of an embedding run carries its own workload label, because Ollama serves embedding-only models
+ * with one slot and the measured value says nothing about chats.
  */
 public final class BenchmarkProfiles {
 
-    /** Workload label of profiles created from a benchmark. */
+    /** Workload label of profiles created from a chat benchmark. */
     public static final String WORKLOAD = "parallel-chats";
+
+    /** Workload label of profiles created from an embedding benchmark. */
+    public static final String EMBEDDING_WORKLOAD = "parallel-embeddings";
 
     /** Server settings that influence how many chats fit, carried from the run into the profile. */
     static final List<ServerSetting<?>> MEASURED_SETTINGS = Collections.unmodifiableList(
@@ -50,7 +55,16 @@ public final class BenchmarkProfiles {
 
     /** Default profile name for {@code stage} of {@code report}. */
     public static String defaultName(BenchmarkReport report, StageResult stage) {
+        if (report.embedding()) {
+            return report.model() + " - " + stage.parallel()
+                + (stage.parallel() == 1 ? " embedding" : " parallel embeddings");
+        }
         return report.model() + " - " + stage.parallel() + (stage.parallel() == 1 ? " chat" : " parallel chats");
+    }
+
+    /** Workload label of a profile of {@code report}. */
+    static String workload(BenchmarkReport report) {
+        return report.embedding() ? EMBEDDING_WORKLOAD : WORKLOAD;
     }
 
     /** OLLAMA_NUM_PARALLEL the profile should set: the run's measured server value, or {@code null} to leave it unset. */
@@ -78,7 +92,8 @@ public final class BenchmarkProfiles {
     private ProfileScope scope(BenchmarkReport report, CancellationToken cancellation) throws OperationException {
         BenchmarkEnvironment measured = report.environment();
         if (measured != null && measured.isComplete()) {
-            return new ProfileScope(measured.model(), measured.gpuFingerprint(), measured.ollamaVersion(), WORKLOAD);
+            return new ProfileScope(measured.model(), measured.gpuFingerprint(), measured.ollamaVersion(),
+                workload(report));
         }
         ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
         if (snapshot.gpuFingerprint() == null || snapshot.ollamaVersion() == null) {
@@ -86,7 +101,7 @@ public final class BenchmarkProfiles {
                 "cannot save a profile: GPU or server version unknown; is the server running?");
         }
         return new ProfileScope(BenchmarkEnvironment.from(snapshot, report.model()).model(), snapshot.gpuFingerprint(),
-            snapshot.ollamaVersion(), WORKLOAD);
+            snapshot.ollamaVersion(), workload(report));
     }
 
     /**

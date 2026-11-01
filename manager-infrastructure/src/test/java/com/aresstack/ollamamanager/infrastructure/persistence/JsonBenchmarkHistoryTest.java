@@ -19,6 +19,7 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class JsonBenchmarkHistoryTest {
@@ -35,7 +36,7 @@ public class JsonBenchmarkHistoryTest {
             new ModelIdentity("llama3:8b", "sha256:abc", "Q4_K_M"));
         BenchmarkReport older = new BenchmarkReport("a1", 1000, "llama3:8b", 4096, 128, "4", measured, measuredOn,
             900, Arrays.asList(new StageResult(1, 1, 0, 40.5, 40.5, 40.5, 50, 60, 900, 1000, 1200, 8_000_000_000L, 1.0, null),
-                new StageResult(4, 4, 1, 20, 15, 70, 80, 300, 1800, 2000, 2500, null, 0.5, "HTTP 503")), false);
+                new StageResult(4, 4, 1, 20, 15, 70, 80, 300, 1800, 2000, 2500, null, 0.5, "HTTP 503")), false, true);
         BenchmarkReport newer = new BenchmarkReport("b2", 2000, "phi", null, 64, null, 10,
             Arrays.<StageResult>asList(), true);
         history.save(older);
@@ -56,6 +57,8 @@ public class JsonBenchmarkHistoryTest {
         assertEquals("sha256:abc", read.environment().model().digest());
         assertNull(loaded.get(0).serverSettings());
         assertNull(loaded.get(0).environment());
+        assertTrue(read.embedding());
+        assertFalse(loaded.get(0).embedding());
         assertEquals(900, read.loadMillis());
         assertEquals(2, read.stages().size());
         StageResult four = read.stages().get(1);

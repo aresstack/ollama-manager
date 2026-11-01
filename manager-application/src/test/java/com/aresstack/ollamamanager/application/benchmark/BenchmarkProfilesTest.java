@@ -59,6 +59,20 @@ public class BenchmarkProfilesTest {
             Arrays.asList(stage(1, 50), stage(4, 120), stage(8, 110)), true);
     }
 
+    @Test
+    public void anEmbeddingRunGetsItsOwnNameAndWorkload() throws Exception {
+        ConfigurationService configuration = new ConfigurationService(new MemoryRepository());
+        ModelProfileRepository repository = new ModelProfileRepository(configuration);
+        BenchmarkProfiles profiles = new BenchmarkProfiles(repository, configuration,
+            environment(new GpuFingerprint("rtx"), "0.40.13"));
+        BenchmarkReport report = new BenchmarkReport("e1", 0, "llama3.1:8b", null, 128, "4", null, null, 100,
+            Arrays.asList(stage(1, 500), stage(8, 2100)), true, true);
+
+        assertEquals("llama3.1:8b - 8 parallel embeddings", BenchmarkProfiles.defaultName(report, report.optimum()));
+        ModelProfile saved = profiles.save(report, report.optimum(), "", CancellationToken.none());
+        assertEquals(BenchmarkProfiles.EMBEDDING_WORKLOAD, saved.scope().workload());
+    }
+
     private static ProfileEnvironment environment(final GpuFingerprint gpu, final String version) {
         return cancellation -> new ProfileEnvironment.Snapshot(gpu, version,
             Collections.singletonList(new ModelIdentity("llama3.1:8b", "sha256:abc", "Q4_K_M")));
