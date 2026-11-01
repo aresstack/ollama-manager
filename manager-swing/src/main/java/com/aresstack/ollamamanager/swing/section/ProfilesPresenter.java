@@ -170,7 +170,7 @@ public final class ProfilesPresenter {
         + " may be stopped and does not use the profile's settings. Check the dashboard.";
     static final String ACTIVATION_CANCELLED = "Activation cancelled. Nothing was stored.";
     static final String EXTERNAL_NOTICE = "Profile stored as active. Its server settings apply when the manager"
-        + " starts an installation; the external server keeps its own settings until you restart it yourself.";
+        + " starts or restarts the server; use Restart in Setup or on the dashboard to apply them to this server.";
 
     static String noticeFor(ActivationMode mode) {
         switch (mode) {

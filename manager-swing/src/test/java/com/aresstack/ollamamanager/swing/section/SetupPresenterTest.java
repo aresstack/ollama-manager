@@ -122,7 +122,7 @@ public class SetupPresenterTest {
     }
 
     @Test
-    public void useRunningServerAttachesItReadOnly() throws Exception {
+    public void useRunningServerAttachesIt() throws Exception {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
@@ -133,6 +133,61 @@ public class SetupPresenterTest {
         assertNull(services.configuration().current().selectedInstallationKind());
         assertTrue(view.notices.contains(SetupPresenter.ATTACHED));
         assertFalse(calls.contains("start"));
+    }
+
+    @Test
+    public void runningServerWithoutControlOffersNoStop() {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+
+        assertFalse(presenter.canControlRunning(view.detection));
+        presenter.stopRunningServer();
+        assertTrue(view.lifecycleQuestions.isEmpty());
+    }
+
+    @Test
+    public void runningExternalServerIsStoppedAfterConfirmation() throws Exception {
+        runningVersion = "0.40.13";
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        ServerLifecycleService controlled = new ServerLifecycleService(runtime, 0, lock, control, 0);
+        ConsoleServices withControl = TestServices.builder().serverLifecycle(controlled)
+            .setup(new SetupService(runtime, api, controlled, stub(HardwareProbePort.class, (method, args) -> null),
+                new PackageAdvisor(new GpuCompatibilityRules()), installations))
+            .build();
+        SetupPresenter presenter = new SetupPresenter(withControl, inline());
+        presenter.bind(view);
+        presenter.detect();
+        assertTrue(presenter.canControlRunning(view.detection));
+
+        presenter.stopRunningServer();
+
+        assertEquals(Collections.singletonList("stop:true"), view.lifecycleQuestions);
+        assertEquals(1, control.terminated.size());
+        assertEquals(ServerState.STOPPED, controlled.status().state());
+        assertTrue(view.notices.toString(), view.notices.contains(SetupPresenter.SERVER_STOPPED));
+    }
+
+    @Test
+    public void runningExternalServerIsRestartedAsOwnServer() throws Exception {
+        runningVersion = "0.40.13";
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        ServerLifecycleService controlled = new ServerLifecycleService(runtime, 0, lock, control, 0);
+        ConsoleServices withControl = TestServices.builder().serverLifecycle(controlled)
+            .setup(new SetupService(runtime, api, controlled, stub(HardwareProbePort.class, (method, args) -> null),
+                new PackageAdvisor(new GpuCompatibilityRules()), installations))
+            .build();
+        SetupPresenter presenter = new SetupPresenter(withControl, inline());
+        presenter.bind(view);
+        presenter.detect();
+        presenter.useRunningServer();
+
+        presenter.restartRunningServer();
+
+        assertEquals(Collections.singletonList("restart:true"), view.lifecycleQuestions);
+        assertEquals(RuntimeOwnership.OWNED, controlled.status().ownership());
+        assertEquals(control.binary.getParentFile(), started.binaryDirectory());
+        assertTrue(view.notices.toString(), view.notices.contains(SetupPresenter.SERVER_RESTARTED));
     }
 
     @Test
@@ -445,6 +500,20 @@ public class SetupPresenterTest {
         @Override
         public boolean confirmUninstall(OllamaInstallation installation) {
             return acceptUninstall;
+        }
+
+        final List<String> lifecycleQuestions = new ArrayList<String>();
+
+        @Override
+        public boolean confirmStop(boolean external) {
+            lifecycleQuestions.add("stop:" + external);
+            return true;
+        }
+
+        @Override
+        public boolean confirmRestart(boolean external) {
+            lifecycleQuestions.add("restart:" + external);
+            return true;
         }
 
         @Override

@@ -45,9 +45,11 @@ public final class SetupPresenter {
     static final String IMPORTED = "Taken over from the existing installation (%2$s): %1$s. A server the manager"
         + " starts uses the same values; change them under Server settings.";
     static final String IMPORT_FAILED = "The existing installation's settings could not be read: %s";
-    static final String ATTACHED = "Using the running server. Models can be pulled, loaded and deleted on it; the"
-        + " manager never stops or restarts it. To use your own server settings, start an installation as the"
-        + " manager's server on another port.";
+    static final String ATTACHED = "Using the running server. Models can be managed on it, and Stop or Restart"
+        + " control it after a confirmation; Restart applies the stored server settings.";
+    static final String SERVER_STOPPED = "Server stopped.";
+    static final String SERVER_RESTARTED = "Server restarted with the stored server settings; the manager now"
+        + " controls it.";
     static final String SELECTED = "Installation selected. Start it here or from the dashboard.";
     static final String INSTALLED = "Portable version installed and selected.";
     static final String INSTALL_CANCELLED = "Installation cancelled. Nothing was selected.";
@@ -59,9 +61,9 @@ public final class SetupPresenter {
     static final String DETACHED = "No longer using the external server. It keeps running unchanged.";
     static final String DETACH_FIRST = "The manager still uses an external server. Choose \"Stop using it\" first;"
         + " the external server itself is not touched.";
-    static final String PORT_TAKEN = "A server already answers on %s. Use it, or change the network address in the"
-        + " server settings to start the manager's own server on another port.";
-    static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it on the dashboard"
+    static final String PORT_TAKEN = "A server already answers on %s. Use, restart or stop it in section 1, or change"
+        + " the network address in the server settings to start the manager's own server on another port.";
+    static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it in section 1"
         + " before starting another installation.";
     static final String SELECT_FIRST = "Select an installation first.";
     static final String PORT_UNUSABLE = "%s cannot be used: %s. Change Bind in the server settings to another"
@@ -120,7 +122,73 @@ public final class SetupPresenter {
         }
     }
 
-    /** Use the server found on the endpoint; it is attached as external and never stopped or restarted. */
+    /**
+     * Whether Stop and Restart may be offered for the server on the endpoint: one the manager started, or any
+     * Ollama server when the external server control is wired.
+     */
+    public boolean canControlRunning(SetupDetection value) {
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (busy || lifecycle == null || value == null || !value.isServerRunning()) {
+            return false;
+        }
+        ServerStatus status = lifecycle.status();
+        if (status.ownership() == RuntimeOwnership.OWNED) {
+            return status.state() == ServerState.RUNNING;
+        }
+        return lifecycle.canControlExternal() && (status.ownership() == RuntimeOwnership.EXTERNAL
+            || services.setup() != null);
+    }
+
+    /** Stop the server on the endpoint after the user confirmed; a server not in use yet is attached first. */
+    public void stopRunningServer() {
+        final ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (!canControlRunning(detection)) {
+            return;
+        }
+        boolean external = lifecycle.status().ownership() != RuntimeOwnership.OWNED;
+        if (!view.confirmStop(external)) {
+            return;
+        }
+        final Endpoint endpoint = detection.endpoint();
+        run("Stop server", false, context -> {
+            attachIfNeeded(lifecycle, endpoint, context);
+            lifecycle.stop();
+            return null;
+        }, SERVER_STOPPED);
+    }
+
+    /**
+     * Restart the server on the endpoint with the stored settings after the user confirmed. An external server is
+     * replaced by an own server from the same installation, after its configured settings were taken over.
+     */
+    public void restartRunningServer() {
+        final ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (!canControlRunning(detection)) {
+            return;
+        }
+        final boolean external = lifecycle.status().ownership() != RuntimeOwnership.OWNED;
+        if (!view.confirmRestart(external)) {
+            return;
+        }
+        final Endpoint endpoint = detection.endpoint();
+        run("Restart server", false, context -> {
+            attachIfNeeded(lifecycle, endpoint, context);
+            if (external && services.existingSettings() != null) {
+                services.existingSettings().importUnchosen(context.cancellation());
+            }
+            lifecycle.restart(services.configuration().current().desiredServerSettings(), context.cancellation());
+            return null;
+        }, SERVER_RESTARTED);
+    }
+
+    private void attachIfNeeded(ServerLifecycleService lifecycle, Endpoint endpoint, JobContext context)
+        throws OperationException {
+        if (lifecycle.status().ownership() == RuntimeOwnership.NONE && services.setup() != null) {
+            services.setup().attachExisting(endpoint, context.cancellation());
+        }
+    }
+
+    /** Use the server found on the endpoint; it is attached as external and can then be stopped or restarted. */
     public void useRunningServer() {
         final SetupService setup = services.setup();
         if (busy || setup == null || detection == null || !detection.isServerRunning()) {
