@@ -198,10 +198,9 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         } else {
             for (GpuUsageSample sample : samples) {
                 MeterBar meter = new MeterBar();
-                // The bar shows what is still free: green while plenty is left, red when the GPU is nearly full.
-                meter.setHigherIsBetter(true);
-                meter.setThresholds(0.25, 0.10);
-                meter.show(freeFraction(sample), freeCaption(sample));
+                // The fill is what is occupied; the colour turns amber at three quarters and red at nine tenths.
+                meter.setThresholds(0.75, 0.90);
+                meter.show(usedFraction(sample), usageCaption(sample));
                 // The row tooltip is applied to label and meter alike, so pass the telemetry details here.
                 gpuUsage.addRow(sample.gpuName(), meter, usageTooltip(sample));
             }
@@ -211,34 +210,28 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         gpuUsage.repaint();
     }
 
-    /** Free VRAM as a fraction of the total, or negative when the driver reports no memory figures. */
-    static double freeFraction(GpuUsageSample sample) {
+    /** Occupied VRAM as a fraction of the total, or negative when the driver reports no memory figures. */
+    static double usedFraction(GpuUsageSample sample) {
         if (sample.usedVramBytes() == null || sample.totalVramBytes() == null || sample.totalVramBytes() <= 0) {
             return -1;
         }
-        return Math.max(0, sample.totalVramBytes() - sample.usedVramBytes()) / (double) sample.totalVramBytes();
+        return Math.min(1, Math.max(0, sample.usedVramBytes()) / (double) sample.totalVramBytes());
     }
 
-    /** Caption painted on the bar: free VRAM and its percentage. */
-    static String freeCaption(GpuUsageSample sample) {
-        double free = freeFraction(sample);
-        if (free < 0) {
+    /** Caption painted on the bar: occupied and free VRAM, with the occupied share in percent. */
+    static String usageCaption(GpuUsageSample sample) {
+        double used = usedFraction(sample);
+        if (used < 0) {
             return "VRAM unknown";
         }
         long freeBytes = Math.max(0, sample.totalVramBytes() - sample.usedVramBytes());
-        return Format.bytes(freeBytes) + " of " + Format.bytes(sample.totalVramBytes()) + " VRAM free, "
-            + Math.round(free * 100) + " % free";
+        return Format.bytes(sample.usedVramBytes()) + " used, " + Format.bytes(freeBytes) + " free of "
+            + Format.bytes(sample.totalVramBytes()) + " VRAM (" + Math.round(used * 100) + " % used)";
     }
 
-    /** Tooltip with the whole picture: free, in use and GPU utilisation. */
+    /** Tooltip with the whole picture: memory figures and GPU utilisation. */
     static String usageTooltip(GpuUsageSample sample) {
-        StringBuilder text = new StringBuilder("<html>");
-        if (freeFraction(sample) >= 0) {
-            text.append(Html.escape(freeCaption(sample))).append("<br>In use: ")
-                .append(Html.escape(Format.bytes(sample.usedVramBytes())));
-        } else {
-            text.append("VRAM unknown");
-        }
+        StringBuilder text = new StringBuilder("<html>").append(Html.escape(usageCaption(sample)));
         if (sample.utilizationPercent() != null) {
             text.append("<br>GPU busy: ").append(sample.utilizationPercent()).append(" %");
         }
