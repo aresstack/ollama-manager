@@ -185,6 +185,13 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
     }
 
     @Override
+    public void showImported(Set<ServerSetting<?>> imported, String source) {
+        for (Map.Entry<ServerSetting<?>, Row> entry : rows.entrySet()) {
+            entry.getValue().showImported(imported.contains(entry.getKey()), source);
+        }
+    }
+
+    @Override
     public Map<ServerSetting<?>, String> editedValues() {
         Map<ServerSetting<?>, String> texts = new LinkedHashMap<ServerSetting<?>, String>();
         for (Map.Entry<ServerSetting<?>, Editor> entry : editors.entrySet()) {
@@ -325,6 +332,7 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         private final WrapLabel description = new WrapLabel("");
         private final JLabel error = new JLabel();
         private final StatusBadge applied = new StatusBadge();
+        private final StatusBadge imported = new StatusBadge();
         private final Border normalBorder;
 
         Row(ServerSetting<?> setting, Editor editor) {
@@ -342,6 +350,8 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             error.setVisible(false);
             applied.setVisible(false);
             applied.setFocusable(false);
+            imported.setVisible(false);
+            imported.setFocusable(false);
             normalBorder = editor.focusTarget().getBorder();
 
             GridBagConstraints c = new GridBagConstraints();
@@ -368,8 +378,24 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             c.insets = new Insets(0, 0, 2, 0);
             add(description, c);
             c.gridy = 2;
+            c.insets = new Insets(0, 0, 2, 0);
+            c.fill = GridBagConstraints.NONE;
+            add(imported, c);
+            c.gridy = 3;
+            c.fill = GridBagConstraints.HORIZONTAL;
             c.insets = new Insets(0, 0, Spacing.GAP, 0);
             add(error, c);
+        }
+
+        void showImported(boolean value, String source) {
+            if (!value) {
+                imported.setVisible(false);
+                return;
+            }
+            imported.show("from existing installation", Theme.Tone.INFO);
+            imported.setToolTipText("Taken over from " + (source == null ? "the existing installation" : source)
+                + ". A server started by the manager uses the same value.");
+            imported.setVisible(true);
         }
 
         void showApplied(String value, boolean pending) {

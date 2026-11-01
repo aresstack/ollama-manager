@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.swing;
 
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.hardware.GpuCompatibilityRules;
 import com.aresstack.ollamamanager.application.hardware.PackageAdvisor;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
@@ -21,6 +22,7 @@ import com.aresstack.ollamamanager.infrastructure.ollamaapi.HttpOllamaApiClient;
 import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationRepository;
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
 import com.aresstack.ollamamanager.infrastructure.runtime.ExternalServerControls;
+import com.aresstack.ollamamanager.infrastructure.runtime.SystemInstalledEnvironment;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
@@ -86,6 +88,7 @@ public final class OllamaManagerApp {
                 lifecycleLock))
             .profileRepository(new ModelProfileRepository(configuration))
             .setup(setup)
+            .existingSettings(new ExistingSettingsImport(configuration, SystemInstalledEnvironment.forCurrentSystem()))
             .build();
     }
 

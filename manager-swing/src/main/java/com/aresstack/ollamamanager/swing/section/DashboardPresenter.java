@@ -95,8 +95,15 @@ public final class DashboardPresenter {
         if (!canRestart(status) || !view.confirmRestart(status.ownership() == RuntimeOwnership.EXTERNAL)) {
             return;
         }
-        run("Restart server", lifecycle, context -> lifecycle.restart(
-            services.configuration().current().desiredServerSettings(), context.cancellation()));
+        final boolean external = status.ownership() == RuntimeOwnership.EXTERNAL;
+        run("Restart server", lifecycle, context -> {
+            if (external && services.existingSettings() != null) {
+                // The replacement must keep what the installation is configured with, above all its model folder.
+                services.existingSettings().importUnchosen(context.cancellation());
+            }
+            return lifecycle.restart(services.configuration().current().desiredServerSettings(),
+                context.cancellation());
+        });
     }
 
     private void run(String title, ServerLifecycleService lifecycle, JobWork<ServerStatus> work) {
