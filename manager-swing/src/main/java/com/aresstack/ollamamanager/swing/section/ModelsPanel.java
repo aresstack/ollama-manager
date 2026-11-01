@@ -50,14 +50,10 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final JLabel notice = new JLabel(" ");
     private final MessageBanner banner = new MessageBanner();
     private final EmptyState empty = new EmptyState("No models on this server",
-        "Install a model from the Ollama library or Hugging Face to get started.");
+        "Install a model in the Install models section to get started.");
     private final CardLayout listCards = new CardLayout();
     private final JPanel list = new JPanel(listCards);
     private final ScrollColumn column = new ScrollColumn(new java.awt.FlowLayout());
-    private final JTextField pullName = new JTextField(24);
-    private final JButton pull = new JButton("Pull");
-    private final JButton pullShortcut = new JButton("Pull a model…");
-    private final JButton browse = new JButton("Install model…");
     private final JobProgressPanel progress = new JobProgressPanel();
     private final java.util.Map<String, List<ManagerModelCard>> cardsByName =
         new java.util.HashMap<String, List<ManagerModelCard>>();
@@ -73,32 +69,10 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         refresh.addActionListener(event -> presenter.refresh());
         addToolbarItem(refresh);
 
-        pullName.setToolTipText("Model name as in the Ollama library, for example llama3.2:3b");
-        pull.setMnemonic('P');
-        pull.setToolTipText("Download the model to the running server's model directory.");
-        pull.addActionListener(event -> presenter.pull(pullName.getText()));
-        pullName.addActionListener(event -> presenter.pull(pullName.getText()));
-        browse.setMnemonic('I');
-        browse.setToolTipText("Search the Ollama library or Hugging Face (GGUF) and install a model.");
-        browse.addActionListener(event -> openInstallDialog());
-
-        JLabel pullLabel = new JLabel("Pull model:");
-        pullLabel.setDisplayedMnemonic('M');
-        pullLabel.setLabelFor(pullName);
-        JPanel pullRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        pullRow.add(pullLabel);
-        pullRow.add(pullName);
-        pullRow.add(pull);
-        pullRow.add(browse);
-        pullRow.setOpaque(false);
-
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
         south.setOpaque(false);
-        south.add(pullRow, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
-        pullShortcut.addActionListener(event -> openInstallDialog());
-        empty.setAction(pullShortcut);
         column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
         column.setOpaque(false);
         list.setOpaque(false);
@@ -165,7 +139,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         }
         column.add(Box.createVerticalGlue());
         notice.setText(entries.isEmpty() ? " " : installed + " installed, " + loaded + " running");
-        empty.setText("No models on this server", "Install a model from the Ollama library or Hugging Face to get started.");
+        empty.setText("No models on this server", "Install a model in the Install models section to get started.");
         showList(!entries.isEmpty());
         updateButtons();
         column.revalidate();
@@ -343,25 +317,8 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         return typed == null ? null : typed.toString();
     }
 
-    private void openInstallDialog() {
-        presenter.openInstaller((endpoint, configuration) -> {
-            ModelInstallDialog dialog = new ModelInstallDialog(this, endpoint, configuration);
-            dialog.addWindowListener(new java.awt.event.WindowAdapter() {
-                @Override
-                public void windowClosed(java.awt.event.WindowEvent event) {
-                    presenter.refresh();
-                }
-            });
-            dialog.setVisible(true);
-        });
-    }
-
     private void updateButtons() {
         boolean enabled = actionsEnabled && mutationsAllowed;
-        pull.setEnabled(enabled);
-        pullName.setEnabled(enabled);
-        pullShortcut.setEnabled(enabled);
-        browse.setEnabled(enabled && presenter.modelInstallConfiguration() != null);
         for (List<ManagerModelCard> cards : cardsByName.values()) {
             for (ManagerModelCard card : cards) {
                 card.setActionsEnabled(enabled);

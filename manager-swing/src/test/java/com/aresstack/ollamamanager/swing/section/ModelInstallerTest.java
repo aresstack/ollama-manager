@@ -39,7 +39,7 @@ import static org.junit.Assert.assertTrue;
  * installs a local GGUF through {@code /api/blobs} and {@code /api/create}. Uses a fake Ollama on a random port,
  * never a real server.
  */
-public class ModelInstallDialogTest {
+public class ModelInstallerTest {
 
     @Rule
     public final TemporaryFolder folder = new TemporaryFolder();
@@ -67,7 +67,7 @@ public class ModelInstallDialogTest {
     @Test
     public void installsLocalGgufOnTheRunningServerThroughBlobsAndCreate() throws Exception {
         File configuration = new File(folder.getRoot(), "model-install/askai-java8.properties");
-        ModelInstallDialog.targetServer(configuration, endpoint());
+        ModelInstallConfiguration.targetServer(configuration, endpoint());
         AppConfigurationRepository repository = new AppConfigurationRepository(configuration);
         assertEquals(endpoint().baseUrl(), repository.load().getOllamaBaseUrl());
 
@@ -115,19 +115,20 @@ public class ModelInstallDialogTest {
     }
 
     @Test
-    public void dialogOpensWithHuggingFaceAndOllamaLibraryTabs() throws Exception {
+    public void installSectionShowsAskAiInstallerForTheRunningServer() throws Exception {
         Assume.assumeFalse("needs a display", GraphicsEnvironment.isHeadless());
-        File configuration = new File(folder.getRoot(), "askai-java8.properties");
-        final AtomicReference<ModelInstallDialog> dialog = new AtomicReference<ModelInstallDialog>();
-        SwingUtilities.invokeAndWait(() -> dialog.set(new ModelInstallDialog(null, endpoint(), configuration)));
-        try {
-            com.aresstack.askai.java8.ui.ModelSearchPanel panel =
-                (com.aresstack.askai.java8.ui.ModelSearchPanel) dialog.get().getContentPane();
-            assertEquals("Hugging Face", panel.tabTitles().get(0));
-            assertEquals("Ollama Library", panel.tabTitles().get(1));
-        } finally {
-            SwingUtilities.invokeAndWait(() -> dialog.get().dispose());
-        }
+        final File configuration = new File(folder.getRoot(), "askai-java8.properties");
+        final com.aresstack.ollamamanager.swing.shell.ConsoleServices services = TestServices.builder()
+            .serverLifecycle(TestServices.runningLifecycle()).modelInstallConfiguration(configuration).build();
+        final AtomicReference<InstallModelsPanel> panel = new AtomicReference<InstallModelsPanel>();
+        SwingUtilities.invokeAndWait(() -> {
+            panel.set(new InstallModelsPanel(services));
+            panel.get().showCurrent();
+        });
+        assertEquals("Hugging Face", panel.get().installer().tabTitles().get(0));
+        assertEquals("Ollama Library", panel.get().installer().tabTitles().get(1));
+        assertEquals(TestServices.ENDPOINT.baseUrl(),
+            new AppConfigurationRepository(configuration).load().getOllamaBaseUrl());
     }
 
     private void handle(HttpExchange exchange) throws IOException {
