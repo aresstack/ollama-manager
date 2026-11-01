@@ -14,14 +14,14 @@ public class DashboardPanelTest {
     private static final long GIB = 1024L * 1024 * 1024;
 
     @Test
-    public void gpuBarShowsWhatIsFree() {
+    public void gpuBarShowsWhatIsOccupiedAndWhatIsFree() {
         GpuUsageSample sample = new GpuUsageSample("RTX", 4 * GIB, 16 * GIB, 7, 0);
-        assertEquals(0.75, DashboardPanel.freeFraction(sample), 1e-9);
-        String caption = DashboardPanel.freeCaption(sample);
-        assertTrue(caption, caption.contains("VRAM free"));
-        assertTrue(caption, caption.contains("75 % free"));
+        assertEquals(0.25, DashboardPanel.usedFraction(sample), 1e-9);
+        String caption = DashboardPanel.usageCaption(sample);
+        assertTrue(caption, caption.contains("4.0 GiB used"));
+        assertTrue(caption, caption.contains("12.0 GiB free"));
+        assertTrue(caption, caption.contains("25 % used"));
         String tooltip = DashboardPanel.usageTooltip(sample);
-        assertTrue(tooltip, tooltip.contains("In use:"));
         assertTrue(tooltip, tooltip.contains("GPU busy: 7 %"));
     }
 
@@ -53,7 +53,7 @@ public class DashboardPanelTest {
     @Test
     public void unknownMemoryStaysNeutral() {
         GpuUsageSample sample = new GpuUsageSample("RTX", null, null, 50, 0);
-        assertTrue(DashboardPanel.freeFraction(sample) < 0);
-        assertEquals("VRAM unknown", DashboardPanel.freeCaption(sample));
+        assertTrue(DashboardPanel.usedFraction(sample) < 0);
+        assertEquals("VRAM unknown", DashboardPanel.usageCaption(sample));
     }
 }
