@@ -45,6 +45,14 @@ public final class Theme {
     }
 
     /** Soft background for a banner or badge of {@code tone}. */
+    /**
+     * Fill colour of a meter bar in {@code tone}. The green of {@link Tone#SUCCESS} is also the background of
+     * running model cards, so "running" and "GPU in use" read as the same colour.
+     */
+    public static Color meterFill(Tone tone) {
+        return blend(color(tone), background(), 0.45f);
+    }
+
     public static Color tint(Tone tone) {
         Color base = tone == Tone.NEUTRAL ? foreground() : color(tone);
         return blend(base, background(), isDark() ? 0.78f : 0.86f);

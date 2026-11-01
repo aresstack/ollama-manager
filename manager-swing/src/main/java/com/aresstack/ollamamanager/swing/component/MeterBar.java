@@ -118,8 +118,7 @@ public final class MeterBar extends JComponent implements Accessible {
         g.setColor(Theme.blend(Theme.foreground(), Theme.background(), 0.88f));
         g.fillRoundRect(0, 0, width, height, arc, arc);
         if (fraction >= 0) {
-            Color fill = Theme.color(tone());
-            g.setColor(Theme.blend(fill, Theme.background(), 0.45f));
+            g.setColor(Theme.meterFill(tone()));
             g.fillRoundRect(0, 0, (int) Math.round(width * fraction), height, arc, arc);
         }
         g.setColor(Theme.lineColor());
