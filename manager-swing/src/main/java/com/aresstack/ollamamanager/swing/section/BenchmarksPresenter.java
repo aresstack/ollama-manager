@@ -6,7 +6,10 @@ import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkReq
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.benchmark.ParallelismSweepService;
 import com.aresstack.ollamamanager.application.benchmark.StageResult;
+import com.aresstack.ollamamanager.application.common.CancellationToken;
+import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
@@ -79,6 +82,12 @@ public final class BenchmarksPresenter {
         view.showServerParallel(serverParallelText());
         boolean owned = services.serverLifecycle().status().ownership() == RuntimeOwnership.OWNED;
         view.setSweepAvailable(owned && services.sweeps() != null, owned ? null : SWEEP_NEEDS_OWNED);
+        if (!owned && services.existingSettings() != null) {
+            // An external server's OLLAMA_* come from the system environment it was started in.
+            jobs.submit("Read the server's environment", false,
+                context -> externalSettings(context.cancellation()),
+                settings -> view.showServerParallel(ConcurrencyBenchmarkService.serverParallelText(settings)), null);
+        }
         jobs.submit("Load models for benchmark", true,
             context -> services.models().inventory(endpoint, context.cancellation()), entries -> {
                 List<String> names = new ArrayList<String>();
@@ -112,8 +121,27 @@ public final class BenchmarksPresenter {
     }
 
     /**
-     * OLLAMA_NUM_PARALLEL as applied to the running server: a number, {@link #SERVER_DEFAULT} when the owned
-     * server runs unset, or {@code null} when unknown.
+     * The OLLAMA_* settings an external server was started with, as far as the system environment (Windows user
+     * and machine variables, or the process environment) tells; unset variables mean Ollama's defaults. Returns
+     * {@code null} when the environment cannot be read. Blocks, so it runs inside a job.
+     */
+    ServerSettings externalSettings(CancellationToken cancellation) throws OperationCancelledException {
+        ExistingSettingsImport existing = services.existingSettings();
+        if (existing == null) {
+            return null;
+        }
+        try {
+            return existing.detect(cancellation).settings();
+        } catch (OperationCancelledException e) {
+            throw e;
+        } catch (OperationException e) {
+            return null;
+        }
+    }
+
+    /**
+     * OLLAMA_NUM_PARALLEL as applied to the running owned server: a number, {@link #SERVER_DEFAULT} when it runs
+     * unset, or {@code null} when unknown (external server before its environment was read).
      */
     String serverParallelText() {
         return ConcurrencyBenchmarkService.serverParallelText(appliedSettings());
@@ -133,9 +161,14 @@ public final class BenchmarksPresenter {
             return false;
         }
         final ConcurrencyBenchmarkService service = services.benchmarks();
-        final ServerSettings applied = appliedSettings();
-        start("Benchmark " + request.model(), context -> service.run(endpoint, request, applied,
-            new ConcurrencyBenchmarkService.Listener() {
+        final ServerSettings owned = appliedSettings();
+        start("Benchmark " + request.model(), context -> {
+            ServerSettings applied = owned;
+            if (applied == null) {
+                context.progress("Reading the server's environment", 0);
+                applied = externalSettings(context.cancellation());
+            }
+            return service.run(endpoint, request, applied, new ConcurrencyBenchmarkService.Listener() {
                 @Override
                 public void phase(String text, double fraction) {
                     context.progress(text, fraction);
@@ -145,7 +178,8 @@ public final class BenchmarksPresenter {
                 public void stageFinished(StageResult stage) {
                     SwingUtilities.invokeLater(() -> view.stageFinished(stage));
                 }
-            }, context.cancellation()), report -> view.showReport(report));
+            }, context.cancellation());
+        }, report -> view.showReport(report));
         return true;
     }
 

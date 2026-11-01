@@ -48,6 +48,28 @@ public final class Tables {
         }
     }
 
+    /** Centre the given columns, for short counts and states. */
+    public static void alignCenter(JTable table, int... columns) {
+        DefaultTableCellRenderer renderer = new DefaultTableCellRenderer();
+        renderer.setHorizontalAlignment(SwingConstants.CENTER);
+        for (int column : columns) {
+            table.getColumnModel().getColumn(column).setCellRenderer(renderer);
+        }
+    }
+
+    /**
+     * Give every column a preferred width that fits its header text, so that the table's space is shared in
+     * proportion to the headers and none of them is cut to "Total tok…".
+     */
+    public static void fitHeaders(JTable table) {
+        java.awt.FontMetrics metrics = table.getFontMetrics(table.getFont());
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            TableColumn column = table.getColumnModel().getColumn(i);
+            int width = metrics.stringWidth(String.valueOf(column.getHeaderValue())) + 2 * metrics.charWidth('m');
+            column.setPreferredWidth(Math.max(width, metrics.charWidth('m') * 6));
+        }
+    }
+
     /** Give a column a preferred width in characters of the table font. */
     public static void setWidthInChars(JTable table, int column, int chars) {
         TableColumn tableColumn = table.getColumnModel().getColumn(column);
