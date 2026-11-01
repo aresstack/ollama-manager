@@ -24,6 +24,16 @@ public interface BenchmarksView {
      */
     void setSweepAvailable(boolean available, String reason);
 
+    /**
+     * Whether the running server can be restarted with a higher OLLAMA_NUM_PARALLEL from here.
+     *
+     * @param external whether that restart takes over a server the manager did not start
+     */
+    void setServerRestartAvailable(boolean available, boolean external);
+
+    /** The server was restarted with {@code numParallel} as OLLAMA_NUM_PARALLEL. */
+    void showServerRestarted(int numParallel);
+
     void showUnavailable(String reason);
 
     void setRunning(boolean running);

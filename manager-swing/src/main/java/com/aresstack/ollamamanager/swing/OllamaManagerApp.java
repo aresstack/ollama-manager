@@ -15,6 +15,7 @@ import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.profile.ProfileEnvironment;
 import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.application.server.ServerParallelismService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
@@ -86,6 +87,8 @@ public final class OllamaManagerApp {
         ConcurrencyBenchmarkService benchmarks =
             new ConcurrencyBenchmarkService(api, hardwareProbe.nvidiaSmi(), benchmarkHistory, profileEnvironment);
         ModelProfileRepository profileRepository = new ModelProfileRepository(configuration);
+        ExistingSettingsImport existingSettings =
+            new ExistingSettingsImport(configuration, SystemInstalledEnvironment.forCurrentSystem());
         return ConsoleServices.builder(configuration)
             .benchmarks(benchmarks, benchmarkHistory)
             .sweeps(new ParallelismSweepService(lifecycle, benchmarks, lifecycleLock))
@@ -100,7 +103,8 @@ public final class OllamaManagerApp {
                 lifecycleLock))
             .profileRepository(profileRepository)
             .setup(setup)
-            .existingSettings(new ExistingSettingsImport(configuration, SystemInstalledEnvironment.forCurrentSystem()))
+            .existingSettings(existingSettings)
+            .serverParallelism(new ServerParallelismService(lifecycle, configuration, existingSettings, lifecycleLock))
             .build();
     }
 

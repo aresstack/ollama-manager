@@ -13,6 +13,7 @@ import com.aresstack.ollamamanager.application.port.HardwareProbePort;
 import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.application.server.ServerParallelismService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
 
 /**
@@ -36,6 +37,7 @@ public final class ConsoleServices {
     private final ParallelismSweepService sweeps;
     private final BenchmarkProfiles benchmarkProfiles;
     private final ExistingSettingsImport existingSettings;
+    private final ServerParallelismService serverParallelism;
     private final java.io.File modelInstallConfiguration;
 
     private ConsoleServices(Builder builder) {
@@ -56,6 +58,7 @@ public final class ConsoleServices {
         this.sweeps = builder.sweeps;
         this.benchmarkProfiles = builder.benchmarkProfiles;
         this.existingSettings = builder.existingSettings;
+        this.serverParallelism = builder.serverParallelism;
         this.modelInstallConfiguration = builder.modelInstallConfiguration;
     }
 
@@ -131,10 +134,14 @@ public final class ConsoleServices {
         return benchmarkProfiles;
     }
 
-    /** Collects optional services. */
     /** @return the import of an existing installation's settings, or {@code null} when not wired */
     public ExistingSettingsImport existingSettings() {
         return existingSettings;
+    }
+
+    /** @return the use case that restarts the server with another OLLAMA_NUM_PARALLEL, or {@code null} */
+    public ServerParallelismService serverParallelism() {
+        return serverParallelism;
     }
 
     /**
@@ -160,6 +167,7 @@ public final class ConsoleServices {
         private ParallelismSweepService sweeps;
         private BenchmarkProfiles benchmarkProfiles;
         private ExistingSettingsImport existingSettings;
+        private ServerParallelismService serverParallelism;
         private java.io.File modelInstallConfiguration;
 
         private Builder(ConfigurationService configuration) {
@@ -224,6 +232,11 @@ public final class ConsoleServices {
 
         public Builder existingSettings(ExistingSettingsImport value) {
             this.existingSettings = value;
+            return this;
+        }
+
+        public Builder serverParallelism(ServerParallelismService value) {
+            this.serverParallelism = value;
             return this;
         }
 

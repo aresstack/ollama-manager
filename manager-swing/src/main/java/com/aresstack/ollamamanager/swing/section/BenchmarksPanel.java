@@ -39,6 +39,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -66,6 +68,15 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     static final int MAX_LEVEL = 256;
     static final String SWEEP_WARNING = "The server is restarted once per value and once more at the end to restore"
         + " its current settings.\nEvery restart ends running requests of all clients at once.\n\nContinue?";
+    /** Shown before the owned server is restarted with a higher OLLAMA_NUM_PARALLEL; %d is the value. */
+    static final String RAISE_WARNING = "OLLAMA_NUM_PARALLEL = %d is stored in the server settings and the server"
+        + " is stopped and started again with it and the other stored server settings.\nRequests that are still"
+        + " running are aborted and loaded models are unloaded.\n\nRestart the server now?";
+    /** Shown before an external server is replaced by an own server with a higher OLLAMA_NUM_PARALLEL. */
+    static final String RAISE_EXTERNAL_WARNING = "This server was not started by Ollama Manager.\n"
+        + "It is stopped (on Windows together with the Ollama app) and started again from the same installation"
+        + "\nwith OLLAMA_NUM_PARALLEL = %d and the stored server settings; from then on Ollama Manager controls it."
+        + "\nRequests that are still running are aborted and loaded models are unloaded.\n\nRestart the server now?";
 
     private final BenchmarksPresenter presenter;
     private final MessageBanner banner = new MessageBanner();
@@ -91,9 +102,23 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private final JTable historyTable = new JTable(historyModel);
     private final JButton saveProfile = new JButton("Profile…");
     private final JButton deleteRun = new JButton("Delete");
+    /** Warns when the server's OLLAMA_NUM_PARALLEL is below the highest number of chats to measure. */
+    private final MessageBanner serverNotice = new MessageBanner();
+    private final JPanel serverNoticeRow;
+    private final JButton raiseParallel = new JButton();
     private boolean running;
     private boolean hasModels;
+    /** Whether the banner currently shows this panel's own "no models" hint, the only message it clears itself. */
+    private boolean noModelsHint;
     private boolean sweepAvailable;
+    /** OLLAMA_NUM_PARALLEL of the running server as the presenter reported it; {@code null} while unknown. */
+    private String serverParallel;
+    /** Whether a server runs at all; without one there is no value to warn about. */
+    private boolean serverPresent;
+    private boolean serverRestartAvailable;
+    private boolean serverRestartExternal;
+    /** Value the notice offers to set; 0 while the notice is hidden or offers nothing. */
+    private int raiseTarget;
     /** Runs currently drawn, newest last; a sweep in progress appends to this list. */
     private final List<BenchmarkReport> shown = new ArrayList<BenchmarkReport>();
 
@@ -121,9 +146,32 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             + " current settings. Shows one line per value.");
         serverValues.setToolTipText("OLLAMA_NUM_PARALLEL values to try, for example 1, 4, 8, 16.");
         serverValues.setEnabled(false);
-        sweep.addActionListener(event -> serverValues.setEnabled(sweep.isSelected() && sweepAvailable));
+        sweep.addActionListener(event -> {
+            serverValues.setEnabled(sweep.isSelected() && sweepAvailable);
+            updateServerNotice();
+        });
+        // The notice follows what is typed, so it appears as soon as a number exceeds the server's value.
+        levels.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                updateServerNotice();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                updateServerNotice();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                updateServerNotice();
+            }
+        });
         run.setMnemonic('B');
         run.addActionListener(event -> start());
+        raiseParallel.setToolTipText("Store this OLLAMA_NUM_PARALLEL in the server settings and restart the server"
+            + " with it, so that every stage runs its chats at the same time.");
+        raiseParallel.addActionListener(event -> raiseServerParallel());
 
         FormPanel form = new FormPanel();
         form.addRow("Model", model, null);
@@ -226,6 +274,10 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         left.add(setupCard);
         left.add(Box.createVerticalStrut(Spacing.GAP));
         left.add(historyCard);
+        serverNoticeRow = leftAligned(serverNotice);
+        serverNoticeRow.setBorder(javax.swing.BorderFactory.createEmptyBorder(Spacing.GAP, 0, 0, 0));
+        serverNoticeRow.setVisible(false);
+        left.add(serverNoticeRow);
         left.add(Box.createVerticalGlue());
 
         JPanel right = new JPanel(new BorderLayout(0, Spacing.GAP));
@@ -266,12 +318,127 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         return row;
     }
 
+    /** Row that spans the column's width and is as high as its content, also after that content changed. */
     private static JPanel leftAligned(javax.swing.JComponent component) {
-        JPanel row = new JPanel(new BorderLayout());
+        JPanel row = new JPanel(new BorderLayout()) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+        };
         row.setOpaque(false);
         row.add(component, BorderLayout.CENTER);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, component.getPreferredSize().height + Spacing.SMALL));
         return row;
+    }
+
+    /** Ask, then let the presenter store the offered OLLAMA_NUM_PARALLEL and restart the server with it. */
+    private void raiseServerParallel() {
+        int target = raiseTarget;
+        if (target <= 0 || running) {
+            return;
+        }
+        String warning = String.format(Locale.ROOT, serverRestartExternal ? RAISE_EXTERNAL_WARNING : RAISE_WARNING,
+            target);
+        if (!Dialogs.confirm(this, "Restart the server with OLLAMA_NUM_PARALLEL = " + target + "?", warning)) {
+            return;
+        }
+        banner.clear();
+        presenter.applyServerParallel(target);
+    }
+
+    /** Show or hide the notice under the previous runs, from the server's value and the chats to measure. */
+    private void updateServerNotice() {
+        List<Integer> parsed;
+        try {
+            parsed = parseLevels(levels.getText());
+        } catch (IllegalArgumentException e) {
+            parsed = Collections.emptyList();
+        }
+        ServerNotice notice = serverPresent ? serverNotice(serverParallel, parsed,
+            sweep.isSelected() && sweepAvailable, serverRestartAvailable) : null;
+        if (notice == null) {
+            raiseTarget = 0;
+            serverNotice.clear();
+            serverNoticeRow.setVisible(false);
+        } else {
+            raiseTarget = notice.target;
+            raiseParallel.setText("Set " + notice.target + " and restart");
+            raiseParallel.setEnabled(!running);
+            serverNotice.setActions(notice.restartable ? raiseParallel : null, false);
+            serverNotice.show(notice.tone, notice.text);
+            serverNoticeRow.setVisible(true);
+        }
+        serverNoticeRow.revalidate();
+        serverNoticeRow.repaint();
+    }
+
+    /**
+     * What to say when the server cannot run every stage's chats at the same time; {@code null} when there is
+     * nothing to say. During a sweep the server is restarted per value anyway.
+     *
+     * @param serverParallel OLLAMA_NUM_PARALLEL as {@link #showServerParallel} received it
+     * @param levels         the parallel chats to measure; empty when the input does not parse
+     * @param restartable    whether the server can be restarted with a higher value from here
+     */
+    static ServerNotice serverNotice(String serverParallel, List<Integer> levels, boolean sweeping,
+                                     boolean restartable) {
+        if (sweeping || levels.isEmpty()) {
+            return null;
+        }
+        int highest = Collections.max(levels);
+        String text;
+        Theme.Tone tone = Theme.Tone.ERROR;
+        if (serverParallel == null) {
+            if (highest <= 1) {
+                return null;
+            }
+            tone = Theme.Tone.WARNING;
+            text = "OLLAMA_NUM_PARALLEL of this server is unknown. If it is below " + highest + ", the stages above it"
+                + " queue on the server and cannot show more throughput.";
+        } else if (BenchmarksPresenter.SERVER_DEFAULT.equals(serverParallel)) {
+            if (highest <= 1) {
+                return null;
+            }
+            text = "OLLAMA_NUM_PARALLEL is not set on this server, so Ollama picks 1 or 4 by itself, but up to "
+                + highest + " parallel chats are to be measured. The stages above that queue on the server and cannot"
+                + " show more throughput.";
+        } else {
+            int current;
+            try {
+                current = Integer.parseInt(serverParallel.trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+            if (highest <= current) {
+                return null;
+            }
+            text = "OLLAMA_NUM_PARALLEL is " + current + " on this server, but up to " + highest
+                + " parallel chats are to be measured. The stages above " + current + " queue on the server and"
+                + " cannot show more throughput.";
+        }
+        if (!restartable) {
+            text += " Set it to at least " + highest + " where the server is started.";
+        }
+        return new ServerNotice(tone, text, highest, restartable);
+    }
+
+    /** Content of the notice under the previous runs. */
+    static final class ServerNotice {
+        final Theme.Tone tone;
+        final String text;
+        /** The value the notice asks for: the highest number of chats to measure. */
+        final int target;
+        /** Whether the notice offers to set the value and restart the server. */
+        final boolean restartable;
+
+        ServerNotice(Theme.Tone tone, String text, int target, boolean restartable) {
+            this.tone = tone;
+            this.text = text;
+            this.target = target;
+            this.restartable = restartable;
+        }
     }
 
     private void start() {
@@ -429,14 +596,20 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         hasModels = !models.isEmpty();
         if (!hasModels) {
             banner.info("No models installed on this server. Pull one in Models first.");
-        } else if (banner.tone() == Theme.Tone.INFO) {
+            noModelsHint = true;
+        } else if (noModelsHint) {
+            // Only the hint of this panel goes; a confirmation shown meanwhile stays.
             banner.clear();
+            noModelsHint = false;
         }
         updateButtons();
     }
 
     @Override
     public void showServerParallel(String text) {
+        serverParallel = text;
+        serverPresent = true;
+        updateServerNotice();
         if (text == null) {
             serverHint.setText("OLLAMA_NUM_PARALLEL of this server is unknown; stages above it queue on the server.");
         } else if (BenchmarksPresenter.SERVER_DEFAULT.equals(text)) {
@@ -452,6 +625,21 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         sweep.setEnabled(available && !running);
         serverValues.setEnabled(available && sweep.isSelected() && !running);
         sweepHint.setText(available || reason == null ? " " : reason);
+        updateServerNotice();
+    }
+
+    @Override
+    public void setServerRestartAvailable(boolean available, boolean external) {
+        serverRestartAvailable = available;
+        serverRestartExternal = external;
+        updateServerNotice();
+    }
+
+    @Override
+    public void showServerRestarted(int numParallel) {
+        noModelsHint = false;
+        banner.show(Theme.Tone.SUCCESS, "The server now runs with OLLAMA_NUM_PARALLEL = " + numParallel
+            + "; the value is stored in the server settings.");
     }
 
     @Override
@@ -459,7 +647,11 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         hasModels = false;
         model.setModel(new DefaultComboBoxModel<String>());
         banner.warning(reason);
+        noModelsHint = false;
         setSweepAvailable(false, null);
+        serverParallel = null;
+        serverPresent = false;
+        setServerRestartAvailable(false, false);
         updateButtons();
     }
 
@@ -475,6 +667,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         stopWhenUnstable.setEnabled(!isRunning);
         sweep.setEnabled(!isRunning && sweepAvailable);
         serverValues.setEnabled(!isRunning && sweepAvailable && sweep.isSelected());
+        raiseParallel.setEnabled(!isRunning && raiseTarget > 0);
         updateButtons();
     }
 
@@ -591,11 +784,13 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
 
     @Override
     public void showProfileSaved(ModelProfile profile) {
+        noModelsHint = false;
         banner.info("Profile \"" + profile.name() + "\" saved. Activate it under Profiles.");
     }
 
     @Override
     public void showFailure(String action, Exception error) {
+        noModelsHint = false;
         banner.error(action, error);
     }
 

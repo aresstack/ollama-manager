@@ -12,6 +12,7 @@ import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.application.server.ServerParallelismService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
@@ -80,8 +81,11 @@ public final class BenchmarksPresenter {
             return;
         }
         view.showServerParallel(serverParallelText());
-        boolean owned = services.serverLifecycle().status().ownership() == RuntimeOwnership.OWNED;
+        ServerStatus status = services.serverLifecycle().status();
+        boolean owned = status.ownership() == RuntimeOwnership.OWNED;
         view.setSweepAvailable(owned && services.sweeps() != null, owned ? null : SWEEP_NEEDS_OWNED);
+        ServerParallelismService parallelism = services.serverParallelism();
+        view.setServerRestartAvailable(parallelism != null && parallelism.canApply(status), !owned);
         if (!owned && services.existingSettings() != null) {
             // An external server's OLLAMA_* come from the system environment it was started in.
             jobs.submit("Read the server's environment", false,
@@ -162,7 +166,7 @@ public final class BenchmarksPresenter {
         }
         final ConcurrencyBenchmarkService service = services.benchmarks();
         final ServerSettings owned = appliedSettings();
-        start("Benchmark " + request.model(), context -> {
+        start("Benchmark " + request.model(), "Benchmark", true, null, context -> {
             ServerSettings applied = owned;
             if (applied == null) {
                 context.progress("Reading the server's environment", 0);
@@ -184,6 +188,31 @@ public final class BenchmarksPresenter {
     }
 
     /**
+     * Store {@code numParallel} as OLLAMA_NUM_PARALLEL and restart the running server with it, so that a benchmark
+     * can measure that many parallel chats. The view asked the user already; an external server is taken over.
+     *
+     * @return whether the restart was started
+     */
+    public boolean applyServerParallel(final int numParallel) {
+        if (running || runningEndpoint() == null) {
+            return false;
+        }
+        final ServerParallelismService parallelism = services.serverParallelism();
+        if (parallelism == null || !parallelism.canApply(services.serverLifecycle().status())) {
+            view.setServerRestartAvailable(false, false);
+            return false;
+        }
+        // After a failed restart the server may be gone; a refresh shows what is left.
+        start("Restart server with OLLAMA_NUM_PARALLEL=" + numParallel, "Restart server", false, this::refresh,
+            context -> parallelism.apply(numParallel, context.cancellation()), status -> {
+                view.showServerRestarted(numParallel);
+                // Ownership and the sweep's availability may have changed with the restart.
+                refresh();
+            });
+        return true;
+    }
+
+    /**
      * Benchmark once per OLLAMA_NUM_PARALLEL candidate, restarting the owned server for each.
      *
      * @return whether a sweep was started
@@ -197,7 +226,8 @@ public final class BenchmarksPresenter {
             view.setSweepAvailable(false, SWEEP_NEEDS_OWNED);
             return false;
         }
-        start("Benchmark " + request.model() + " over server values", context -> sweeps.run(request, candidates,
+        start("Benchmark " + request.model() + " over server values", "Benchmark", true, null,
+            context -> sweeps.run(request, candidates,
             new ParallelismSweepService.Listener() {
                 @Override
                 public void phase(String text, double fraction) {
@@ -222,17 +252,26 @@ public final class BenchmarksPresenter {
         return true;
     }
 
-    private <T> void start(String title, JobWork<T> work, java.util.function.Consumer<T> onResult) {
+    /**
+     * Run {@code work} as the one job of this section: the form is locked meanwhile and a refresh touches only the
+     * history. {@code action} names the work in a failure message; {@code onFailure} runs before it is shown.
+     */
+    private <T> void start(String title, final String action, boolean cancellable, final Runnable onFailure,
+                           JobWork<T> work, java.util.function.Consumer<T> onResult) {
         running = true;
         view.setRunning(true);
-        Job job = jobs.submit(title, true, work, result -> {
+        Job job = jobs.submit(title, cancellable, work, result -> {
             finish();
             onResult.accept(result);
             loadHistory();
         }, error -> {
             finish();
             view.runEnded(true);
-            view.showFailure("Benchmark", error);
+            // First the state, then the failure, so that the failure stays on the banner.
+            if (onFailure != null) {
+                onFailure.run();
+            }
+            view.showFailure(action, error);
             // Reports finished before the failure are stored already.
             loadHistory();
         });
