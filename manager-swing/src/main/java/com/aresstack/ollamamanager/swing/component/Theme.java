@@ -46,9 +46,14 @@ public final class Theme {
 
     /** Soft background for a banner or badge of {@code tone}. */
     /**
-     * Fill colour of a meter bar in {@code tone}. The green of {@link Tone#SUCCESS} is also the background of
-     * running model cards, so "running" and "GPU in use" read as the same colour.
+     * The accent the job progress bar ("Detect hardware" and friends) is filled with. Running model cards and
+     * their badge use the same colour, so "running" and "working" read alike.
      */
+    public static Color runningAccent() {
+        return AskAiTheme.active().comicPalette().getAccentOrange();
+    }
+
+    /** Fill colour of a meter bar in {@code tone}. */
     public static Color meterFill(Tone tone) {
         return blend(color(tone), background(), 0.45f);
     }

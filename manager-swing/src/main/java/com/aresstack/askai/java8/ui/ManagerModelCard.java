@@ -63,7 +63,7 @@ public final class ManagerModelCard extends JPanel {
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(ThemeColor.of("models.cardBorder")),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
-        // A running model is told apart by the GPU-bar green and its badge; installed models carry no badge.
+        // A running model is told apart by the progress-bar accent and its badge; installed models carry no badge.
         setBackground(running ? runningBackground() : ThemeColor.of("models.cardBackground"));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
 
@@ -86,7 +86,7 @@ public final class ManagerModelCard extends JPanel {
             JLabel status = new JLabel("RUNNING");
             status.setOpaque(true);
             status.setForeground(ThemeColor.of("bubble.userForeground"));
-            status.setBackground(ThemeColor.of("models.runningBadge"));
+            status.setBackground(com.aresstack.ollamamanager.swing.component.Theme.runningAccent());
             status.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
             right.add(status);
         }
@@ -109,10 +109,11 @@ public final class ManagerModelCard extends JPanel {
         add(right, BorderLayout.EAST);
     }
 
-    /** Card background of a running model: the same green the dashboard's GPU usage bar is filled with. */
+    /** Card background of a running model: the progress-bar accent washed towards the card background. */
     private static java.awt.Color runningBackground() {
-        return com.aresstack.ollamamanager.swing.component.Theme.meterFill(
-                com.aresstack.ollamamanager.swing.component.Theme.Tone.SUCCESS);
+        return com.aresstack.ollamamanager.swing.component.Theme.blend(
+                com.aresstack.ollamamanager.swing.component.Theme.runningAccent(),
+                ThemeColor.of("models.cardBackground"), 0.35f);
     }
 
     /** Enable or disable all action buttons, for example while another model operation runs. */
