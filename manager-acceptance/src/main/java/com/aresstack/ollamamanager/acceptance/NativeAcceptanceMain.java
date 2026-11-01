@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.acceptance;
 
 import com.aresstack.ollamamanager.application.common.CancellationToken;
+import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
@@ -296,7 +297,7 @@ public final class NativeAcceptanceMain {
     private void install() throws Exception {
         PortableDistributionInstaller installer = PortableDistributionInstaller.defaults();
         PortableInstallationService service = new PortableInstallationService(GitHubReleaseCatalog.defaults(),
-            installer, installRoot, runtime);
+            installer, installRoot, starter, new LifecycleLock());
         String version = System.getProperty("acceptance.ollamaVersion", "").trim();
         String rollbackVersion = System.getProperty("acceptance.rollbackVersion", "").trim();
         Set<DistributionPackage> base = EnumSet.of(DistributionPackage.BASE);
@@ -450,14 +451,14 @@ public final class NativeAcceptanceMain {
         ManagedServer server = startTestServer(installation);
         String version = api.version(testEndpoint, CancellationToken.none());
         report.pass("own server answers /api/version", "version=" + version + " endpoint=" + testEndpoint);
-        report.check(runtime.isInUse(installation), "runtime reports installation in use", installation.toString());
+        report.check(starter.isInUse(installation), "runtime reports installation in use", installation.toString());
         expectFailure("second start on same port is refused", ErrorKind.PORT_IN_USE,
             () -> starter.start(installation, testSettings(), CancellationToken.none()));
 
         runtime.stop(server, GRACE_MILLIS);
         report.check(!server.isAlive() && !reachable(testEndpoint), "stop own server",
             "exitCode=" + server.exitCode());
-        report.check(!runtime.isInUse(installation), "installation not in use after stop", installation.toString());
+        report.check(!starter.isInUse(installation), "installation not in use after stop", installation.toString());
 
         testServer = startTestServer(installation);
         report.check(reachable(testEndpoint), "restart own server", "endpoint=" + testEndpoint);
