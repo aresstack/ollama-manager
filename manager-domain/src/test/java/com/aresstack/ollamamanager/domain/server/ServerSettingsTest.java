@@ -17,17 +17,36 @@ import static org.junit.Assert.fail;
 public class ServerSettingsTest {
 
     @Test
-    public void defaultsBindToLoopbackAndLeaveEverythingElseUnset() {
+    public void defaultsSetNoEnvironmentVariable() {
         Map<String, String> environment = ServerSettings.defaults().toEnvironment();
 
-        assertEquals(Collections.singletonMap("OLLAMA_HOST", "127.0.0.1:11434"), environment);
+        assertTrue(environment.isEmpty());
         assertTrue(ServerSettings.defaults().bind().isLoopback());
+        assertFalse(ServerSettings.defaults().isChosen(ServerSettingCatalog.BIND));
         assertNull(ServerSettings.defaults().parallelism());
+    }
+
+    @Test
+    public void defaultChosenOnPurposeIsSet() {
+        ServerSettings settings = ServerSettings.defaults().with(ServerSettingCatalog.BIND, Endpoint.DEFAULT);
+
+        assertTrue(settings.isChosen(ServerSettingCatalog.BIND));
+        assertEquals(Collections.singletonMap("OLLAMA_HOST", "127.0.0.1:11434"), settings.toEnvironment());
+        assertEquals(ServerSettings.defaults(), settings);
+    }
+
+    @Test
+    public void resetToDefaultUnsetsTheVariableAgain() {
+        ServerSettings settings = ServerSettings.defaults().with(ServerSettingCatalog.BIND, new Endpoint("127.0.0.1",
+            11500)).with(ServerSettingCatalog.BIND, null);
+
+        assertTrue(settings.toEnvironment().isEmpty());
     }
 
     @Test
     public void mapsEverySettingToItsEnvironmentVariable() {
         ServerSettings settings = ServerSettings.defaults()
+            .with(ServerSettingCatalog.BIND, new Endpoint("127.0.0.1", 11500))
             .with(ServerSettingCatalog.PARALLELISM, 4)
             .with(ServerSettingCatalog.LOADED_MODELS, 2)
             .with(ServerSettingCatalog.QUEUE, 64)
@@ -47,6 +66,7 @@ public class ServerSettingsTest {
         assertEquals("1", environment.get("OLLAMA_FLASH_ATTENTION"));
         assertEquals("10m", environment.get("OLLAMA_KEEP_ALIVE"));
         assertEquals(new File("/models").getAbsolutePath(), environment.get("OLLAMA_MODELS"));
+        assertEquals("127.0.0.1:11500", environment.get("OLLAMA_HOST"));
         assertEquals(9, environment.size());
     }
 

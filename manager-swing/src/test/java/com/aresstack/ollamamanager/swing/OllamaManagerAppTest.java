@@ -19,11 +19,11 @@ public class OllamaManagerAppTest {
     public TemporaryFolder folder = new TemporaryFolder();
 
     @Test
-    public void smokeReportShowsLoopbackDefault() {
+    public void smokeReportSetsNoVariableByDefault() {
         String report = OllamaManagerApp.smokeTestReport();
 
         assertTrue(report.startsWith("Ollama Manager smoke test OK"));
-        assertTrue(report.contains("OLLAMA_HOST=127.0.0.1:11434"));
+        assertTrue(report.contains("default environment={}"));
     }
 
     @Test

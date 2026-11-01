@@ -85,7 +85,7 @@ public class ProcessOllamaRuntimeTest {
         assertEquals(Arrays.asList(new File(binaryDirectory, "ollama").getAbsolutePath(), "serve"), builder.command());
         assertEquals(binaryDirectory, builder.directory());
         assertEquals("2", builder.environment().get("OLLAMA_NUM_PARALLEL"));
-        assertEquals("127.0.0.1:11434", builder.environment().get("OLLAMA_HOST"));
+        assertFalse(builder.environment().containsKey("OLLAMA_HOST"));
         assertTrue(server.isAlive());
         assertEquals(settings, server.appliedSettings());
         assertEquals(1, runtime.runningCount());
