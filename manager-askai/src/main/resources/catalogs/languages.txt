@@ -1,0 +1,4977 @@
+# HuggingFace language catalog: code | Display — bundled OFFLINE FALLBACK snapshot generated from
+# https://huggingface.co/api/models-tags-by-type (complete, not curated). Primary source is live;
+# this file is only used when live and cache are both unavailable. Regenerate by re-fetching.
+
+en|English
+zh|Chinese
+fr|French
+es|Spanish
+de|German
+ja|Japanese
+ko|Korean
+pt|Portuguese
+it|Italian
+ru|Russian
+ar|Arabic
+hi|Hindi
+th|Thai
+multilingual|multilingual
+tr|Turkish
+vi|Vietnamese
+id|Indonesian
+pl|Polish
+nl|Dutch
+sv|Swedish
+uk|Ukrainian
+ro|Romanian
+fi|Finnish
+fa|Persian
+cs|Czech
+bn|Bengali
+da|Danish
+el|Greek
+he|Hebrew
+ms|Malay
+ne|Nepali
+hu|Hungarian
+ta|Tamil
+ur|Urdu
+bg|Bulgarian
+te|Telugu
+ca|Catalan
+no|Norwegian
+sw|Swahili
+mr|Marathi
+sl|Slovenian
+sk|Slovak
+sr|Serbian
+et|Estonian
+gu|Gujarati
+lt|Lithuanian
+hr|Croatian
+lv|Latvian
+my|Burmese
+ml|Malayalam
+is|Icelandic
+gl|Galician
+pa|Panjabi
+tl|Tagalog
+kn|Kannada
+km|Khmer
+fra|French
+eu|Basque
+kk|Kazakh
+af|Afrikaans
+am|Amharic
+ka|Georgian
+mn|Mongolian
+ha|Hausa
+lo|Lao
+as|Assamese
+hy|Armenian
+cy|Welsh
+mk|Macedonian
+si|Sinhala
+be|Belarusian
+yo|Yoruba
+az|Azerbaijani
+uz|Uzbek
+sq|Albanian
+bs|Bosnian
+ga|Irish
+mt|Maltese
+sd|Sindhi
+jv|Javanese
+sa|Sanskrit
+eng|English
+so|Somali
+la|Latin
+su|Sundanese
+ps|Pashto
+mg|Malagasy
+sn|Shona
+spa|Spanish
+or|Oriya
+yi|Yiddish
+xh|Xhosa
+ht|Haitian
+por|Portuguese
+deu|German
+nn|Norwegian Nynorsk
+lb|Luxembourgish
+code|code
+ky|Kyrgyz
+br|Breton
+ln|Lingala
+bo|Tibetan
+ig|Igbo
+eo|Esperanto
+mi|Māori
+ita|Italian
+oc|Occitan
+tg|Tajik
+jpn|Japanese
+rus|Russian
+vie|Vietnamese
+zu|Zulu
+tha|Thai
+zho|Chinese
+kor|Korean
+tt|Tatar
+ba|Bashkir
+ku|Kurdish
+ug|Uyghur
+ara|Arabic
+fo|Faroese
+nb|Norwegian Bokmål
+gd|Scottish Gaelic
+lg|Ganda
+fy|Western Frisian
+tk|Turkmen
+ny|Chichewa
+unk|Enawené-Nawé
+wo|Wolof
+rw|Kinyarwanda
+aa|Afar
+ceb|Cebuano
+haw|Hawaiian
+om|Oromo
+yue|Yue Chinese
+qu|Quechua
+dv|Divehi
+tn|Tswana
+nso|Pedi
+ak|Akan
+st|Southern Sotho
+bm|Bambara
+tw|Twi
+gn|Guaraní
+ks|Kashmiri
+mai|Maithili
+ti|Tigrinya
+jw|jw
+rn|Kirundi
+fil|Filipino
+ts|Tsonga
+ab|Abkhaz
+ast|Asturian
+mni|Manipuri
+fon|Fon
+sm|Samoan
+ee|Ewe
+ki|Kikuyu
+lus|Lushai
+war|Waray (Philippines)
+rm|Romansh
+ff|Fula
+ckb|Central Kurdish
+sat|Santali
+bho|Bhojpuri
+co|Corsican
+sc|Sardinian
+ilo|Iloko
+kg|Kongo
+ss|Swati
+cv|Chuvash
+scn|Sicilian
+fj|Fijian
+luo|Luo (Kenya and Tanzania)
+ary|Moroccan Arabic
+an|Aragonese
+tum|Tumbuka
+sg|Sango
+kea|Kabuverdianu
+pcm|Nigerian Pidgin
+dyu|Dyula
+pap|Papiamento
+cjk|Chokwe
+brx|Bodo (India)
+gv|Manx
+min|Minangkabau
+arz|Egyptian Arabic
+kab|Kabyle
+pag|Pangasinan
+umb|Umbundu
+dz|Dzongkha
+ltg|Latgalian
+hne|Chhattisgarhi
+ban|Balinese
+os|Ossetian
+kam|Kamba (Kenya)
+mag|Magahi
+ae|Avestan
+lua|Luba-Lulua
+quy|Ayacucho Quechua
+li|Limburgish
+ydd|Eastern Yiddish
+av|Avaric
+nld|Dutch
+awa|Awadhi
+vec|Venetian
+lij|Ligurian
+bi|Bislama
+ch|Chamorro
+bug|Buginese
+kj|Kwanyama
+ce|Chechen
+mar|Marathi
+kw|Cornish
+kmb|Kimbundu
+ace|Achinese
+kbp|Kabiyè
+gom|Goan Konkani
+arb|Standard Arabic
+crh|Crimean Tatar
+mos|Mossi
+tpi|Tok Pisin
+ay|Aymara
+kmr|Northern Kurdish
+sah|Yakut
+shn|Shan
+myv|Erzya
+bem|Bemba (Zambia)
+ory|Odia
+aeb|Tunisian Arabic
+iso|Isoko
+kaa|Kara-Kalpak
+kbd|Kabardian
+npi|Nepali (individual language)
+kac|Kachin
+grc|Ancient Greek (to 1453)
+bjn|Banjar
+ces|Czech
+ind|Indonesian
+plt|Plateau Malagasy
+se|Northern Sami
+mh|Marshallese
+ia|Interlingua
+pbt|Southern Pashto
+swh|Swahili (individual language)
+uzn|Northern Uzbek
+apc|Levantine Arabic
+skr|Saraiki
+bas|Basa (Cameroon)
+mrj|Western Mari
+ars|Najdi Arabic
+tur|Turkish
+acm|Mesopotamian Arabic
+fuv|Nigerian Fulfulde
+jp|jp
+mdf|Moksha
+pol|Polish
+tcy|Tulu
+lvs|Standard Latvian
+bew|Betawi
+cnh|Hakha Chin
+swe|Swedish
+lu|Luba-Katanga
+fur|Friulian
+dan|Danish
+hun|Hungarian
+lmo|Lombard
+ve|Venda
+gbm|Garhwali
+dje|Zarma
+ell|Modern Greek (1453-)
+bci|Baoulé
+ady|Adyghe
+to|Tonga
+kv|Komi
+hmn|Hmong
+tzm|Central Atlas Tamazight
+doi|Dogri (macrolanguage)
+twu|Termanu
+zza|Zaza
+trp|Kok Borok
+kl|Kalaallisut
+szl|Silesian
+ffm|Maasina Fulfulde
+amu|Guerrero Amuzgo
+pms|Piemontese
+hil|Hiligaynon
+nyu|Nyungwe
+gsw|Swiss German
+bum|Bulu (Cameroon)
+sh|sh
+fas|Persian
+hin|Hindi
+crs|Seselwa Creole French
+wa|Walloon
+taq|Tamasheq
+mqy|Manggarai
+qup|Southern Pastaza Quechua
+hsb|Upper Sorbian
+qvi|Imbabura Highland Quichua
+ho|Hiri Motu
+nr|Southern Ndebele
+ksd|Kuanua
+meu|Motu
+ibb|Ibibio
+gui|Eastern Bolivian Guaraní
+mfe|Morisyen
+kha|Khasi
+srn|Sranan Tongo
+fin|Finnish
+za|Zhuang
+bel|Belarusian
+tdx|Tandroy-Mahafaly Malagasy
+new|Newari
+ach|Acoli
+nob|Norwegian Bokmål
+pis|Pijin
+sco|Scots
+nv|Navajo
+nus|Nuer
+iu|Inuktitut
+mtr|Mewari
+als|Tosk Albanian
+ukr|Ukrainian
+bgp|Eastern Balochi
+noe|Nimadi
+nan|Min Nan Chinese
+ron|Romanian
+hz|Herero
+hau|Hausa
+slk|Slovak
+srp|Serbian
+bjj|Kanauji
+gil|Gilbertese
+wal|Wolaytta
+ben|Bengali
+ng|Ndonga
+cat|Catalan
+heb|Hebrew
+urd|Urdu
+fip|Fipa
+aze|Azerbaijani
+kok|Konkani (macrolanguage)
+kat|Georgian
+cn|cn
+ik|Inupiaq
+bul|Bulgarian
+tam|Tamil
+tiv|Tiv
+tll|Tetela
+prs|Dari
+mkd|Macedonian
+pam|Pampanga
+dik|Southwestern Dinka
+tvl|Tuvalu
+glg|Galician
+tel|Telugu
+afr|Afrikaans
+lit|Lithuanian
+yor|Yoruba
+zsm|Standard Malay
+guj|Gujarati
+hif|Fiji Hindi
+snd|Sindhi
+udm|Udmurt
+azb|South Azerbaijani
+isl|Icelandic
+azj|North Azerbaijani
+knc|Central Kanuri
+kri|Krio
+khm|Khmer
+tig|Tigre
+amh|Amharic
+jav|Javanese
+nap|Neapolitan
+slv|Slovenian
+oj|Ojibwe
+zne|Zande (individual language)
+kaz|Kazakh
+pan|Panjabi
+cbk|Chavacano
+hye|Armenian
+som|Somali
+zgh|Standard Moroccan Tamazight
+mal|Malayalam
+tet|Tetum
+gaz|West Central Oromo
+eus|Basque
+jam|Jamaican Creole English
+tyv|Tuvinian
+iba|Iban
+pnb|Western Panjabi
+sun|Sundanese
+kan|Kannada
+mya|Burmese
+mad|Madurese
+ang|Old English (ca. 450-1100)
+pon|Pohnpeian
+yua|Yucateco
+kr|Kanuri
+khk|Halh Mongolian
+syl|Sylheti
+frp|Arpitan
+teo|Teso
+arn|Mapudungun
+gor|Gorontalo
+krj|Kinaray-A
+mrw|Maranao
+anp|Angika
+dtp|Kadazan Dusun
+djk|Eastern Maroon Creole
+cym|Welsh
+hrv|Croatian
+lao|Lao
+tgk|Tajik
+mak|Makasar
+sin|Sinhala
+stq|Saterfriesisch
+srm|Saramaccan
+zul|Zulu
+ext|Extremaduran
+lrc|Northern Luri
+mlt|Maltese
+ayr|Central Aymara
+btx|Batak Karo
+bts|Batak Simalungun
+nia|Nias
+bzj|Belize Kriol English
+sda|Toraja-Sa'dan
+trv|Sediq
+nds|Low German
+asm|Assamese
+mhr|Eastern Mari
+cu|Old Church Slavonic
+mas|Masai
+acf|Saint Lucian Creole French
+dag|Dagbani
+bos|Bosnian
+krc|Karachay-Balkar
+pes|Iranian Persian
+mnw|Mon
+mbt|Matigsalug Manobo
+sxn|Sangir
+ify|Keley-I Kallahan
+vot|Votic
+gle|Irish
+nno|Norwegian Nynorsk
+xal|Kalmyk
+din|Dinka
+tlh|Klingon
+bh|Bihari
+tok|Toki Pona
+pck|Paite Chin
+pau|Palauan
+xho|Xhosa
+ppk|Uma
+nij|Ngaju
+bar|Bavarian
+ber|ber
+rup|Macedo-Romanian
+bbj|Ghomálá'
+nnb|Nande
+alt|Southern Altai
+io|Ido
+est|Estonian
+hat|Haitian
+nep|Nepali (macrolanguage)
+rom|Romany
+kjh|Khakas
+zle|zle
+sna|Shona
+chm|Mari (Russia)
+nzi|Nzima
+ann|Obolo
+tat|Tatar
+gag|Gagauz
+ibo|Igbo
+msm|Agusan Manobo
+chk|Chuukese
+yap|Yapese
+chr|Cherokee
+lat|Latin
+lug|Ganda
+kum|Kumyk
+seh|Sena
+tuc|Mutu
+cce|Chopi
+hvn|Sabu
+nmz|Nawdm
+xmf|Mingrelian
+quc|K'iche'
+bik|Bikol
+syr|Syriac
+bbc|Batak Toba
+nog|Nogai
+aln|Gheg Albanian
+ttj|Tooro
+bru|Eastern Bru
+tzo|Tzotzil
+ltz|Luxembourgish
+acq|Ta'izzi-Adeni Arabic
+cfm|Falam Chin
+dru|Rukai
+hla|Halia
+lcm|Tungag
+mek|Mekeo
+snc|Sinaugoro
+sps|Saposa
+vo|Volapük
+fry|Western Frisian
+tgl|Tagalog
+guc|Wayuu
+tbz|Ditammari
+sus|Susu
+alz|Alur
+bim|Bimoba
+gur|Farefare
+mam|Mam
+jvn|Caribbean Javanese
+kln|Kalenjin
+tay|Atayal
+koi|Komi-Permyak
+kek|Kekchí
+cak|Kaqchikel
+ajp|ajp
+ada|Adangme
+rcf|Réunion Creole French
+tab|Tabassaran
+bqc|Boko (Benin)
+spp|Supyire Senoufo
+gej|Gen
+kdh|Tem
+nnh|Ngiemboon
+tpz|Tinputz
+bcl|Central Bikol
+ngu|Guerrero Nahuatl
+cab|Garifuna
+pwn|Paiwan
+bus|Bokobaru
+adh|Adhola
+arq|Algerian Arabic
+wes|Cameroon Pidgin
+mon|Mongolian
+otq|Querétaro Otomi
+ktu|Kituba (Democratic Republic of Congo)
+bba|Baatonum
+bfd|Bafut
+bmq|Bomu
+mer|Meru
+ns|ns
+san|Sanskrit
+vro|Võro
+maz|Central Mazahua
+nhe|Eastern Huasteca Nahuatl
+hus|Huastec
+cni|Asháninka
+fat|Fanti
+guz|Gusii
+koo|Konzo
+szy|Sakizaya
+dty|Dotyali
+mlg|Malagasy
+rmc|Carpathian Romani
+tzj|Tz'utujil
+laj|Lango (Uganda)
+ahk|Akha
+cac|Chuj
+cgg|Chiga
+fuf|Pular
+dar|Dargwa
+hui|Huli
+ium|Iu Mien
+gym|Ngäbere
+ubu|Umbu-Ungu
+tzh|Tzeltal
+cuk|San Blas Kuna
+rwo|Rawa
+toj|Tojolabal
+guh|Guahibo
+lhu|Lahu
+ctu|Chol
+jac|Popti'
+taj|Eastern Tamang
+dwr|Dawro
+suz|Sunwar
+knj|Western Kanjobal
+gof|Gofa
+srr|Serer
+ewo|Ewondo
+lwg|Wanga
+nhg|Tetelcingo Nahuatl
+tuv|Turkana
+xmv|Antankarana Malagasy
+ttr|Tera
+bua|Buriat
+mgh|Makhuwa-Meetto
+kos|Kosraean
+ksw|S'gaw Karen
+tsc|Tswa
+akb|Batak Angkola
+smt|Simte
+xmm|Manado Malay
+chq|Quiotepec Chinantec
+kir|Kirghiz
+fan|Fang (Equatorial Guinea)
+trq|San Martín Itunyoso Triqui
+mkn|Kupang Malay
+izz|Izii
+gvl|Gulay
+cmn|Mandarin Chinese
+cut|Teutila Cuicatec
+cux|Tepeuxila Cuicatec
+idu|Idoma
+mau|Huautla Mazatec
+mig|San Miguel El Grande Mixtec
+mui|Musi
+nhi|Zacatlán-Ahuacatlán-Tepetzintla Nahuatl
+poe|San Juan Atzingo Popoloca
+yaq|Yaqui
+sot|Southern Sotho
+abs|Ambonese Malay
+ayp|North Mesopotamian Arabic
+bhp|Bima
+brh|Brahui
+dua|Duala
+pmq|Northern Pame
+qus|Santiago del Estero Quichua
+bak|Bashkir
+ajg|Aja (Benin)
+msa|Malay (macrolanguage)
+sja|Epena
+zap|Zapotec
+qub|Huallaga Huánuco Quechua
+shp|Shipibo-Conibo
+agr|Aguaruna
+abn|Abua
+byv|Medumba
+eto|Eton (Cameroon)
+etu|Ejagham
+fub|Adamawa Fulfulde
+fue|Borgu Fulfulde
+fuh|Western Niger Fulfulde
+fuq|Central-Eastern Niger Fulfulde
+gbr|Gbagyi
+gid|Gidar
+giz|South Giziga
+gya|Northwest Gbaya
+ikw|Ikwere
+ish|Esan
+kmy|Koma
+kqo|Eastern Krahn
+ksf|Bafia
+maf|Mafa
+mcn|Masana
+mse|Musey
+mua|Mundang
+mug|Musgu
+ndi|Samba Leko
+ogo|Khana
+shu|Chadian Arabic
+skg|Sakalava Malagasy
+tui|Tupuri
+tul|Tula
+pmy|Papuan Malay
+ie|Interlingue
+mps|Dadibi
+abt|Ambulas
+emp|Northern Emberá
+ape|Bukiyip
+enq|Enga
+tsg|Tausug
+quh|South Bolivian Quechua
+jiv|Shuar
+noa|Woun Meu
+gub|Guajajára
+tca|Ticuna
+miq|Mískito
+bgz|Banggai
+kwi|Awa-Cuaiquer
+efi|Efik
+guw|Gun
+ty|Tahitian
+nya|Nyanja
+bnn|Bunun
+keu|Akebu
+na|Nauru
+und|Undetermined
+cr|Cree
+inb|Inga
+qug|Chimborazo Highland Quichua
+iw|iw
+mri|Maori
+oci|Occitan (post 1500)
+qxr|Cañar Highland Quichua
+quf|Lambayeque Quechua
+qvz|Northern Pastaza Quichua
+qvc|Cajamarca Quechua
+msb|Masbatenyo
+aom|Ömie
+byx|Qaqet
+esu|Central Yupik
+mcf|Matsés
+mzl|Mazatlán Mixe
+roo|Rotokas
+sua|Sulka
+tar|Central Tarahumara
+tcf|Malinaltepec Me'phaa
+thv|Tahaggart Tamahaq
+var|Huarijio
+zpv|Chichicapan Zapotec
+ego|Eggon
+gos|Gronings
+gaa|Ga
+epo|Esperanto
+kpo|Ikposo
+nhn|Central Nahuatl
+uig|Uighur
+niq|Nandi
+afb|Gulf Arabic
+say|Saya
+nlv|Orizaba Nahuatl
+swa|Swahili (macrolanguage)
+gla|Scottish Gaelic
+pi|Pāli
+mey|Hassaniyya
+cpy|South Ucayali Ashéninka
+eko|Koti
+kto|Kuot
+ncx|Central Puebla Nahuatl
+prq|Ashéninka Perené
+qva|Ambo-Pasco Quechua
+bhb|Bhili
+ijc|Izon
+its|Isekiri
+xpe|Liberia Kpelle
+dav|Taita
+fuc|Pulaar
+hbb|Huba
+snk|Soninke
+nd|Northern Ndebele
+anc|Ngas
+bhr|Bara Malagasy
+mlq|Western Maninkakan
+nyn|Nyankole
+tyz|Tày
+rki|Rakhine
+gyn|Guyanese Creole English
+lir|Liberian English
+aal|Afade
+abr|Abron
+aec|Saidi Arabic
+afo|Eloyi
+ahl|Igo
+ahs|Ashe
+ala|Alago
+ank|Goemai
+anw|Anaang
+apd|Sudanese Arabic
+bag|Tuki
+bax|Bamun
+bbu|Kulung (Nigeria)
+bcs|Kohumono
+bcy|Bacama
+bda|Bayot
+bde|Bade
+bdm|Buduma
+bjt|Balanta-Ganja
+bkm|Kom (Cameroon)
+bky|Bokyi
+bmm|Northern Betsimisaraka Malagasy
+bqg|Bago-Kusuntu
+bri|Mokpwe
+bux|Boghom
+bwr|Bura-Pabir
+byc|Ubaghara
+bys|Burak
+bzw|Basa (Nigeria)
+ccg|Samba Daka
+cfa|Dijim-Bwilim
+ckl|Cibak
+cky|Cakfem-Mushere
+dbd|Dadiya
+deg|Degema
+dgh|Dghwede
+dzg|Dazaga
+ebr|Ebrié
+ebu|Embu
+ekr|Yace
+elm|Eleme
+ets|Yekhee
+eyo|Keiyo
+gby|Gbari
+gdf|Guduf-Gava
+glw|Glavda
+gol|Gola
+gyz|Geji
+hia|Lamang
+hwo|Hwana
+ida|Idakho-Isukha-Tiriki
+ijn|Kalabari
+juk|Wapan
+juo|Jiba
+kai|Karekare
+kaj|Jju
+kbl|Kanembu
+kcq|Kamo
+kna|Dera (Nigeria)
+lag|Rangi
+ldb|Dũya
+lla|Lala-Roba
+lnu|Longuda
+mdd|Mbum
+mde|Maba (Chad)
+mfm|Marghi South
+mfn|Cross River Mbembe
+mfo|Mbe
+mfv|Mandjak
+mgg|Mpumpong
+mhk|Mungaka
+mkf|Miya
+mrt|Marghi Central
+msh|Masikoro Malagasy
+msw|Mansoanka
+mxu|Mada (Cameroon)
+nbh|Ngamo
+ngi|Ngizim
+nja|Nzanyi
+odu|Odual
+orc|Orma
+pip|Pero
+piy|Piya-Kwonci
+pko|Pökoot
+rag|Logooli
+tan|Tangale
+tkg|Tesaka Malagasy
+tuq|Tedaga
+tuy|Tugen
+tvu|Tunen
+udl|Wuzlam
+vai|Vai
+ver|Mom Jango
+wci|Waci Gbe
+wja|Waja
+wji|Warji
+yay|Agwagwune
+yer|Tarok
+yes|Nyankpa
+bre|Breton
+msi|Sabah Malay
+luz|Southern Luri
+sjp|Surjapuri
+raj|Rajasthani
+kjg|Khmu
+nut|Nung (Viet Nam)
+max|North Moluccan Malay
+bns|Bundeli
+bra|Braj
+run|Rundi
+zxx|No linguistic content
+dov|Dombe
+meo|Kedah Malay
+prk|Parauk
+adx|Amdo Tibetan
+jmx|Western Juxtlahuaca Mixtec
+khg|Khams Tibetan
+pua|Western Highland Purepecha
+zoc|Copainalá Zoque
+hoj|Hadothi
+wof|Gambian Wolof
+toi|Tonga (Zambia)
+lzh|Literary Chinese
+kur|Kurdish
+pus|Pushto
+the|Chitwania Tharu
+bft|Balti
+btm|Batak Mandailing
+dcc|Deccan
+dgo|Dogri (individual language)
+hno|Northern Hindko
+itz|Itzá
+phr|Pahari-Potwari
+poc|Poqomam
+qxp|Puno Quechua
+sip|Sikkimese
+thr|Rana Tharu
+tlp|Filomena Mata-Coahuitlán Totonac
+mel|Central Melanau
+tks|Takestani
+aao|Algerian Saharan Arabic
+acw|Hijazi Arabic
+avl|Eastern Egyptian Bedawi Arabic
+bhh|Bukharic
+bjk|Barok
+bnm|Batanga
+bou|Bondei
+bsh|Kati
+bsk|Burushaski
+buo|Terei
+cte|Tepinapa Chinantec
+ctl|Tlacoatzintepec Chinantec
+ggg|Gurgula
+gig|Goaria
+gjk|Kachi Koli
+gju|Gujari
+gwt|Gawar-Bati
+hah|Hahon
+haz|Hazaragi
+hkk|Hunjara-Kaina Ke
+hue|San Francisco Del Mar Huave
+hul|Hula
+hux|Nüpode Huitoto
+jns|Jaunsari
+jqr|Jaqaru
+kfe|Kota (India)
+kfk|Kinnauri
+kfp|Korwa
+khw|Khowar
+kjc|Coastal Konjo
+kls|Kalasha
+knn|Konkani (individual language)
+kol|Kol (Papua New Guinea)
+kuh|Kushi
+kvx|Parkari Koli
+kxp|Wadiyara Koli
+loa|Loloda
+lrk|Loarki
+mab|Yutanduchi Mixtec
+mbo|Mbo (Cameroon)
+mgi|Lijili
+miu|Cacaloxtepec Mixtec
+mki|Dhatki
+mne|Naba
+mrr|Maria (India)
+mtu|Tututepec Mixtec
+mve|Marwari (Pakistan)
+mxs|Huitepec Mixtec
+mxy|Southeastern Nochixtlán Mixtec
+nal|Nalik
+ncf|Notsi
+nco|Sibe
+odk|Od
+oru|Ormuri
+pbs|Central Pame
+pbu|Northern Pashto
+pex|Petats
+phl|Phalura
+plk|Kohistani Shina
+pow|San Felipe Otlaltepec Popoloca
+pst|Central Pashto
+qum|Sipacapense
+quv|Sacapulteco
+qux|Yauyos Quechua
+qvj|Loja Highland Quichua
+qwa|Corongo Ancash Quechua
+qws|Sihuas Ancash Quechua
+qxa|Chiquián Ancash Quechua
+qxu|Arequipa-La Unión Quechua
+sau|Saleman
+sbn|Sindhi Bhil
+scl|Shina
+sei|Seri
+siw|Siwai
+sjr|Siar-Lak
+sol|Solos
+src|Logudorese Sardinian
+sro|Campidanese Sardinian
+ssi|Sansi
+tbf|Mandara
+tdn|Tondano
+tgc|Tigak
+thq|Kochila Tharu
+tio|Teop
+tkt|Kathoriya Tharu
+tli|Tlingit
+tpl|Tlacoapa Me'phaa
+txy|Tanosy Malagasy
+uki|Kui (India)
+vmc|Juxtlahuaca Mixtec
+vmj|Ixtayutla Mixtec
+vmm|Mitlatongo Mixtec
+vmp|Soyaltepec Mazatec
+vmz|Mazatlán Mazatec
+wbl|Wakhi
+weo|Wemale
+xmw|Tsimihety Malagasy
+xti|Sinicahua Mixtec
+ydg|Yidgha
+zoh|Chimalapa Zoque
+zpy|Mazaltepec Zapotec
+ztg|Xanaguía Zapotec
+ztp|Loxicha Zapotec
+zts|Tilquiapan Zapotec
+zhs|zhs
+zht|zht
+twi|Twi
+fmp|Fe'fe'
+nla|Ngombale
+ii|Nuosu
+uzs|Southern Uzbek
+ges|Geser-Gorom
+nhq|Huaxcaleca Nahuatl
+niu|Niuean
+wol|Wolof
+aae|Arbëreshë Albanian
+abb|Bankon
+abv|Baharna Arabic
+acx|Omani Arabic
+adf|Dhofari Arabic
+aju|Judeo-Moroccan Arabic
+alo|Larike-Wakasihu
+awo|Awak
+ayl|Libyan Arabic
+bbl|Bats
+bce|Bamenyam
+beb|Bebele
+bkh|Bakoko
+bsj|Bangwinji
+btv|Bateri
+bxf|Bilur
+bzc|Southern Betsimisaraka Malagasy
+cen|Cen
+ckr|Kairak
+dmk|Domaaki
+dml|Dameli
+eiv|Askopan
+fia|Nobiin
+fkk|Kirya-Konzəl
+fui|Bagirmi Fulfulde
+gcc|Mali
+gsl|Gusilay
+gwc|Gawri
+gwe|Gweno
+hao|Hakö
+hem|Hemba
+itw|Ito
+jal|Yalahatan
+jgo|Ngomba
+kbt|Abadi
+kjk|Highland Konjo
+kwm|Kwambi
+kyx|Rapoisi
+lkb|Kabras
+lss|Lasi
+lto|Tsotso
+mcx|Mpiemo
+mtx|Tidaá Mixtec
+mvy|Indus Kohistani
+nmg|Kwasio
+qur|Yanahuanca Pasco Quechua
+qvl|Cajatambo North Lima Quechua
+qxt|Santa Ana de Tusi Pasco Quechua
+qxw|Jauja Wanca Quechua
+rob|Tae'
+rof|Rombo
+rth|Ratahan
+ste|Liana-Seti
+sva|Svan
+tqp|Tomoip
+trw|Torwali
+ttu|Torau
+tvo|Tidore
+txs|Tonsea
+ush|Ushojo
+xhe|Khetrani
+xka|Kalkoti
+xtu|Cuyamecalco Mixtec
+yav|Yangben
+zga|Kinga
+zor|Rayón Zoque
+ztn|Santa Catarina Albarradas Zapotec
+ztu|Güilá Zapotec
+loz|Lozi
+bpy|Bishnupriya
+tsn|Tswana
+bam|Bambara
+lue|Luvale
+gmq|gmq
+hbo|Ancient Hebrew
+smo|Samoan
+kqn|Kaonde
+kin|Kinyarwanda
+hbs|Serbo-Croatian
+lad|Ladino
+lin|Lingala
+ewe|Ewe
+dna|Upper Grand Valley Dani
+chv|Chuvash
+cop|Coptic
+orv|Old Russian
+kik|Kikuyu
+shi|Tachelhit
+itc|itc
+zea|Zeeuws
+gcf|Guadeloupean Creole French
+mwl|Mirandese
+lld|Ladin
+inc|inc
+rnd|Ruund
+hrx|Hunsrik
+ksh|Kölsch
+hyw|Western Armenian
+kas|Kashmiri
+smn|Inari Sami
+swc|Congo Swahili
+dsb|Lower Sorbian
+vls|Vlaams
+fro|Old French (842-ca. 1400)
+rmy|Vlax Romani
+glk|Gilaki
+pfl|Pfaelzisch
+frr|Northern Frisian
+ami|Amis
+enm|Middle English (1100-1500)
+roa|roa
+arg|Aragonese
+obo|Obo Manobo
+rhg|Rohingya
+pdc|Pennsylvania German
+in|in
+sma|Southern Sami
+hwc|Hawai'i Creole English
+ota|Ottoman Turkish (1500-1928)
+swg|Swabian
+cos|Corsican
+rue|Rusyn
+mnb|Muna
+nor|Norwegian
+hns|Caribbean Hindustani
+non|Old Norse
+xog|Soga
+lav|Latvian
+icr|Islander Creole English
+arc|Official Aramaic (700-300 BCE)
+kwy|San Salvador Kongo
+krl|Karelian
+mhy|Ma'anyan
+syc|Classical Syriac
+ain|Ainu (Japan)
+sme|Northern Sami
+lgg|Lugbara
+myx|Masaaba
+rna|rna
+diq|Dimli (individual language)
+fkv|Kven Finnish
+mbb|Western Bukidnon Manobo
+mog|Mongondow
+mta|Cotabato Manobo
+sgw|Sebat Bet Gurage
+tbl|Tboli
+csb|Kashubian
+lez|Lezghian
+mzn|Mazanderani
+tcs|Torres Strait Creole
+tir|Tigrinya
+tly|Talysh
+fao|Faroese
+pcd|Picard
+uzb|Uzbek
+aoz|Uab Meto
+ljp|Lampung Api
+rop|Kriol
+sml|Central Sama
+lun|Lunda
+nyk|Nyaneka
+sqi|Albanian
+vep|Veps
+got|Gothic
+cgc|Kagayanen
+ckt|Chukot
+ekk|Standard Estonian
+liv|Liv
+prg|Prussian
+rej|Rejang
+tuk|Turkmen
+nah|nah
+hch|Huichol
+btd|Batak Dairi
+dga|Southern Dagaare
+mwv|Mentawai
+nyo|Nyoro
+sas|Sasak
+gmw|gmw
+mbf|Baba Malay
+mul|Multiple languages
+sgs|Samogitian
+dig|Digo
+lew|Ledo Kaili
+lnd|Lundayeh
+mvp|Duri
+nqo|N'Ko
+ssw|Swati
+wbm|Wa
+bzs|Brazilian Sign Language
+bxr|Russia Buriat
+che|Chechen
+hig|Kamwe
+bth|Biatah Bidayuh
+frm|Middle French (ca. 1400-1600)
+kru|Kurukh
+pne|Western Penan
+vmw|Makhuwa
+gde|Gude
+gnd|Zulgo-Gemzek
+gwr|Gwere
+irk|Iraqw
+ker|Kera
+kqp|Kimré
+ktb|Kambaata
+kxc|Konso
+lln|Lele (Chad)
+mfh|Matal
+mfi|Wandala
+mfk|North Mofu
+mhi|Ma'di
+mpg|Marba
+muy|Muyang
+nuj|Nyole
+nyf|Giryama
+pbi|Parkwa
+sid|Sidamo
+suk|Sukuma
+sur|Mwaghavul
+tlj|Talinga-Bwisi
+tmc|Tumak
+xed|Hdi
+lm|lm
+bat|bat
+bod|Tibetan
+adj|Adioukrou
+kus|Kusaal
+pnt|Pontic
+tkl|Tokelau
+kwn|Kwangali
+wls|Wallisian
+egl|Emilian
+hak|Hakka Chinese
+aai|Arifama-Miniafia
+aia|Arosi
+alp|Alune
+amk|Ambai
+apr|Arop-Lokep
+aui|Anuki
+bmk|Ghayavi
+bnp|Bola
+buk|Bugawac
+bzh|Mapos Buang
+dad|Marik
+dob|Dobu
+drt|Drents
+dww|Dawawa
+far|Fataleka
+frd|Fordata
+gfk|Patpatar
+hot|Hote
+ife|Ifè
+kbm|Iwal
+khz|Keapara
+kje|Kisar
+kqf|Kakabai
+kqw|Kandas
+kud|'Auhelawa
+kwf|Kwara'ae
+leu|Kara (Papua New Guinea)
+lex|Luang
+mmx|Madak
+mox|Molima
+mpx|Misima-Panaeati
+mva|Manam
+mwc|Are
+myw|Muyuw
+mzz|Maiadomu
+nak|Nakanai
+nwi|Southwest Tanna
+pwg|Gapapaiwa
+rai|Ramoaaina
+rro|Waima
+rug|Roviana
+ses|Koyraboro Senni Songhai
+sgz|Sursurunga
+swp|Suau
+tbc|Takia
+tbo|Tawala
+tgo|Sudest
+tgp|Tangoa
+tpa|Taupota
+tso|Tsonga
+tte|Bwanabwana
+ubr|Ubir
+viv|Iduna
+wed|Wedau
+wuv|Wuvulu-Aua
+yaz|Lokaa
+yml|Iamalele
+lou|Louisiana Creole
+lah|Lahnda
+afa|afa
+fiu|fiu
+bal|Baluchi
+gug|Paraguayan Guaraní
+rif|Tarifit
+xsm|Kasem
+ven|Venda
+grn|Guarani
+chi|chi
+agn|Agutaynen
+alj|Alangan
+atq|Aralle-Tabulahan
+bcw|Bana
+bhz|Bada (Indonesia)
+bku|Buhid
+blz|Balantak
+bpr|Koronadal Blaan
+bps|Sarangani Blaan
+bss|Akoose
+cmo|Central Mnong
+ctd|Tedim Chin
+daa|Dangaléat
+dop|Lukpa
+dug|Duruma
+gog|Gogo
+hnn|Hanunoo
+ifa|Amganad Ifugao
+ifb|Batad Ifugao
+ifk|Tuwali Ifugao
+ifu|Mayoyao Ifugao
+iry|Iraya
+itv|Itawit
+jmc|Machame
+jun|Juang
+kkj|Kako
+kne|Kankanaey
+kqe|Kalagan
+ksb|Shambala
+kxm|Northern Khmer
+kzf|Da'a Kaili
+lbe|Lak
+lem|Nomaande
+maw|Mampruli
+mcp|Makaa
+mif|Mofu-Gudur
+mqj|Mamasa
+nim|Nilamba
+npy|Napu
+nyy|Nyakyusa-Ngonde
+old|Mochi
+ozm|Koonzime
+pih|Pitcairn-Norfolk
+pkb|Pokomo
+plw|Brooke's Point Palawano
+pmf|Pamona
+prf|Paranan
+ptu|Bambam
+rim|Nyaturu
+sbl|Botolan Sambal
+sgb|Mag-antsi Ayta
+sxb|Suba
+thk|Tharaka
+vun|Vunjo
+wmw|Mwani
+xon|Konkomba
+xsb|Sambal
+zls|zls
+zlw|zlw
+div|Dhivehi
+orm|Oromo
+akl|Aklanon
+emi|Mussau-Emira
+grt|Garo
+inh|Ingush
+kdj|Karamojong
+kpg|Kapingamarangi
+lfn|Lingua Franca Nova
+lid|Nyindrou
+mee|Mengen
+mmo|Mangga Buang
+mna|Mbula
+nsn|Nehan
+nss|Nali
+ptp|Patep
+shy|Tachawit
+stn|Owa
+uvl|Lote
+xsi|Sio
+ud|ud
+ase|American Sign Language
+ido|Ido
+jbo|Lojban
+vol|Volapük
+kjb|Q'anjob'al
+acd|Gikyode
+akp|Siwu
+avn|Avatime
+biv|Southern Birifor
+bom|Berom
+bov|Tuwuli
+bud|Ntcham
+bwu|Buli (Ghana)
+jpa|Jewish Palestinian Aramaic
+keo|Kakwa
+lef|Lelemi
+lip|Sekpele
+mfq|Moba
+moh|Mohawk
+mww|Hmong Daw
+mzw|Deg
+nbl|South Ndebele
+ncu|Chumburung
+nde|North Ndebele
+ntr|Delo
+rap|Rapanui
+sig|Paasaal
+sil|Tumulung Sisaala
+snw|Selee
+tem|Timne
+tmr|Jewish Babylonian Aramaic (ca. 200-1200 CE)
+tpm|Tampulma
+trs|Chicahuaxtla Triqui
+vag|Vagla
+zom|Zou
+bto|Rinconada Bikol
+osp|Old Spanish
+sem|sem
+urj|urj
+glv|Manx
+ina|Interlingua (International Auxiliary Language Association)
+myk|Mamara Senoufo
+meq|Merey
+mqb|Mbuko
+naq|Khoekhoe
+ndo|Ndonga
+pov|Upper Guinea Crioulo
+sag|Sango
+smk|Bolinao
+toh|Gitonga
+hre|Hre
+mo|mo
+yid|Yiddish
+smj|Lule Sami
+abi|Abidji
+abk|Abkhazian
+ade|Adele
+anv|Denya
+bfo|Malba Birifor
+bib|Bissa
+bkv|Bekwarra
+blh|Kuwaa
+bmv|Bum
+box|Buamu
+bqj|Bandial
+btt|Bete-Bendi
+cko|Anufo
+cme|Cerma
+cnw|Ngawn Chin
+csk|Jola-Kasa
+csy|Siyin Chin
+czt|Zotung Chin
+dak|Dakota
+dgi|Northern Dagara
+dyi|Djimini Senoufo
+dyo|Jola-Fonyi
+ess|Central Siberian Yupik
+fal|South Fali
+gcr|Guianese Creole French
+gkn|Gokana
+gng|Ngangam
+gud|Yocoboué Dida
+gux|Gourmanchéma
+hag|Hanga
+hay|Haya
+heh|Hehe
+iri|Rigwe
+izr|Izere
+jbu|Jukun Takum
+kdl|Tsikimba
+ken|Kenyang
+kez|Kukele
+kia|Kim
+kub|Kutep
+kyf|Kouya
+lia|West-Central Limba
+lob|Lobi
+mcu|Cameroon Mambila
+mda|Mada (Nigeria)
+men|Mende (Sierra Leone)
+mfy|Mayo
+mgo|Meta'
+mnf|Mundani
+mor|Moro
+muh|Mündü
+mzk|Nigeria Mambila
+mzm|Mumuye
+nfr|Nafaanra
+nhu|Noone
+nin|Ninzo
+nnw|Southern Nuni
+nwb|Nyabwa
+oku|Oku
+sld|Sissala
+soy|Miyobe
+tik|Tikar
+trc|Copala Triqui
+urh|Urhobo
+wob|Wè Northern
+xrb|Eastern Karaboro
+yam|Yamba
+yrl|Nhengatu
+oar|Old Aramaic (up to 700 BCE)
+ofs|Old Frisian
+phn|Phoenician
+wae|Walser
+lim|Limburgan
+srd|Sardinian
+ton|Tonga (Tonga Islands)
+bzd|Bribri
+bbo|Northern Bobo Madaré
+dng|Dungan
+dsh|Daasanach
+dzo|Dzongkha
+her|Herero
+ktj|Plapo Krumen
+kua|Kuanyama
+ldn|Láadan
+lsm|Saamia
+tpw|tpw
+tzl|Talossan
+wlx|Wali (Ghana)
+chu|Church Slavic
+ava|Avaric
+oss|Ossetian
+roh|Romansh
+azz|Highland Puebla Nahuatl
+aka|Akan
+avu|Avokaya
+bex|Jur Modo
+bwq|Southern Bobo Madaré
+dnj|Dan
+fij|Fijian
+izh|Ingrian
+jdt|Judeo-Tat
+kal|Kalaallisut
+kao|Xaasongaxango
+knk|Kuranko
+kno|Kono (Sierra Leone)
+kpz|Kupsabiny
+kyq|Kenga
+lok|Loko
+luc|Aringa
+mic|Mi'kmaq
+mwm|Sar
+myb|Mbay
+neb|Toura (Côte d'Ivoire)
+sba|Ngambay
+sbd|Southern Samo
+shk|Shilluk
+udu|Uduk
+yal|Yalunka
+gem|gem
+iir|iir
+ine|ine
+sla|sla
+aii|Assyrian Neo-Aramaic
+bbk|Babanki
+cwe|Kwere
+diu|Diriku
+dks|Southeastern Dinka
+hae|Eastern Oromo
+jaa|Jamamadí
+kdc|Kutu
+kki|Kagulu
+ktz|Juǀʼhoan
+mfg|Mogofin
+mnk|Mandinka
+nst|Tase Naga
+pmx|Poumei Naga
+rel|Rendille
+sgc|Kipsigis
+twx|Tewe
+wwa|Waama
+byn|Bilin
+lme|Pévé
+tmh|Tamashek
+nrm|Narom
+olo|Livvi
+gmh|Middle High German (ca. 1050-1500)
+atg|Ivbie North-Okpela-Arhe
+bav|Vengo
+ccp|Chakma
+crk|Plains Cree
+hnj|Hmong Njua
+ixl|Ixil
+kpv|Komi-Zyrian
+lee|Lyélé
+ndz|Ndogo
+njm|Angami Naga
+njo|Ao Naga
+njz|Nyishi
+ood|Tohono O'odham
+pot|Potawatomi
+quz|Cusco Quechua
+sgh|Shughni
+tsw|Tsishingini
+usp|Uspanteco
+zam|Miahuatlán Zapotec
+pal|Pahlavi
+wuu|Wu Chinese
+big|Biangai
+acr|Achi
+apu|Apurinã
+atj|Atikamekw
+avk|Kotava
+eve|Even
+gjn|Gonja
+kiu|Kirmanjki (individual language)
+law|Lauje
+mgm|Mambae
+mjw|Karbi
+nbu|Rongmei Naga
+nov|Novial
+nri|Chokri Naga
+poh|Poqomchi'
+ttc|Tektiteko
+twb|Western Tawbuid
+wbp|Warlpiri
+tlx|Khehek
+luy|Luyia
+zai|Isthmus Zapotec
+pse|Central Malay
+aau|Abau
+acn|Achang
+aeu|Akeu
+aey|Amele
+agd|Agarabi
+agu|Aguacateco
+akh|Angal Heneng
+alq|Algonquin
+ame|Yanesha'
+aso|Dano
+auy|Awiyaana
+awb|Awa (Papua New Guinea)
+azg|San Pedro Amuzgos Amuzgo
+bbr|Girawa
+bdq|Bahnar
+bef|Benabena
+bgr|Bawm Chin
+bhl|Bimin
+bjr|Binumarien
+bmu|Somba-Siawari
+caa|Chortí
+cco|Comaltepec Chinantec
+chf|Tabasco Chontal
+cjo|Ashéninka Pajonal
+cjv|Chuave
+cle|Lealao Chinantec
+cmr|Mro-Khimi Chin
+cnl|Lalana Chinantec
+cnt|Tepetotutla Chinantec
+cpa|Palantla Chinantec
+crn|El Nayar Cora
+crx|Carrier
+cso|Sochiapam Chinantec
+cta|Tataltepec Chatino
+ctp|Western Highland Chatino
+cuc|Usila Chinantec
+cui|Cuiba
+cya|Nopala Chatino
+fai|Faiwol
+for|Fore
+gah|Alekano
+gaw|Nobonob
+ghs|Guhu-Samane
+guo|Guayabero
+gvf|Golin
+gwi|Gwichʼin
+gyr|Guarayu
+hac|Gurani
+hoc|Ho
+ign|Ignaciano
+ike|Eastern Canadian Inuktitut
+imo|Imbongu
+ino|Inoke-Yate
+kgk|Kaiwá
+kjs|East Kewa
+kle|Kulung (Nepal)
+kmh|Kalam
+kmo|Kwoma
+kmu|Kanite
+kpr|Korafe-Yegha
+kpw|Kobon
+kue|Kuman (Papua New Guinea)
+kvn|Border Kuna
+kyc|Kyaka
+kyg|Keyagana
+lac|Lacandon
+lif|Limbu
+lmk|Lamkang
+lsi|Lashi
+maa|San Jerónimo Tecóatl Mazatec
+mah|Marshallese
+maj|Jalapa De Díaz Mazatec
+med|Melpa
+mhl|Mauwake
+mhx|Maru
+mib|Atatláhuca Mixtec
+mie|Ocotepec Mixtec
+mih|Chayuco Mixtec
+mil|Peñoles Mixtec
+mio|Pinotepa Nacional Mixtec
+mit|Southern Puebla Mixtec
+miy|Ayutla Mixtec
+miz|Coatzospan Mixtec
+mjc|San Juan Colorado Mixtec
+mks|Silacayoapan Mixtec
+moa|Mwan
+mop|Mopán Maya
+mpm|Yosondúa Mixtec
+mpt|Mian
+mus|Creek
+mxb|Tezoatlán Mixtec
+mxt|Jamiltepec Mixtec
+nas|Naasioi
+ncj|Northern Puebla Nahuatl
+ncl|Michoacán Nahuatl
+nhw|Western Huasteca Nahuatl
+nhx|Isthmus-Mecayapan Nahuatl
+nhy|Northern Oaxaca Nahuatl
+nii|Nii
+njn|Liangmai Naga
+nmf|Tangkhul Naga (India)
+not|Nomatsiguenga
+nou|Ewage-Notu
+npl|Southeastern Puebla Nahuatl
+nrf|Jèrriais
+ntp|Northern Tepehuan
+nuy|Nunggubuyu
+nzm|Zeme Naga
+okv|Orokaiva
+opm|Oksapmin
+ote|Mezquital Otomi
+otm|Eastern Highland Otomi
+pab|Parecís
+pad|Paumarí
+pao|Northern Paiute
+pib|Yine
+pio|Piapoco
+pls|San Marcos Tlacoyalco Popoloca
+pww|Pwo Northern Karen
+rav|Sampang
+rjs|Rajbanshi
+sab|Buglere
+sck|Sadri
+sdh|Southern Kurdish
+snp|Siane
+srq|Sirionó
+ssx|Samberigi
+stp|Southeastern Tepehuan
+tac|Lowland Tarahumara
+ter|Tereno
+tfr|Teribe
+tlb|Tobelo
+tlf|Telefol
+trn|Trinitario
+tuf|Central Tunebo
+usa|Usarufa
+wap|Wapishana
+wmt|Walmajarri
+wnc|Wantoat
+wsk|Waskia
+xsr|Sherpa
+xtd|Diuxi-Tilantongo Mixtec
+xtm|Magdalena Peñasco Mixtec
+ycn|Yucuna
+yon|Yongkom
+zia|Zia
+zyp|Zyphe Chin
+xcl|Classical Armenian
+bnt|bnt
+mkh|mkh
+pqw|pqw
+sms|Skolt Sami
+adi|Adi
+aim|Aimol
+any|Anyin
+apt|Apatani
+atb|Zaiwa
+bin|Bini
+bis|Bislama
+biu|Biete
+bwi|Baniwa
+chw|Chuwabu
+cjp|Cabécar
+crj|Southern East Cree
+cwt|Kuwaataay
+dln|Darlong
+dnw|Western Dani
+enl|Enlhet
+gmv|Gamo
+gnb|Gangte
+hmr|Hmar
+ibg|Ibanag
+ikt|Inuinnaqtun
+ivv|Ivatan
+kak|Kalanguya
+kcg|Tyap
+kei|Kei
+kgp|Kaingang
+kma|Konni
+kss|Southern Kisi
+kyu|Western Kayah
+lam|Lamba
+las|Lama (Togo)
+lis|Lisu
+lki|Laki
+lub|Luba-Katanga
+mip|Apasco-Apoala Mixtec
+mns|Mansi
+mph|Maung
+mtg|Una
+mup|Malvi
+mwf|Murrinh-Patha
+myu|Mundurukú
+naw|Nawuri
+nba|Nyemba
+nch|Central Huasteca Nahuatl
+ndc|Ndau
+ngl|Lomwe
+nko|Nkonya
+ojb|Northwestern Ojibwa
+pui|Puinave
+pxm|Quetzaltepec Mixe
+qul|North Bolivian Quechua
+raw|Rawang
+ria|Riang (India)
+rml|Baltic Romani
+rmn|Balkan Romani
+rnl|Ranglong
+rtm|Rotuman
+sfw|Sehwi
+sop|Songe
+tcz|Thado Chin
+thl|Dangaura Tharu
+tog|Tonga (Nyasa)
+top|Papantla Totonac
+vap|Vaiphei
+way|Wayana
+xuo|Kuo
+yao|Yao
+ybb|Yemba
+bep|Besoa
+txa|Tombonuo
+may|may
+taw|Tai
+maq|Chiquihuitlán Mazatec
+kog|Cogui
+ful|Fulah
+ddn|Dendi (Benin)
+meh|Southwestern Tlaxiaco Mixtec
+tob|Toba
+otk|Old Turkish
+mvf|Peripheral Mongolian
+cel|cel
+vn|vn
+py|py
+aha|Ahanta
+amf|Hamer-Banna
+ati|Attié
+awx|Awara
+bdh|Baka (South Sudan)
+beq|Beembe
+bjv|Bedjond
+bmh|Kein
+boj|Anjam
+bqp|Busa
+bsc|Bassari
+bsp|Baga Sitemu
+bsq|Bassa
+cha|Chamorro
+chz|Ozumacín Chinantec
+cok|Santa Teresa Cora
+cot|Caquinte
+cou|Wamey
+cpu|Pichis Ashéninka
+dah|Gwahatike
+ded|Dedua
+dhm|Zemba
+did|Didinga
+dos|Dogosé
+dow|Doyayo
+dts|Toro So Dogon
+dur|Dii
+eka|Ekajuk
+enb|Markweeta
+eza|Ezaa
+gbo|Northern Grebo
+gna|Kaansa
+goa|Guro
+goh|Old High German (ca. 750-1050)
+gqr|Gor
+guk|Gumuz
+hav|Havu
+ige|Igede
+ikk|Ika
+iou|Tuma-Irumu
+ipi|Ipili
+iqw|Ikwo
+kbo|Keliko
+kbr|Kafa
+kby|Manga Kanuri
+kca|Khanty
+kck|Kalanga
+kde|Makonde
+kdi|Kumam
+kew|West Kewa
+kgf|Kube
+kmg|Kâte
+knf|Mankanya
+kng|Koongo
+kny|Kanyok
+kpf|Komba
+kqs|Northern Kissi
+kqy|Koorete
+krx|Karon
+ksp|Kaba
+ksr|Borong
+kuj|Kuria
+kvj|Psikye
+lai|Lambya
+ldi|Laari
+lgm|Lega-Mwenga
+lmp|Limbum
+log|Logo
+lol|Mongo
+lom|Loma (Liberia)
+loq|Lobala
+lud|Ludian
+lwo|Luwo
+mcb|Machiguenga
+mck|Mbunda
+mdy|Male (Ethiopia)
+mev|Mano
+mfz|Mabaan
+mgc|Morokodo
+mhw|Mbukushu
+mkl|Mokole
+mlh|Mape
+mlp|Bargam
+msc|Sankaran Maninka
+mur|Murle
+mux|Bo-Ung
+mwn|Nyamwanga
+naf|Nabak
+nca|Iyo
+ngc|Ngombe (Democratic Republic of Congo)
+nhr|Naro
+nif|Nek
+niy|Ngiti
+nop|Numanggang
+npo|Pochuri Naga
+nsu|Sierra Negra Nahuatl
+nxd|Ngando (Democratic Republic of Congo)
+nza|Tigon Mbembe
+omw|South Tairora
+otn|Tenango Otomi
+oto|oto
+pbl|Mak (Nigeria)
+pem|Phende
+pfe|Pere
+pny|Pinyin
+ruf|Luguru
+sbs|Subiya
+sju|Ume Sami
+sll|Salt-Yui
+snf|Noon
+soe|Songomeno
+spl|Selepet
+spy|Sabaot
+ssd|Siroi
+sue|Suena
+swb|Maore Comorian
+swk|Malawi Sena
+tcc|Datooga
+ted|Tepo Krumen
+tim|Timbe
+tke|Takwane
+tnr|Ménik
+tod|Toma
+ttq|Tawallammat Tamajaq
+uth|ut-Hun
+vmk|Makhuwa-Shirima
+vmy|Ayautla Mazatec
+vut|Vute
+waj|Waffa
+wib|Southern Toussian
+wnu|Usan
+yby|Yaweyuha
+yli|Angguruk Yali
+yom|Yombe
+yut|Yopno
+yuw|Yau (Morobe Province)
+zdj|Ngazidja Comorian
+bfa|Bari
+laa|Southern Subanen
+mvv|Tagal Murut
+ngt|Kriang
+pai|Pe
+fw|fw
+wln|Walloon
+abq|Abaza
+agx|Aghul
+ajz|Amri Karbi
+bvy|Baybayanon
+cjs|Shor
+crl|Northern East Cree
+csw|Swampy Cree
+fit|Tornedalen Finnish
+fmu|Far Western Muria
+gul|Sea Island Creole English
+kdr|Karaim
+kzj|kzj
+led|Lendu
+mzh|Wichí Lhamtés Güisnay
+nio|Nganasan
+nse|Nsenga
+otw|Ottawa
+pps|San Luís Temalacayuca Popoloca
+sdc|Sassarese Sardinian
+tkr|Tsakhur
+wba|Warao
+whk|Wahau Kenyah
+wsg|Adilabad Gondi
+yrk|Nenets
+nag|Naga Pidgin
+kau|Kanuri
+kcn|Nubi
+aav|aav
+cpp|cpp
+dra|dra
+phi|phi
+poz|poz
+trk|trk
+nav|Navajo
+dk|dk
+gvc|Guanano
+jra|Jarai
+pbb|Páez
+kbh|Camsá
+blk|Pa'o Karen
+mgr|Mambwe-Lungu
+nnp|Wancho Naga
+nre|Southern Rengma Naga
+oke|Okpe (Southwestern Edo)
+qve|Eastern Apurímac Quechua
+beh|Biali
+ntm|Nateni
+pyu|Puyuma
+tao|Yami
+tsu|Tsou
+mnc|Manchu
+cor|Cornish
+gr|gr
+tav|Tatuyo
+bzi|Bisu
+chd|Highland Oaxaca Chontal
+mim|Alacatlatzala Mixtec
+cbv|Cacua
+anm|Anal
+arp|Arapaho
+bhw|Biak
+dgc|Casiguran Dumagat Agta
+gun|Mbyá Guaraní
+gvn|Kuku-Yalanji
+kix|Khiamniungan Naga
+kmm|Kom (India)
+lzz|Laz
+nbc|Chang Naga
+nbe|Konyak Naga
+njb|Nocte Naga
+nma|Maram Naga
+nmh|Monsang Naga
+nmo|Moyon Naga
+nng|Maring Naga
+nph|Phom Naga
+nsa|Sangtam Naga
+nsm|Sumi Naga
+rub|Gungu
+sjo|Xibe
+tah|Tahitian
+tos|Highland Totonac
+tro|Tarao Naga
+urb|Urubú-Kaapor
+yim|Yimchungru Naga
+igl|Igala
+nup|Nupe-Nupe-Tako
+map|map
+all|Allar
+eml|eml
+aaz|Amarasi
+aba|Abé
+abz|Abui
+aca|Achagua
+acu|Achuar-Shiwiar
+adl|Galo
+adz|Adzera
+agg|Angor
+agt|Central Cagayan Agta
+agw|Kahua
+aji|Ajië
+ake|Akawaio
+aly|Alyawarr
+amm|Ama (Papua New Guinea)
+amn|Amanab
+amr|Amarakaeri
+aoi|Anindilyakwa
+aoj|Mufian
+apb|Sa'a
+apn|Apinayé
+apw|Western Apache
+apy|Apalaí
+apz|Safeyoka
+are|Western Arrarnta
+arl|Arabela
+ata|Pele-Ata
+atd|Ata Manobo
+att|Pamplona Atta
+auc|Waorani
+avt|Au
+ayo|Ayoreo
+bao|Waimaha
+bbb|Barai
+bco|Kaluli
+bdd|Bunama
+bea|Beaver
+bgs|Tagabawa
+bgt|Bughotu
+bhg|Binandere
+bjp|Fanamaket
+bkd|Binukid
+bkl|Berik
+bkq|Bakairí
+bla|Siksika
+blt|Tai Dam
+blw|Balangao
+bmr|Muinane
+bno|Bantoanon
+boa|Bora
+bon|Bine
+bor|Borôro
+bsn|Barasana-Eduria
+bvc|Baelelea
+bvd|Baeggu
+bvr|Burarra
+bvz|Bauzi
+bwd|Bwaidoka
+bxh|Buhutu
+caf|Southern Carrier
+cag|Nivaclé
+cao|Chácobo
+cap|Chipaya
+caq|Car Nicobarese
+car|Galibi Carib
+cas|Tsimané
+cav|Cavineña
+cax|Chiquitano
+cbc|Carapana
+cbi|Chachi
+cbr|Cashibo-Cacataibo
+cbs|Cashinahua
+cbt|Chayahuita
+cbu|Candoshi-Shapra
+ceg|Chamacoco
+cek|Eastern Khumi Chin
+chj|Ojitlán Chinantec
+cho|Choctaw
+clu|Caluyanun
+cly|Eastern Highland Chatino
+cnk|Khumi Chin
+cof|Colorado
+con|Cofán
+crt|Iyojwa'ja Chorote
+cto|Emberá-Catío
+cub|Cubeo
+cul|Culina
+ddg|Fataluku
+dgr|Dogrib
+dgz|Daga
+dhg|Dhangu-Djangu
+dhv|Dehu
+dis|Dimasa
+djr|Djambarrpuyngu
+drg|Rungus
+dtb|Labuk-Kinabatangan Kadazan
+due|Umiray Dumaget Agta
+enx|Enxet
+ese|Ese Ejja
+esi|North Alaskan Inupiatun
+esk|Northwest Alaska Inupiatun
+etr|Edolo
+faa|Fasu
+gai|Borei
+gbi|Galela
+gdn|Umanakaina
+gdr|Wipi
+geb|Kire
+gnn|Gumatj
+gnw|Western Bolivian Guaraní
+gum|Guambiano
+guq|Aché
+guu|Yanomamö
+heg|Helong
+hix|Hixkaryána
+hmo|Hiri Motu
+hop|Hopi
+hra|Hrangkhol
+hto|Minica Huitoto
+hub|Huambisa
+huv|San Mateo Del Mar Huave
+ian|Iatmul
+ilb|Ila
+isd|Isnag
+ivb|Ibatan
+iws|Sepik Iwam
+jic|Tol
+kaq|Capanahua
+kbc|Kadiwéu
+kbq|Kamano
+kff|Koya
+kgr|Abun
+khs|Kasua
+kij|Kilivila
+kkc|Odoodee
+klv|Maskelynes
+kmk|Limos Kalinga
+kms|Kamasau
+knv|Tabo
+knx|Kendayan
+kpj|Karajá
+kpq|Korupun-Sela
+kpx|Mountain Koiali
+kqc|Doromu-Koki
+kql|Kyenele
+ksj|Uare
+ktm|Kurti
+kup|Kunimaipa
+kvg|Kuni-Boazi
+kwd|Kwaio
+kwj|Kwanga
+kxw|Konai
+kyz|Kayabí
+lbj|Ladakhi
+lbk|Central Bontok
+lcp|Western Lawa
+leh|Lenje
+lgl|Wala
+lhi|Lahu Shi
+llg|Lole
+loe|Saluan
+mav|Sateré-Mawé
+mbc|Macushi
+mbd|Dibabawon Manobo
+mbh|Mangseng
+mbi|Ilianen Manobo
+mbj|Nadëb
+mbl|Maxakalí
+mbs|Sarangani Manobo
+mca|Maca
+mcd|Sharanahua
+mco|Coatlán Mixe
+mcq|Ese
+mej|Meyah
+mir|Isthmus Mixe
+mkz|Makasae
+mlu|To'abaita
+mmn|Mamanwa
+mnx|Manikion
+moc|Mocoví
+mrg|Mising
+mrq|North Marquesan
+msk|Mansaka
+msy|Aruamu
+mti|Maiwa (Papua New Guinea)
+mto|Totontepec Mixe
+mtp|Wichí Lhamtés Nocten
+mvn|Minaveha
+mwp|Kala Lagaw Ya
+mwq|Mün Chin
+mxp|Tlahuitoltepec Mixe
+mxq|Juquila Mixe
+mxv|Metlatónoc Mixtec
+myy|Macuna
+mza|Santa María Zacatepec Mixtec
+nab|Southern Nambikuára
+nbq|Nggem
+ncq|Northern Katang
+ndh|Ndali
+nfa|Dhao
+ngb|Northern Ngbandi
+nhd|Chiripá
+nlg|Gela
+nod|Northern Thai
+ntu|Natügu
+omb|East Ambae
+ong|Olo
+otd|Ot Danum
+ots|Estado de México Otomi
+oym|Wayampi
+pah|Tenharim
+pbc|Patamona
+pdt|Plautdietsch
+pir|Piratapuyo
+pjt|Pitjantjatjara
+plg|Pilagá
+plu|Palikúr
+pma|Paama
+poi|Highland Popoluca
+pos|Sayula Popoluca
+poy|Pogolo
+ppl|Pipil
+ppo|Folopa
+pri|Paicî
+pss|Kaulong
+quw|Tena Lowland Quichua
+qvm|Margos-Yarowilca-Lauricocha Quechua
+qvn|North Junín Quechua
+qvo|Napo Lowland Quechua
+qvs|San Martín Quechua
+qvw|Huaylla Wanca Quechua
+qwh|Huaylas Ancash Quechua
+qxl|Salasaca Highland Quichua
+qxn|Northern Conchucos Ancash Quechua
+rad|Rade
+rar|Rarotongan
+rgu|Ringgou
+rmo|Sinte Romani
+rmq|Caló
+row|Dela-Oenale
+sbe|Saliba
+sby|Soli
+sdo|Bukar-Sadung Bidayuh
+sdq|Semandang
+sey|Secoya
+shs|Shuswap
+snn|Siona
+sny|Saniyo-Hiyewe
+soq|Kanasi
+spm|Akukem
+syb|Central Subanen
+tap|Taabwa
+tbg|North Tairora
+tbk|Calamian Tagbanwa
+tby|Tabaru
+tee|Huehuetla Tepehua
+tew|Tewa (USA)
+tif|Tifal
+tiy|Tiruray
+tku|Upper Necaxa Totonac
+tmd|Haruai
+tna|Tacana
+tnc|Tanimuca-Retuarã
+tnk|Kwamera
+tnn|North Tanna
+tnp|Whitesands
+toc|Coyutla Totonac
+too|Xicotepec De Juárez Totonac
+tpp|Pisaflores Tepehua
+tqo|Toaripi
+tsz|Purepecha
+tts|Northeastern Thai
+tue|Tuyuca
+tuo|Tucano
+tvk|Southeast Ambrym
+txq|Tii
+txu|Kayapó
+upv|Uripiv-Wala-Rano-Atchin
+ura|Urarina
+uri|Urim
+urk|Urak Lawoi'
+urt|Urat
+ury|Orya
+wat|Kaninuwa
+wew|Wejewa
+whg|North Wahgi
+wim|Wik-Mungkan
+wiu|Wiru
+wlv|Wichí Lhamtés Vejoz
+wrk|Garrwa
+wrs|Waris
+xav|Xavánte
+xbi|Kombio
+xbr|Kambera
+xla|Kamula
+xsu|Sanumá
+xtn|Northern Tlaxiaco Mixtec
+yaa|Yaminahua
+yad|Yagua
+yan|Mayangna
+yka|Yakan
+yle|Yele
+yrb|Yareba
+yre|Yaouré
+yss|Yessan-Mayo
+yuj|Karkar-Yuri
+yup|Yukpa
+yuz|Yuracare
+yva|Yawa
+zaa|Sierra de Juárez Zapotec
+zab|Western Tlacolula Valley Zapotec
+zac|Ocotlán Zapotec
+zad|Cajonos Zapotec
+zae|Yareni Zapotec
+zao|Ozolotepec Zapotec
+zar|Rincón Zapotec
+zas|Santo Domingo Albarradas Zapotec
+zat|Tabaa Zapotec
+zav|Yatzachi Zapotec
+zaw|Mitla Zapotec
+zca|Coatecas Altas Zapotec
+ziw|Zigula
+zos|Francisco León Zoque
+zpa|Lachiguiri Zapotec
+zpc|Choapan Zapotec
+zpg|Guevea De Humboldt Zapotec
+zpj|Quiavicuzas Zapotec
+zpl|Lachixío Zapotec
+zpm|Mixtepec Zapotec
+zpo|Amatlán Zapotec
+zpq|Zoogocho Zapotec
+zpu|Yalálag Zapotec
+zpz|Texmelucan Zapotec
+ztq|Quioquitani-Quierí Zapotec
+zty|Yatee Zapotec
+zyb|Yongbei Zhuang
+chy|Cheyenne
+mgd|Moru
+ile|Interlingue
+que|Quechua
+po|po
+lkt|Lakota
+mix|Mixtepec Mixtec
+kdn|Kunda
+lon|Malawi Lomwe
+xsy|Saisiyat
+ckv|Kavalan
+ssf|Thao
+sxr|Saaroa
+xnb|Kanakanabu
+kh|kh
+alv|alv
+pqe|pqe
+cnr|Montenegrin
+sp|sp
+cz|cz
+sql|sql
+btg|Gagnoa Bété
+hlt|Matu Chin
+kon|Kongo
+nlc|Nalca
+szb|Ngalum
+bxk|Bukusu
+cay|Cayuga
+per|per
+ori|Oriya (macrolanguage)
+ymr|Malasar
+aak|Ankave
+abx|Inabaknon
+aby|Aneme Wake
+aer|Eastern Arrernte
+afh|Afrihili
+agm|Angaataha
+amp|Alamblak
+amx|Anmatyerre
+asg|Cishingini
+bch|Bariai
+byr|Baruya
+bzt|Brithenig
+coe|Koreguaje
+cpb|Ucayali-Yurúa Ashéninka
+cpc|Ajyíninka Apurucayali
+crm|Moose Cree
+daf|daf
+des|Desano
+duo|Dupaninan Agta
+dws|Dutton World Speedwords
+ebk|Eastern Bontok
+eri|Ogea
+fad|Wagi
+fud|East Futuna
+gam|Kandawo
+gdg|Ga'dang
+gso|Southwest Gbaya
+huu|Murui Huitoto
+jae|Yabem
+kkl|Kosarek Yale
+klt|Nukna
+kpe|Kpelle
+ksc|Southern Kalinga
+kze|Kosena
+lap|Laka (Chad)
+lbb|Label
+llb|Lolo
+lut|Lushootseed
+lww|Lewo
+met|Mato
+mny|Manyawa
+mpp|Migabac
+mrv|Mangareva
+nct|Chothe Naga
+ndj|Ndamba
+ngp|Ngulu
+nhk|Isthmus-Cosoleacaque Nahuatl
+nho|Takuu
+nkf|Inpui Naga
+nmw|Nimoa
+nnl|Northern Rengma Naga
+nnq|Ngindo
+nvm|Namiae
+nwx|Middle Newar
+ons|Ono
+phm|Phimbi
+qvh|Huamalíes-Dos de Mayo Huánuco Quechua
+qxh|Panao Huánuco Quechua
+qxo|Southern Conchucos Ancash Quechua
+qya|Quenya
+rkb|Rikbaktsa
+rme|Angloromani
+rng|Ronga
+sim|Mende (Papua New Guinea)
+sjn|Sindarin
+sri|Siriano
+ssg|Seimat
+suc|Western Subanon
+tbw|Tagbanwa
+tih|Timugon Murut
+tpt|Tlachichilco Tepehua
+urw|Sop
+uvh|Uri
+vid|Vidunda
+wer|Weri
+wos|Hanga Hundi
+xnn|Northern Kankanay
+yat|Yambeta
+zpi|Santa María Quiegolani Zapotec
+zpt|San Vicente Coatlán Zapotec
+zsr|Southern Rincon Zapotec
+aar|Afar
+tyj|Tai Do
+tdt|Tetun Dili
+cdo|Min Dong Chinese
+kom|Komi
+ge|ge
+ma|ma
+dza|Tunzu
+dni|Lower Grand Valley Dani
+ycl|Lolopo
+us|us
+ruc|Ruuli
+rwm|Amba (Uganda)
+aym|Aymara
+gez|Geez
+ald|Alladian
+bmb|Bembe
+dip|Northeastern Dinka
+gkp|Guinea Kpelle
+gxx|Wè Southern
+kdp|Kaningdon-Nindem
+khq|Koyra Chiini Songhay
+khy|Kele (Democratic Republic of Congo)
+lch|Luchazi
+lea|Lega-Shabunda
+ndp|Ndo
+ndy|Lutos
+nka|Nkoya
+nzb|Njebi
+shr|Shi
+ikx|Ik
+mkw|Kituba (Congo)
+mnh|Mono (Democratic Republic of Congo)
+mnr|Mono (USA)
+egy|Egyptian (Ancient)
+aed|Argentine Sign Language
+cpf|cpf
+csn|Colombian Sign Language
+cus|cus
+euq|euq
+grk|grk
+jap|jap
+nic|nic
+sal|sal
+kz|kz
+tc|tc
+sax|Sa
+pyt|pyt
+kel|Kela (Democratic Republic of Congo)
+igs|Interglossa
+akk|Akkadian
+bej|Beja
+xnr|Kangri
+bxg|Bangala
+igb|Ebira
+mmc|Michoacán Mazahua
+nyi|Ama (Sudan)
+sen|Nanerigé Sénoufo
+tgj|Tagin
+wbf|Wara
+yns|Yansi
+sam|Samaritan Aramaic
+alb|alb
+smi|smi
+zhx|zhx
+ede|ede
+csg|Chilean Sign Language
+mfs|Mexican Sign Language
+prl|Peruvian Sign Language
+fse|Finnish Sign Language
+tu|tu
+nsy|Nasal
+bu|bu
+arr|Karo (Brazil)
+evn|Evenki
+np|np
+gpe|Ghanaian Pidgin English
+aab|Alumu-Tesu
+abo|Abon
+abu|Abure
+acz|Acheron
+add|Lidzonka
+adq|Adangbe
+ael|Ambele
+afe|Putukwam
+afu|Awutu
+agc|Agatu
+agh|Ngelima
+ags|Esimbi
+ahg|Qimant
+ahp|Aproumu Aizi
+aik|Ake
+aiw|Aari
+aks|Akaselem
+akw|Akwa
+alf|Alege
+alw|Alaba-K’abeena
+amb|Ambo
+amo|Amo
+anu|Anuak
+aqg|Arigidi
+arv|Arbore
+asa|Asu (Tanzania)
+ass|Ipulo
+ato|Atong (Cameroon)
+atu|Reel
+aug|Aguna
+avi|Avikam
+awn|Awngi
+ayb|Ayizo Gbe
+ayg|Ginyanga
+ayu|Ayu
+bab|Bainouk-Gunyuño
+bau|Bada (Nigeria)
+baw|Bambili-Bambui
+bbq|Bamali
+bbt|Mburku
+bbw|Baba
+bby|Befang
+bcg|Baga Pokur
+bcn|Bali (Nigeria)
+bcp|Bali (Democratic Republic of Congo)
+bcq|Bench
+bcv|Shoo-Minda-Nye
+bdi|Burun
+bdu|Oroko
+bec|Iceve-Maci
+bet|Guiberoua Béte
+bev|Daloa Bété
+bez|Bena (Tanzania)
+bfj|Bafanji
+bfm|Mmen
+bga|Gwamhi-Wuri
+bgf|Bangandu
+bgj|Bangolan
+bhs|Buwal
+bhy|Bhele
+bil|Bile
+bip|Bila
+biz|Baloi
+bjg|Bidyogo
+bji|Burji
+bka|Kyak
+bkc|Baka (Cameroon)
+bkg|Buraka
+bkw|Bekwel
+ble|Balanta-Kentohe
+bli|Bolia
+blm|Beli (South Sudan)
+blo|Anii
+bly|Notre
+bma|Lame
+bmd|Baga Manduri
+bmf|Bom-Kim
+bmi|Bagirmi
+bni|Bangi
+bnx|Bangubangu
+bob|Aweer
+bof|Bolon
+boh|Boma
+bol|Bole
+boo|Tiemacèwè Bozo
+bot|Bongo
+bqa|Tchumbuli
+bqo|Balo
+bqt|Bamukumbit
+bqv|Koro Wachi
+bqw|Buru (Nigeria)
+bqx|Baangi
+brf|Bira
+brt|Bitare
+bse|Wushi
+bsf|Bauchi
+bst|Basketo
+btu|Batu
+bub|Bua
+bui|Bongili
+bun|Sherbro
+buu|Budu
+buz|Bukwen
+bvh|Bure
+bvi|Belanda Viri
+bvm|Bamunka
+bvw|Boga
+bwo|Boro (Ethiopia)
+bww|Bwa
+bxb|Belanda Bor
+bxq|Beele
+bxs|Busam
+byj|Bina (Nigeria)
+byp|Bumaji
+bza|Bandi
+bze|Jenaama Bozo
+bzv|Naami
+bzy|Obanliku
+bzz|Evant
+cbj|Ede Cabe
+cch|Atsam
+cdr|Cinda-Regi-Tiyal
+cfd|Cara
+cfg|Como Karim
+cib|Ci Gbe
+ckx|Caka
+cla|Ron
+cli|Chakali
+cll|Chala
+cnq|Chung
+coh|Chonyi-Dzihana-Kauma
+cra|Chara
+cry|Cori
+cuv|Cuvok
+dai|Day
+das|Daho-Doo
+dbb|Deno
+dbi|Doka
+dbm|Duguri
+dbv|Dungu
+dde|Doondo
+dee|Dewoin
+dez|Dengese
+dgd|Dagaari Dioula
+dib|South Central Dinka
+dil|Dilling
+dim|Dime
+dio|Dibo
+dir|Dirim
+diw|Northwestern Dinka
+djm|Jamsay Dogon
+dkx|Mazagway
+dmo|Kemedzung
+dnn|Dzùùngoo
+doo|Dongo
+dot|Dass
+dox|Bussa
+doy|Dompo
+doz|Dorze
+dri|C'Lela
+drs|Gedeo
+dsq|Tadaksahak
+dtm|Tomo Kan Dogon
+dya|Dyan
+ebo|Teke-Ebo
+ega|Ega
+eja|Ejamat
+emk|Eastern Maninkakan
+emn|Eman
+enn|Engenni
+eot|Beti (Côte d'Ivoire)
+erh|Eruwa
+fak|Fang (Cameroon)
+fap|Paloor
+fie|Fyer
+fir|Firan
+fli|Fali
+fll|North Fali
+flr|Fuliiru
+fod|Foodo
+fvr|Fur
+fwe|Fwe
+gab|Gabri
+gax|Borana-Arsi-Guji Oromo
+gbg|Gbanziri
+gbh|Defi Gbe
+gdl|Dirasha
+gdu|Gudu
+gea|Geruma
+gec|Gboloo Grebo
+ged|Gade
+geg|Gengle
+gek|Ywom
+gel|ut-Ma'in
+ggb|Gbii
+ggu|Gagu
+ghl|Ghulfan
+gis|North Giziga
+glj|Gula Iro
+gnk|ǁGana
+gou|Gavar
+gow|Gorowa
+gpa|Gupa-Abawa
+gqa|Ga'anda
+grd|Guruntum-Mbaaru
+grh|Gbiri-Niragu
+grj|Southern Grebo
+gru|Kistane
+grv|Central Grebo
+gry|Barclayville Grebo
+gwd|Gawwada
+gwn|Gwandara
+haq|Ha
+hbn|Heiban
+hdy|Hadiyya
+hed|Herdé
+hio|Tsoa
+hmb|Humburi Senni Songhay
+hoe|Horom
+hoo|Holoholo
+hts|Hadza
+huc|ǂHua
+ica|Ede Ica
+ich|Etkywan
+ijj|Ede Ije
+ijs|Southeast Ijo
+iko|Olulumo-Ikom
+ior|Inor
+isi|Nkem-Nkum
+isn|Isanzu
+isu|Isu (Menchum Division)
+iyo|Mesaka
+iyx|Yaka (Congo)
+jab|Hyam
+jad|Jahanka
+jbm|Bijim
+jen|Dza
+jer|Jere
+jgk|Gwak
+jib|Jibu
+jid|Bu (Kaduna State)
+jit|Jita
+jku|Labir
+jle|Ngile
+jmb|Zumbun
+jmr|Kamara
+jms|Mashi (Nigeria)
+jni|Janji
+jnj|Yemsa
+jow|Jowulu
+jub|Wannu
+jum|Jumjum
+jwi|Jwira-Pepesa
+kad|Adara
+kbj|Kari
+kbz|Duhwa
+kcc|Lubila
+kce|Kaivi
+kch|Vono
+kci|Kamantan
+kcr|Katla
+kcv|Kete
+kcx|Kachama-Ganjule
+kdm|Kagoma
+kdu|Kadaru
+kdx|Kam
+kdz|Kwaja
+kef|Kpessi
+kfo|Koro (Côte d'Ivoire)
+kfz|Koromfé
+kga|Koyaga
+kgo|Krongo
+khj|Kuturmi
+kib|Koalib
+kid|Koshin
+kie|Kibet
+kil|Kariya
+kks|Giiwo
+kku|Tumi
+klk|Kono (Nigeria)
+klo|Kapya
+klu|Klao
+kmi|Kami (Nigeria)
+kmp|Gimme
+kmq|Kwama
+kmw|Komo (Democratic Republic of Congo)
+kni|Kanufi
+knp|Kwanja
+knu|Kono (Guinea)
+knz|Kalamsé
+koe|Kacipo-Bale Suri
+kot|Lagwan
+kow|Kugama
+kpa|Kutto
+kph|Kplang
+kpk|Kpan
+kpl|Kpala
+kqm|Khisa
+krn|Sapo
+krw|Western Krahn
+ksm|Kumba
+ktc|Kholok
+ktf|Kwami
+kty|Kango (Bas-Uélé District)
+kul|Kulere
+kun|Kunama
+kvf|Kabalai
+kvi|Kwang
+kvm|Kendem
+kwb|Kwa
+kwc|Likwala
+kwg|Sara Kaba Deme
+kwl|Kofyar
+kwu|Kwakum
+kwv|Sara Kaba Náà
+kxb|Krobu
+kxh|Karo (Ethiopia)
+kxj|Kulfa
+kxx|Likuba
+kye|Krache
+kza|Western Karaboro
+kzc|Bondoukou Kulango
+kzr|Karang
+lan|Laru
+lar|Larteh
+ldg|Lenyima
+ldj|Lemoro
+ldl|Kaan
+ldm|Landoma
+ldp|Tso
+ldq|Lufu
+lel|Lele (Democratic Republic of Congo)
+les|Lese
+lgq|Logba
+lig|Ligbi
+liq|Libido
+liu|Logorik
+liz|Libinza
+lkr|Päri
+lky|Lokoya
+llc|Lele (Guinea)
+lma|East Limba
+lmd|Lumun
+lmx|Laimbue
+lns|Lamnso'
+loh|Laarim
+lop|Lopa
+lor|Téén
+lot|Otuho
+lri|Marachi
+lrm|Marama
+lro|Laro
+lse|Lusengo
+luj|Luna
+lul|Olu'bo
+lyn|Luyana
+mbu|Mbula-Bwazza
+mbv|Mbulungish
+mcs|Mambai
+mct|Mengisa
+mcw|Mawa (Chad)
+mdj|Mangbetu
+mdk|Mangbutu
+mdm|Mayogo
+mdt|Mbere
+mdu|Mboko
+mea|Menka
+mfc|Mba
+mfd|Mendankwe-Nkwen
+mfl|Putai
+mgb|Mararit
+mgw|Matumbi
+mho|Mashi (Zambia)
+mij|Abar
+mjs|Miship
+mkk|Byep
+mku|Konyanka Maninka
+mlk|Ilwana
+mls|Masalit
+mlw|Moloko
+mma|Mama
+mmz|Mabaale
+moi|Mboi
+moz|Mukulu
+mpe|Majang
+mql|Mbelime
+mqu|Mandari
+mtb|Anyin Morofo
+mtk|Mbe'
+muo|Nyong
+muz|Mursi
+mvz|Mesqan
+mxh|Mvuba
+mxl|Maxi Gbe
+mxx|Mahou
+mye|Myene
+mym|Me'en
+mzb|Tumzabt
+mzj|Manya
+naj|Nalu
+nar|Iguta
+nat|Ca̱hungwa̱rya̱
+nbb|Ndoe
+nbm|Ngbaka Ma'bo
+nbp|Nnam
+nbr|Numana
+nbv|Ngamambo
+ncr|Ncane
+ndb|Kenswei Nsei
+ndd|Nde-Nsele-Nta
+ndm|Ndam
+ndr|Ndoola
+ndu|Dugun
+ndv|Ndut
+nfd|Ahwai
+nfu|Mfumte
+nga|Ngbaka
+ngn|Ngwo
+ngs|Gvoko
+ngw|Ngwaba
+nhb|Beng
+nih|Nyiha (Tanzania)
+nix|Hema
+njj|Njen
+njx|Kunyi
+nku|Bouna Kulango
+nkw|Nkutu
+nlj|Nyali
+nlo|Ngul
+nlu|Nchumbulu
+nmc|Ngam
+nmi|Nyam
+nmn|ǃXóõ
+nnc|Nancere
+nnj|Nyangatom
+nnu|Dwang
+nnz|Nda'nda'
+nqg|Southern Nago
+nti|Natioro
+nto|Ntomba
+nwm|Nyamusa-Molo
+nyb|Nyangbo
+nyd|Nyore
+nyg|Nyindu
+nym|Nyamwezi
+nzy|Nzakambay
+ogb|Ogbia
+ogc|Ogbah
+oki|Okiek
+olu|Kuvale
+opa|Okpamheri
+org|Oring
+orx|Oro
+oso|Ososo
+ost|Osatu
+otr|Otoro
+oub|Glio-Oubi
+pbn|Kpasam
+pbo|Papel
+pbp|Badyara
+pcn|Piti
+pcw|Pyapun
+pga|Sudanese Creole Arabic
+pil|Yom
+pmm|Pomo
+png|Pangu
+pnq|Pana (Burkina Faso)
+pof|Poke
+pqa|Pa'a
+pug|Phuie
+puu|Punu
+pwb|Panawa
+pym|Fyam
+res|Reshe
+rin|Nungu
+rkm|Marka
+rsw|Rishiwa
+rui|Rufiji
+ruk|Che
+ruy|Mala (Nigeria)
+ruz|Ruma
+rwk|Rwa
+sad|Sandawe
+saf|Safaliba
+saq|Samburu
+sav|Saafi-Saafi
+sbk|Safwa
+sbz|Sara Kaba
+scv|Sheni
+sde|Surubu
+sef|Cebaara Senoufo
+seg|Segeju
+sep|Sìcìté Sénoufo
+sgi|Suga
+shc|Sonde
+she|Sheko
+shg|Shua
+shj|Shatt
+shw|Shwai
+sie|Simaa
+sif|Siamou
+skq|Sininkere
+skt|Sakata
+slx|Salampasu
+sng|Sanga (Democratic Republic of Congo)
+snm|Southern Ma'di
+snq|Sangu (Gabon)
+sor|Somrai
+ssn|Waata
+ssy|Saho
+stj|Matya Samo
+stv|Silt'e
+suj|Shubi
+swj|Sira
+sxw|Saxwe Gbe
+syk|Sukur
+sym|Maya Samo
+tak|Tala
+taz|Tocho
+tbt|Tembo (Kitembo)
+tcd|Tafi
+tdk|Tambas
+tdv|Toro
+tek|Ibali Teke
+teq|Temein
+tex|Tennet
+tfi|Tofin Gbe
+tgd|Ciwogai
+tgw|Tagwana Senoufo
+thy|Tha
+thz|Tayart Tamajeq
+tic|Tira
+tii|Tiene
+tja|Tajuasohn
+tma|Tama (Chad)
+tng|Tobanga
+toq|Toposa
+tsb|Tsamai
+tsp|Northern Toussian
+tsv|Tsogo
+ttb|Gaa
+tug|Tunia
+tuz|Turka
+tvd|Tsuvadi
+tvs|Taveta
+tye|Kyanga
+uba|Ubang
+uiv|Iyive
+ukp|Ukpe-Bayobiri
+ukw|Ukwuani-Aboh-Ndoni
+ula|Fungwa
+une|Uneme
+uss|us-Saare
+uta|Otank
+utr|Etulo
+uya|Doko-Uyanga
+vaj|Sekele
+vif|Vili
+vig|Viemo
+vkn|Koro Nulu
+vor|Voro
+vum|Vumbu
+wan|Wan
+wbi|Vwanji
+weh|Weh
+wem|Weme Gbe
+wlc|Mwali Comorian
+wle|Wolane
+wni|Ndzwani Comorian
+wom|Wom (Nigeria)
+won|Wongo
+wss|Wasa
+wti|Berta
+wud|Wudu
+xdo|Kwandu
+xkb|Northern Nago
+xkg|Kagoro
+xkt|Kantosi
+xkv|Kgalagadi
+xmc|Makhuwa-Marrevone
+xmg|Mengaka
+xom|Komo (Sudan)
+xsn|Sanga (Nigeria)
+xsq|Makhuwa-Saka
+xtc|Katcha-Kadugli-Miri
+xuu|Kxoe
+xwe|Xwela Gbe
+xwg|Kwegu
+xwl|Western Xwla Gbe
+yaf|Yaka (Democratic Republic of Congo)
+yba|Yala
+ybj|Hasha
+ybl|Yukuben
+yey|Yeyi
+ymk|Makwe
+ymm|Maay
+ynq|Yendang
+zag|Zaghawa
+zay|Zayse-Zergulla
+zaz|Zari
+zbu|Bu (Bauchi State)
+zem|Zeem
+zhi|Zhire
+zim|Mesme
+zin|Zinza
+zmb|Zimba
+zms|Mbesa
+zns|Mangas
+zuy|Zumaya
+zwa|Zay
+sga|Old Irish (to 900)
+mga|Middle Irish (900-1200)
+ghc|Hiberno-Scottish Gaelic
+ebi|ebi
+idm|idm
+al|al
+hk|hk
+esp|esp
+esc|esc
+bfz|Mahasu Pahari
+cri|Sãotomense
+eme|Emerillon
+iii|Sichuan Yi
+zlm|Malay (individual language)
+bfy|Bagheli
+bgc|Haryanvi
+bgq|Bagri
+kfa|Kodava
+kfr|Kachhi
+pbv|Pnar
+wbr|Wagdi
+vsn|vsn
+nzr|Dir-Nyamzak-Mbarimi
+son|son
+uly|Buli
+zlu|Zul
+ssp|Spanish Sign Language
+kb|kb
+tp|tp
+ger|ger
+du|du
+qpm|qpm
+aon|Bumbita Arapesh
+arh|Arhuaco
+awi|Aekyom
+bcc|Southern Balochi
+bnj|Eastern Tawbuid
+cdf|Chiru
+crq|Iyo'wujwa Chorote
+dbq|Daba
+ghe|Southern Ghale
+kap|Bezhta
+kex|Kukna
+kqa|Mum
+lhm|Lhomi
+mfa|Pattani Malay
+pid|Piaroa
+saj|Sahu
+sux|Sumerian
+wca|Yanomámi
+zpd|Southeastern Ixtlán Zapotec
+trf|Trinidadian Creole English
+ahr|Ahirani
+ccl|Cutchi-Swahili
+cjm|Eastern Cham
+kfy|Kumaoni
+lmn|Lambadi
+qxq|Qashqa'i
+sgj|Surgujia
+smp|Samaritan
+pg|pg
+lke|Kenyi
+ukv|Kuku
+lth|Thur
+gon|Gondi
+sog|Sogdian
+gan|Gan Chinese
+art|art
+cau|cau
+ccs|ccs
+sit|sit
+tut|tut
+vsl|Venezuelan Sign Language
+boz|Tiéyaxo Bozo
+stk|Arammba
+me|me
+can|Chambri
+nnd|West Ambae
+jya|Jiarong
+kfm|Khunsari
+nyq|Nayini
+aoa|Angolar
+bah|Bahamas Creole English
+bzk|Nicaragua Creole English
+dcr|Negerhollands
+fab|Fa d'Ambu
+fng|Fanagalo
+fpe|Fernando Po Creole English
+mue|Media Lengua
+pre|Principense
+svc|Vincentian Creole English
+clk|Idu-Mishmi
+clt|Lautu Chin
+cro|Crow
+dhd|Dhundari
+kfq|Korku
+kge|Komering
+khr|Kharia
+mbp|Malayo
+mdr|Mandar
+mlm|Mulam
+nau|Nauru
+nuf|Nusu
+nxq|Naxi
+rmz|Marma
+rwr|Marwari (India)
+saz|Saurashtra
+srb|Sora
+tdd|Tai Nüa
+tvt|Tutsa Naga
+unr|Mundari
+xty|Yoloxochitl Mixtec
+yur|Yurok
+iku|Inuktitut
+dzd|Daza
+gbp|Gbaya-Bossangoa
+cls|cls
+pok|Pokangá
+mwr|Marwari
+ira|ira
+tai|tai
+ai|ai
+pe|pe
+aqz|Akuntsu
+itl|Itelmen
+oji|Ojibwa
+tpn|Tupinambá
+xum|Umbrian
+ac|ac
+hit|Hittite
+aaa|Ghotuo
+aac|Ari
+aad|Amal
+aaf|Aranadan
+aap|Pará Arára
+aaw|Solong
+abh|Tajiki Arabic
+abm|Abanyom
+acv|Achumawi
+adn|Adang
+ado|Abu
+aee|Northeast Pashai
+aez|Aeka
+afi|Akrukay
+afz|Obokuitai
+agb|Legbo
+age|Angal
+agf|Arguni
+agi|Agariya
+agl|Fembe
+agq|Aghem
+agy|Southern Alta
+ahb|Axamb
+aif|Agi
+aio|Aiton
+aix|Aighon
+akc|Mpur
+akd|Ukpet-Ehom
+akf|Akpa
+akg|Anakalangu
+aki|Aiome
+akq|Ak
+akr|Araki
+akt|Akolet
+ale|Aleut
+alh|Alawa
+alk|Alak
+alu|'Are'are
+alx|Amol
+amc|Amahuaca
+amt|Amto
+anf|Animere
+anj|Anor
+anl|Anu-Hkongso Chin
+ano|Andoque
+anr|Andh
+anx|Andra-Hus
+aoe|Angal Enen
+aof|Bragat
+aog|Angoram
+aol|Alor
+aot|Atong (India)
+apj|Jicarilla Apache
+apm|Mescalero-Chiricahua Apache
+app|Apma
+aqm|Atohwaim
+aqt|Angaité
+aro|Araona
+arw|Arawak
+arx|Aruá (Rodonia State)
+asb|Assiniboine
+asc|Casuarina Coast Asmat
+asi|Buruwai
+ask|Ashkun
+asr|Asuri
+asu|Tocantins Asurini
+asy|Yaosakor Asmat
+atk|Ati
+atp|Pudtol Atta
+ats|Gros Ventre
+aty|Aneityum
+auk|Heyo
+aul|Aulua
+aun|Molmo One
+aup|Makayam
+auq|Anus
+auu|Auye
+avd|Alviri-Vidari
+awe|Awetí
+awu|Central Awyu
+aww|Awun
+axk|Yaka (Central African Republic)
+ayi|Leyigha
+ayn|Sanaani Arabic
+ayt|Magbukun Ayta
+ayz|Mai Brat
+azd|Eastern Durango Nahuatl
+azm|Ipalapa Amuzgo
+azt|Faire Atta
+baa|Babatana
+bac|Badui
+bap|Bantawa
+bbf|Baibai
+bbi|Barombi
+bbp|West Central Banda
+bbv|Karnai
+bca|Central Bai
+bcf|Bamu
+bcj|Bardi
+bcr|Babine
+bcz|Bainouk-Gunyaamolo
+bdb|Basap
+bdl|Indonesian Bajau
+bdv|Bodo Parja
+bdw|Baham
+bee|Byangsi
+bei|Bekati'
+bek|Bebeli
+beo|Beami
+beu|Blagar
+bey|Beli (Papua New Guinea)
+bfb|Pauri Bareli
+bfe|Betaf
+bfg|Busang Kayan
+bfh|Blafe
+bfq|Badaga
+bfr|Bazigar
+bfs|Southern Bai
+bfu|Gahri
+bfw|Bondo
+bgd|Rathwi Bareli
+bge|Bauria
+bgg|Bugun
+bgi|Giangan
+bgn|Western Balochi
+bgv|Warkay-Bipim
+bgw|Bhatri
+bha|Bharia
+bhd|Bhadrawahi
+bhf|Odiai
+bhi|Bhilali
+bhj|Bahing
+bhq|Tukang Besi South
+bht|Bhattiyali
+bhu|Bhunjia
+bhx|Bhalay
+bid|Bidiyo
+bif|Biafada
+bit|Berinomo
+bix|Bijori
+biy|Birhor
+bja|Budza
+bjc|Bariji
+bje|Biao-Jiao Mien
+bjh|Bahinemo
+bjo|Mid-Southern Banda
+bjx|Banao Itneg
+bjz|Baruga
+bkk|Brokskat
+bkr|Bakumpai
+bks|Northern Sorsoganon
+bkx|Baikeno
+blb|Bilua
+blc|Bella Coola
+blf|Buol
+blq|Baluan-Pam
+blr|Blang
+bmj|Bote-Majhi
+bnv|Bonerif
+boq|Bogaya
+bpa|Daakaka
+bpe|Bauni
+bpn|Dzao Min
+bpp|Kaure
+bpu|Bongu
+bpv|Bian Marind
+bpw|Bo (Papua New Guinea)
+bpx|Palya Bareli
+bpz|Bilba
+bqh|Baima
+bqi|Bakhtiari
+bqr|Burusu
+bqs|Bosngun
+brb|Brao
+brd|Baraamu
+brg|Baure
+brl|Birwa
+brp|Barapasi
+brq|Breri
+brr|Birao
+brv|Western Bru
+bsi|Bassossi
+bsy|Sabah Bisaya
+bta|Bata
+buf|Bushoong
+buh|Younuo Bunu
+buj|Basa-Gurmana
+buw|Bubi
+bva|Barein
+bvu|Bukit Malay
+bwe|Bwe Karen
+bwf|Boselewa
+bwm|Biwat
+bws|Bomboma
+bwt|Bafaw-Balong
+bwx|Bu-Nao Bunu
+bxa|Tairaha
+bxl|Jalkunan
+bya|Batak
+byd|Benyadu'
+bye|Pouye
+byo|Biyo
+byz|Banaro
+bzf|Boikin
+bzu|Burmeso
+bzx|Kɛlɛngaxo Bozo
+cae|Lehar
+caz|Canichana
+cbd|Carijona
+cbg|Chimila
+cbn|Nyahkur
+cbo|Izora
+ccj|Kasanga
+cde|Chenchu
+cdh|Chambeali
+cdi|Chodri
+cdj|Churahi
+cdm|Chepang
+cdn|Chaudangsi
+cdz|Koda
+cgk|Chocangacakha
+chb|Chibcha
+chl|Cahuilla
+chp|Chipewyan
+chx|Chantyal
+cia|Cia-Cia
+cih|Chinali
+cik|Chitkuli Kinnauri
+cin|Cinta Larga
+ciw|Chippewa
+cja|Western Cham
+cje|Chru
+ckh|Chak
+cku|Koasati
+clc|Chilcotin
+cld|Chaldean Neo-Aramaic
+clj|Laitu Chin
+clo|Lowland Oaxaca Chontal
+cma|Maa
+cna|Changthang
+cnb|Chinbon Chin
+cnc|Côông
+cns|Central Asmat
+cob|Chicomuceltec
+coc|Cocopa
+cod|Cocama-Cocamilla
+cog|Chong
+coj|Cochimi
+com|Comanche
+cov|Cao Miao
+cox|Nanti
+coz|Chochotec
+cqd|Chuanqiandian Cluster Miao
+crc|Lonwolwol
+crv|Chaura
+crw|Chrau
+csa|Chiltepec Chinantec
+csh|Asho Chin
+ctg|Chittagonian
+ctt|Wayanad Chetti
+ctz|Zacatepec Chatino
+cua|Cua
+cvg|Chug
+cvn|Valle Nacional Chinantec
+cyb|Cayubaba
+cyo|Cuyonon
+czn|Zenzontepec Chatino
+dao|Daai Chin
+daq|Dandami Maria
+daw|Davawenyo
+dax|Dayi
+dbj|Ida'an
+dbn|Duriankere
+dby|Dibiyaso
+def|Dezfuli
+deh|Dehwari
+dei|Demisa
+dem|Dem
+der|Deori
+dge|Degenan
+dgg|Doga
+dgx|Doghoro
+dhi|Dhimal
+dhn|Dhanki
+dho|Dhodia
+dhw|Dhanwar (Nepal)
+dia|Dia
+dih|Kumiai
+dij|Dai
+diz|Ding
+djc|Dar Daju Daju
+djn|Jawoyn
+djo|Jangkang
+dka|Dakpakha
+dma|Duma
+dme|Dugwor
+dmg|Upper Kinabatangan
+dmr|East Damar
+dms|Dampelas
+dmw|Mudburra
+dnd|Daonda
+dny|Dení
+doa|Dom
+dof|Domu
+dor|Dori'o
+drd|Darmiya
+dre|Dolpo
+dry|Darai
+dsn|Dusner
+dta|Daur
+dub|Dubli
+duc|Duna
+duh|Dungra Bhil
+dun|Dusun Deyah
+duq|Dusun Malang
+dus|Dumi
+duu|Drung
+duv|Duvle
+duw|Dusun Witu
+dva|Duau
+dwa|Diri
+dwu|Dhuwal
+dwy|Dhuwaya
+dwz|Dewas Rai
+dyg|Villa Viciosa Agta
+dzl|Dzalakha
+eip|Eipomek
+eit|Eitiep
+ekg|Ekari
+ekl|Kol (Bangladesh)
+ekp|Ekpeye
+eky|Eastern Kayah
+elk|Elkei
+ema|Emai-Iuleha-Ora
+emb|Embaloh
+emg|Eastern Meohang
+ems|Pacific Gulf Yupik
+ena|Apali
+end|Ende
+env|Enwan (Edo State)
+epi|Epie
+erg|Sie
+erk|South Efate
+ert|Eritai
+esg|Aheri Gondi
+esh|Eshtehardi
+etn|Eton (Vanuatu)
+etx|Eten
+eze|Uzekwe
+fay|Southwestern Fars
+fla|Kalispel-Pend d'Oreille
+foi|Foi
+fqs|Fas
+fun|Fulniô
+fut|Futuna-Aniwa
+fuu|Furu
+fuy|Fuyug
+gad|Gaddang
+gae|Guarequena
+gaf|Gende
+gaj|Gadsup
+gaq|Gata'
+gar|Galeya
+gas|Adiwasi Garasia
+gau|Mudhili Gadaba
+gbe|Niksek
+gbk|Gaddi
+gbl|Gamit
+gbn|Mo'da
+gbv|Gbanu
+gbz|Zoroastrian Dari
+gcd|Ganggalida
+gcn|Gaina
+gdb|Pottangi Ollar Gadaba
+gdx|Godwari
+gew|Gera
+gga|Gao
+ggw|Gogodala
+ghk|Geko Karen
+ghn|Ghanongga
+ghr|Ghera
+gia|Kija
+gim|Gimi (Eastern Highlands)
+git|Gitxsan
+giw|White Gelao
+glh|Northwest Pashai
+glo|Galambu
+glr|Glaro-Twabo
+gmb|Gula'alaa
+gmm|Gbaya-Mbodomo
+gmz|Mgbolizhia
+gni|Gooniyandi
+gnm|Ginuman
+gno|Northern Gondi
+gnu|Gnau
+goj|Gowlan
+gok|Gowli
+gop|Yeretuar
+gox|Gobu
+goz|Gozarkhani
+gra|Rajput Garasia
+gri|Ghari
+gro|Groma
+grs|Gresi
+grx|Guriaso
+gua|Shiki
+gue|Gurindji
+guf|Gupapuyngu
+gup|Gunwinggu
+gut|Maléku Jaíka
+gvj|Guajá
+gvo|Gavião Do Jiparaná
+gvp|Pará Gavião
+gvr|Gurung
+gvs|Gumawana
+gwa|Mbato
+gww|Kwini
+gyd|Kayardild
+haa|Han
+had|Hatam
+haj|Hajong
+hal|Halang
+har|Harari
+has|Haisla
+hca|Andaman Creole Hindi
+hdn|Northern Haida
+hea|Northern Qiandong Miao
+hei|Heiltsuk
+hgm|Haiǁom
+hgw|Haigwai
+hid|Hidatsa
+hii|Hinduri
+hlb|Halbi
+hld|Halang Doan
+hmd|Large Flowery Miao
+hmg|Southwestern Guiyang Hmong
+hmj|Ge
+hml|Luopohe Hmong
+hms|Southern Qiandong Miao
+hmt|Hamtai
+hmw|Western Mashan Hmong
+hmz|Hmong Shua
+hna|Mina (Cameroon)
+hnd|Southern Hindko
+hni|Hani
+hoa|Hoava
+hol|Holu
+how|Honi
+hoy|Holiya
+hrm|Horned Miao
+hru|Hruso
+hsn|Xiang Chinese
+huf|Humene
+huh|Huilliche
+hum|Hungana
+hup|Hupa
+hur|Halkomelem
+hut|Humla
+hve|San Dionisio Del Mar Huave
+hvv|Santa María Del Mar Huave
+iai|Iaai
+iar|Purari
+ibd|Iwaidja
+ibl|Ibaloi
+ibm|Agoi
+iby|Ibani
+idi|Idi
+ifm|Teke-Fuumu
+ihp|Iha
+iki|Iko
+ilk|Ilongot
+ilp|Iranun (Philippines)
+ilu|Ili'uun
+inj|Jungle Inga
+int|Intha
+iow|Iowa-Oto
+ipo|Ipiko
+iqu|Iquito
+irn|Irántxe
+irr|Ir
+iru|Irula
+irx|Kamberau
+isk|Ishkashimi
+itd|Southern Tidung
+ite|Itene
+iti|Inlaod Itneg
+ito|Itonama
+itr|Iteri
+itt|Maeng Itneg
+ity|Moyadan Itneg
+iwm|Iwam
+jaf|Jara
+jao|Yanyuwa
+jaq|Yaqay
+jat|Jakati
+jbj|Arandai
+jda|Jad
+jdg|Jadgali
+jeb|Jebero
+jeh|Jeh
+jei|Yei
+jge|Judeo-Georgian
+jig|Jingulu
+jio|Jiamao
+jiu|Youle Jinuo
+jiy|Buyuan Jinuo
+jkp|Paku Karen
+jkr|Koro (India)
+jma|Dima
+jmd|Yamdena
+jmi|Jimi (Nigeria)
+jml|Jumli
+jmn|Makuri Naga
+jna|Jangshung
+jnd|Jandavra
+jnl|Rawat
+job|Joba
+jog|Jogi
+jrt|Jakattoe
+jru|Japrería
+jul|Jirel
+jup|Hupdë
+kay|Kamayurá
+kbb|Kaxuiâna
+kbv|Dera (Indonesia)
+kbx|Ap Ma
+kcd|Ngkâlmpw Kanum
+kcf|Ukaan
+kcj|Kobiana
+kcl|Kela (Papua New Guinea)
+kcs|Koenoem
+kdd|Yankunytjatjara
+kdq|Koch
+kdt|Kuy
+kdy|Keder
+keb|Kélé
+kee|Eastern Keres
+kej|Kadar
+kem|Kemak
+kep|Kaikadi
+kev|Kanikkaran
+key|Kupia
+kfb|Northwestern Kolami
+kfc|Konda-Dora
+kfd|Korra Koraga
+kfg|Kudiya
+kfh|Kurichiya
+kfi|Kannada Kurumba
+kfs|Bilaspuri
+kft|Kanjari
+kfu|Katkari
+kfv|Kurmukar
+kfx|Kullu Pahari
+kgb|Kawe
+kgj|Gamale Kham
+kgq|Kamoro
+kgy|Kyerung
+khb|Lü
+khc|Tukang Besi North
+khe|Korowai
+khl|Lusi
+khn|Khandesi
+kht|Khamti
+khu|Nkhumbi
+kic|Kickapoo
+kif|Eastern Parbate Kham
+kih|Kilmeri
+kio|Kiowa
+kip|Sheshi Kham
+kis|Kis
+kit|Agob
+kiw|Northeast Kiwai
+kjd|Southern Kiwai
+kji|Zabana
+kjl|Western Parbate Kham
+kjo|Harijan Kinnauri
+kjp|Pwo Eastern Karen
+kjq|Western Keres
+kjr|Kurudu
+kjt|Phrae Pwo Karen
+kkd|Kinuku
+kkf|Kalaktang Monpa
+kkh|Khün
+kkk|Kokota
+kkn|Kon Keu
+kky|Guugu Yimidhirr
+kkz|Kaska
+kla|Klamath-Modoc
+klb|Kiliwa
+klg|Tagakaulo
+kli|Kalumpang
+klq|Rumu
+klr|Khaling
+klw|Tado
+klx|Koluwawa
+klz|Kabola
+kmc|Southern Dong
+kmj|Kumarbhag Paharia
+kml|Tanudan Kalinga
+kmn|Awtuw
+kmt|Kemtuik
+kmz|Khorasani Turkish
+knd|Konda
+knl|Keninjal
+knm|Kanamarí
+knt|Panoan Katukína
+knw|Kung-Ekoka
+kod|Kodi
+kof|Kubi
+koh|Koyo
+kpb|Mullu Kurumba
+kpc|Curripaco
+kpm|Koho
+kps|Tehit
+kqb|Kovai
+kqi|Koitabu
+kqj|Koromira
+kqk|Kotafon Gbe
+kra|Kumhali
+krf|Koro (Vanuatu)
+krh|Kurama
+krp|Durop
+krr|Krung
+krs|Gbaya (Sudan)
+krv|Kavet
+ksg|Kusaghe
+ksi|Krisa
+ksn|Kasiguranin
+kst|Winyé
+ksu|Khamyang
+ksv|Kusu
+ktn|Karitiâna
+ktp|Kaduo
+ktv|Eastern Katu
+kui|Kuikúro-Kalapálo
+kuy|Kuuku-Ya'u
+kvb|Kubu
+kvd|Kui (Indonesia)
+kvl|Kayaw
+kvo|Dobel
+kvq|Geba Karen
+kvr|Kerinci
+kvt|Lahta Karen
+kvu|Yinbaw Karen
+kvv|Kola
+kvw|Wersing
+kvy|Yintale Karen
+kwa|Dâw
+kwe|Kwerba
+kwk|Kwakiutl
+kwo|Kwomtari
+kws|Kwese
+kwt|Kwesten
+kwx|Khirwar
+kxf|Manumanaw Karen
+kxn|Kanowit-Tanjong Melanau
+kxv|Kuvi
+kxz|Kerewo
+kyb|Butbut Kalinga
+kyh|Karok
+kyk|Kamayo
+kyo|Kelon
+kys|Baram Kayan
+kyv|Kayort
+kyy|Kambaira
+kzi|Kelabit
+kzm|Kais
+kzq|Kaike
+kzs|Sugut Dusun
+lae|Pattani
+lal|Lalia
+lax|Tiwa
+lbf|Tinani
+lbm|Lodhi
+lbn|Rmeet
+lbo|Laven
+lbq|Wampar
+lbr|Lohorung
+lbu|Labu
+lbw|Tolaki
+lbx|Lawangan
+lcc|Legenyem
+ldk|Leelau
+ldo|Loo
+lec|Leco
+lek|Leipon
+lep|Lepcha
+leq|Lembena
+ler|Lenkau
+lev|Lamma
+lga|Lungga
+lgr|Lengo
+lgt|Pahi
+lgu|Longgu
+lhl|Lahul Lohar
+lhp|Lhokpu
+lht|Lo-Toga
+lic|Hlai
+lie|Likila
+lih|Lihir
+lik|Lika
+lil|Lillooet
+liw|Col
+lje|Rampi
+lkh|Lakha
+lkn|Lakon
+lle|Lele (Papua New Guinea)
+llp|North Efate
+llu|Lau
+lmg|Lamogai
+lmi|Lombi
+lml|Hano
+lmu|Lamenu
+lmy|Lamboya
+lna|Langbashe
+los|Loniu
+loy|Loke
+lpa|Lelepa
+lpn|Long Phuri Naga
+lpo|Lipo
+lra|Rara Bakati'
+lrl|Lari
+lsh|Lish
+lsr|Aruop
+lti|Leti (Indonesia)
+lui|Luiseno
+lum|Luimbi
+lup|Lumbu
+lur|Laura
+lva|Maku'a
+lvk|Lavukaleve
+lwl|Eastern Lawa
+lyg|Lyngngam
+mae|Bo-Rukul
+mat|San Francisco Matlatzinca
+mbm|Ombamba
+mbq|Maisin
+mbx|Mari (East Sepik Province)
+mbz|Amoltepec Mixtec
+mcc|Bitur
+mch|Maquiritari
+mcr|Menya
+mdb|Morigi
+mdh|Maguindanaon
+mdn|Mbati
+mds|Maria (Papua New Guinea)
+mdw|Mbosi
+mef|Megam
+mep|Miriwoong
+mez|Menominee
+mfb|Bangka
+mfj|Mefele
+mgf|Maklew
+mgk|Mawes
+mgl|Maleu-Kilenge
+mgp|Eastern Magar
+mgu|Mailu
+mhc|Mocho
+mhp|Balinese Malay
+mhs|Buru (Indonesia)
+mhu|Digaro-Mishmi
+mhz|Mor (Mor Islands)
+mii|Chigmecatitlán Mixtec
+mjg|Tu
+mji|Kim Mun
+mjl|Mandeali
+mjt|Sauria Paharia
+mjv|Mannan
+mjx|Mahali
+mjz|Majhi
+mkb|Mal Paharia
+mkc|Siliput
+mke|Mawchi
+mkg|Mak (China)
+mla|Malo
+mle|Manambu
+mlf|Mal
+mln|Malango
+mlv|Motlav
+mmd|Maonan
+mme|Mae
+mmg|North Ambrym
+mmh|Mehináku
+mml|Man Met
+mmm|Maii
+mmp|Siawi
+mmy|Migaama
+mng|Eastern Mnong
+mnj|Munji
+mnl|Tiale
+mnm|Mapena
+mnu|Mer
+mnv|Rennell-Bellona
+mnz|Moni
+moj|Monzombo
+mot|Barí
+mov|Mohave
+moy|Shekkacho
+mpc|Mangarrayi
+mpd|Machinere
+mpj|Martu Wangka
+mpn|Mindiri
+mpq|Matís
+mpr|Vangunu
+mqg|Kota Bangun Kutai Malay
+mqh|Tlazoyaltepec Mixtec
+mqn|Moronene
+mqx|Mamuju
+mqz|Pano
+mrd|Western Magar
+mrf|Elseng
+mrh|Mara Chin
+mrl|Mortlockese
+mrm|Merlav
+mrn|Cheke Holo
+mro|Mru
+mrp|Morouas
+mrz|Marind
+msg|Moraid
+msj|Ma (Democratic Republic of Congo)
+msl|Molof
+msn|Vurës
+mtd|Mualang
+mte|Mono (Solomon Islands)
+mtf|Murik (Papua New Guinea)
+mtl|Montol
+mtq|Muong
+mtt|Mota
+muk|Mugom
+mum|Maiwala
+mut|Western Muria
+muv|Muthuvan
+mvg|Yucuañe Mixtec
+mvo|Marovo
+mwa|Mwatebu
+mwe|Mwera (Chimwera)
+mwg|Aiklep
+mwi|Labo
+mwt|Moken
+mxa|Northwest Oaxaca Mixtec
+mxd|Modang
+mxe|Mele-Fila
+mxj|Miju-Mishmi
+mxm|Meramera
+mxn|Moi (Indonesia)
+myh|Makah
+myl|Moma
+myp|Pirahã
+mzi|Ixcatlán Mazatec
+mzp|Movima
+mzq|Mori Atas
+mzr|Marúbo
+mzv|Manza
+nac|Narak
+nao|Naaba
+naz|Coatepec Nahuatl
+nbi|Mao Naga
+nbn|Kuri
+ncb|Central Nicobarese
+nce|Yale
+ncg|Nisga'a
+ncm|Nambo
+nda|Ndasa
+ndx|Nduga
+nen|Nengone
+neq|North Central Mixe
+ner|Yahadian
+nes|Bhoti Kinnauri
+nev|Nyaheun
+ney|Neyo
+nez|Nez Perce
+nfl|Ayiwo
+nge|Ngemba
+ngj|Ngie
+ngz|Ngungwel
+nhp|Isthmus-Pajapan Nahuatl
+nhv|Temascaltepec Nahuatl
+nhz|Santa María La Alta Nahuatl
+nid|Ngandi
+nil|Nila
+nir|Nimboran
+nit|Southeastern Kolami
+niw|Nimo
+niz|Ningil
+njh|Lotha Naga
+njs|Nisa
+nkb|Khoibu Naga
+nke|Duke
+nkh|Khezha Naga
+nkk|Nokuku
+nkx|Nkoroo
+nli|Grangali
+nlk|Ninia Yali
+nlx|Nahali
+nmb|Big Nambas
+nmk|Namakura
+nmm|Manangba
+nms|Letemboi
+nna|Nyangumarta
+nni|North Nuaulu
+nnm|Namia
+nof|Nomane
+nos|Eastern Nisu
+noz|Nayi
+npb|Nupbikha
+nps|Nipsan
+nqt|Nteng
+nqy|Akyaung Ari Naga
+nrg|Narango
+ntj|Ngaanyatjarra
+ntk|Ikoma-Nata-Isenye
+nud|Ngala
+nuk|Nuu-chah-nulth
+nun|Anong
+nuo|Nguôn
+nuq|Nukumanu
+nux|Mehek
+nxa|Nauete
+nxg|Ngad'a
+nxk|Koki Naga
+nxr|Ninggerum
+nyh|Nyikina
+nyj|Nyanga
+nys|Nyungar
+nyw|Nyaw
+nzk|Nzakara
+ocu|Atzingo Matlatzinca
+ofu|Efutop
+ogg|Ogbogolo
+oia|Oirata
+oka|Okanagan
+okh|Koresh-e Rostam
+okr|Kirike
+oks|Oko-Eni-Osayen
+okx|Okpe (Northwestern Edo)
+ola|Walungge
+oma|Omaha-Ponca
+one|Oneida
+oni|Onin
+onj|Onjob
+onn|Onobasulu
+ono|Onondaga
+onp|Sartang
+ont|Ontenu
+ora|Oroha
+ore|Orejón
+orh|Oroqen
+oro|Orokolo
+ors|Orang Seletar
+ort|Adivasi Oriya
+orz|Ormu
+osi|Osing
+ott|Temoaya Otomi
+otx|Texcatepec Otomi
+owi|Owiniga
+oyb|Oy
+oyd|Oyda
+pac|Pacoh
+pak|Parakanã
+pav|Pakaásnovos
+pay|Pech
+pbg|Paraujano
+pbm|Puebla Mazatec
+pca|Santa Inés Ahuatempan Popoloca
+pcb|Pear
+pcc|Bouyei
+pce|Ruching Palaung
+pcg|Paniya
+pch|Pardhan
+pci|Duruwa
+pcj|Parenga
+pcl|Pardhi
+pdn|Podena
+pdo|Padoe
+pdu|Kayan
+peb|Eastern Pomo
+peg|Pengo
+pei|Chichimeca-Jonaz
+pek|Penchal
+pgg|Pangwali
+pha|Pa-Hng
+phk|Phake
+phq|Phana'
+pia|Pima Bajo
+pic|Pinji
+piu|Pintupi-Luritja
+piv|Pileni
+pkg|Pak-Tong
+pkh|Pankhu
+pkt|Maleng
+pku|Paku
+plc|Central Palawano
+pll|Shwe Palaung
+pln|Palenquero
+plr|Palaka Senoufo
+plv|Southwest Palawano
+pmi|Northern Pumi
+pmj|Southern Pumi
+pnc|Pannei
+pnu|Jiongnai Bunu
+pnz|Pana (Central African Republic)
+poo|Central Pomo
+ppi|Paipai
+ppm|Papuma
+ppq|Pei
+ppt|Pare
+pqm|Malecite-Passamaquoddy
+prc|Parachi
+prm|Kibiri
+prn|Prasuni
+prt|Phai
+pru|Puragi
+prx|Purik
+psa|Asue Awyu
+psh|Southwest Pashai
+psi|Southeast Pashai
+psn|Panasuan
+psw|Port Sandwich
+pta|Pai Tavytera
+puc|Punan Merap
+pud|Punan Aput
+pum|Puma
+puo|Puoc
+pwa|Pawaia
+pwm|Molbog
+pwo|Pwo Western Karen
+pwr|Powari
+qud|Calderón Highland Quichua
+qui|Quileute
+qun|Quinault
+qxs|Southern Qiang
+raa|Dungmali
+rab|Camling
+raf|Western Meohang
+rah|Rabha
+ral|Ralte
+ram|Canela
+rao|Rao
+rat|Razajerdi
+rau|Raute
+rbb|Rumai Palaung
+rdb|Rudbari
+rei|Reli
+rey|Reyesano
+rgs|Southern Roglai
+rhp|Yahang
+ril|Riang Lang
+rir|Ribun
+rji|Raji
+rmb|Rembarrnga
+rmt|Domari
+rog|Northern Roglai
+rol|Romblomanon
+rwa|Rawo
+ryu|Central Okinawan
+saa|Saba
+sac|Meskwaki
+sao|Sause
+saw|Sawi
+sbb|Simbo
+sbc|Kele (Papua New Guinea)
+sbg|Seget
+sbh|Sori-Harengan
+sbp|Sangu (Tanzania)
+sbr|Sembakung Murut
+sbu|Stod Bhoti
+sbx|Seberuang
+sce|Dongxiang
+scg|Sanggau
+sch|Sakachep
+scp|Hyolmo
+scs|North Slavey
+sct|Southern Katang
+scu|Shumcho
+scw|Sha
+sdg|Savi
+sdp|Sherdukpen
+sdr|Oraon Sadri
+sea|Semai
+sed|Sedang
+see|Seneca
+sek|Sekani
+set|Sentani
+sev|Nyarafolo Senoufo
+sew|Sewa Bay
+sez|Senthang Chin
+sfm|Small Flowery Miao
+sgd|Surigaonon
+sge|Segai
+sgp|Singpho
+sgr|Sangisari
+sgy|Sanglechi
+sha|Shall-Zwall
+shb|Ninam
+shh|Shoshoni
+shm|Shahrudi
+sho|Shanga
+shq|Sala
+sir|Siri
+siu|Sinagen
+siy|Sivandi
+sjb|Sajau Basap
+sjg|Assangori
+sjl|Sajalong
+sjm|Mapun
+skb|Saek
+skd|Southern Sierra Miwok
+skj|Seke (Nepal)
+skn|Kolibugan Subanon
+sku|Sakao
+skv|Skou
+skx|Seko Padang
+sky|Sikaiana
+slc|Sáliba
+sle|Sholaga
+slp|Lamaholot
+slr|Salar
+slu|Selaru
+sly|Selayar
+slz|Ma'ya
+smf|Auwe
+smh|Samei
+smq|Samo
+smu|Somray
+smw|Sumbawa
+smy|Semnani
+sne|Bau Bidayuh
+snl|Sangil
+sns|South West Bay
+snv|Sa'ban
+soa|Thai Song
+sob|Sobei
+soc|So (Democratic Republic of Congo)
+soi|Sonha
+sok|Sokoro
+soo|Songo
+sos|Seeku
+soz|Temi
+spn|Sanapaná
+spo|Spokane
+spt|Spiti Bhoti
+spu|Sapuan
+sqq|Sou
+sre|Sara
+srl|Isirawa
+sru|Suruí
+srx|Sirmauri
+sry|Sera
+srz|Shahmirzadi
+ssb|Southern Sama
+sse|Balangingi
+ssk|Sunam
+sso|Sissano
+sss|Sô
+sst|Sinasina
+stf|Seta
+sti|Bulo Stieng
+sto|Stoney
+sts|Shumashti
+stt|Budeh Stieng
+sug|Suganga
+sui|Suki
+suq|Tirmaga-Chai Suri
+suv|Puroik
+suy|Suyá
+svb|Ulau-Suain
+svs|Savosavo
+swi|Sui
+swo|Shanenawa
+swr|Saweru
+swv|Shekhawati
+sya|Siang
+sys|Sinyar
+syw|Kagate
+szg|Sengele
+szp|Suabo
+szv|Isu (Fako Division)
+tal|Tal
+tau|Upper Tanana
+tba|Aikanã
+tbj|Tiang
+tbp|Taworta
+tce|Southern Tutchone
+tcn|Tichurong
+tcp|Tawr Chin
+tcu|Southeastern Tarahumara
+tcx|Toda
+tdb|Panchpargania
+tdc|Emberá-Tadó
+tdf|Talieng
+tdg|Western Tamang
+tdh|Thulung
+tdj|Tajio
+tdl|Sur
+tdo|Teme
+tds|Doutai
+tdy|Tadyawan
+tef|Teressa
+tei|Torricelli
+tes|Tengger
+tfn|Tanaina
+tft|Ternate
+tga|Sagalla
+tgs|Nume
+tgy|Togoyo
+thd|Kuuk Thaayorre
+thf|Thangmi
+thm|Aheu
+thp|Thompson
+ths|Thakali
+tiq|Tiéfo
+tis|Masadiit Itneg
+tiw|Tiwi
+tix|Southern Tiwa
+tjg|Tunjung
+tji|Northern Tujia
+tkb|Buksa
+tkd|Tukudede
+tkp|Tikopia
+tkq|Tee
+tkx|Tangko
+tla|Southwestern Tepehuan
+tld|Talaud
+tlq|Tai Loi
+tlr|Talise
+tls|Tambotalo
+tmf|Toba-Maskoy
+tml|Tamnim Citak
+tmn|Taman (Indonesia)
+tmq|Tumleo
+tmy|Tami
+tnb|Western Tunebo
+tnl|Lenakel
+tnm|Tabla
+tnt|Tontemboan
+tnv|Tangchangya
+tny|Tongwe
+tof|Gizrra
+tol|Tolowa
+tom|Tombulu
+tou|Tho
+tov|Upper Taromi
+tow|Jemez
+tpe|Tippera
+tpj|Tapieté
+tpq|Tukpa
+tpr|Tuparí
+tpu|Tampuan
+tpx|Acatepec Me'phaa
+tqu|Touo
+tra|Tirahi
+trd|Turi
+tri|Trió
+tru|Turoyo
+tsa|Tsaangi
+tsi|Tsimshian
+tsj|Tshangla
+tsr|Akei
+tsx|Mubami
+tth|Upper Ta'oih
+tti|Tobati
+ttk|Totoro
+ttm|Northern Tutchone
+tto|Lower Ta'oih
+ttv|Titan
+ttw|Long Wat
+tty|Sikaritai
+tus|Tuscarora
+tva|Vaghua
+tvn|Tavoyan
+twe|Tewa (Indonesia)
+twf|Northern Tiwa
+twh|Tai Dón
+twm|Tawang Monpa
+twp|Ere
+twr|Southwestern Tarahumara
+tww|Tuwari
+twy|Tawoyan
+txn|West Tarangan
+txo|Toto
+txt|Citak
+tyn|Kombai
+tyr|Tai Daeng
+tyy|Tiyaa
+uar|Tairuma
+udg|Muduga
+ugo|Ugong
+uhn|Damal
+uis|Uisai
+ulu|Uma' Lung
+umm|Umon
+ums|Pendau
+umu|Munsee
+ung|Ngarinyin
+unx|Munda
+url|Urali
+usi|Usui
+ute|Ute-Southern Paiute
+uuu|U
+vaa|Vaagri Booli
+vaf|Vafsi
+vah|Varhadi-Nagpuri
+vam|Vanimo
+van|Valman
+vas|Vasavi
+vav|Varli
+vay|Wayu
+vem|Vemgo-Mabas
+vkl|Kulisusu
+vmh|Maraghei
+vmx|Tamazola Mixtec
+vnk|Vano
+vra|Vera'a
+vrs|Varisi
+wad|Wamesa
+was|Washo
+wau|Waurá
+waw|Waiwai
+wbb|Wabo
+wbj|Alagwa
+wbk|Waigali
+wbq|Waddar
+wdd|Wandji
+wdj|Wadjiginy
+wgb|Wagawaga
+wgi|Wahgi
+wic|Wichita
+win|Ho-Chunk
+wkd|Wakde
+wli|Waioli
+wlo|Wolio
+wlw|Walak
+wmb|Wambaya
+wmd|Mamaindé
+wme|Wambule
+wmo|Wom (Papua New Guinea)
+wms|Wambon
+wno|Wano
+wnp|Wanap
+wod|Wolani
+wog|Wogamusin
+wow|Wawonii
+wrm|Warumungu
+wro|Worrorra
+wrp|Waropen
+wry|Merwari
+wsa|Warembori
+wsi|Wusi
+wtm|Mewati
+wut|Wutung
+wwo|Wetamut
+wyy|Western Fijian
+xac|Kachari
+xdy|Malayic Dayak
+xem|Kembayan
+xer|Xerénte
+xes|Kesawai
+xgu|Unggumi
+xkc|Kho'ini
+xkf|Khengkha
+xkj|Kajali
+xkk|Kachok
+xkl|Mainstream Kenyah
+xkn|Kayan River Kayan
+xks|Kumbewaha
+xky|Uma' Lasan
+xkz|Kurtokha
+xmh|Kugu-Muminh
+xmt|Matbat
+xmz|Mori Bawah
+xns|Kanashi
+xnz|Kenzi
+xod|Kokoda
+xok|Xokleng
+xra|Krahô
+xri|Krikati-Timbira
+xrw|Karawa
+xta|Alcozauca Mixtec
+xte|Ketengban
+xtj|San Juan Teita Mixtec
+xtl|Tijaltepec Mixtec
+xtt|Tacahua Mixtec
+xub|Betta Kurumba
+xuj|Jennu Kurumba
+xvi|Kamviri
+yae|Pumé
+yah|Yazgulyam
+yak|Yakama
+yaw|Yawalapití
+yax|Yauma
+ybe|West Yugur
+ybh|Yakha
+ybi|Yamphu
+yde|Yangum Dey
+yea|Ravula
+yet|Yetfa
+yeu|Yerukula
+yev|Yapunda
+ygr|Yagaria
+ygw|Yagwoia
+yhd|Judeo-Iraqi Arabic
+yif|Ache
+yig|Wusa Nasu
+yij|Yindjibarndi
+yin|Riang Lai
+yiq|Miqie
+yis|Yis
+yiu|Awu
+yix|Axi Yi
+yiz|Azhe
+ykg|Northern Yukaghir
+yki|Yoke
+ykk|Yakaikeke
+ykm|Kap
+yll|Yil
+ymb|Yambes
+yno|Yong
+yog|Yogad
+yot|Yotti
+yra|Yerakai
+ysn|Sani
+ysp|Southern Lolopo
+yuf|Havasupai-Walapai-Yavapai
+yui|Yurutí
+yum|Quechan
+yun|Bena (Nigeria)
+yuq|Yuqui
+yuy|East Yugur
+ywa|Kalou
+ywl|Western Lalu
+ywn|Yawanawa
+ywq|Wuding-Luquan Yi
+yyu|Yau (Sandaun Province)
+zaf|Ayoquesco Zapotec
+zaj|Zaramo
+zak|Zanaki
+zau|Zangskari
+zbc|Central Berawan
+zcd|Las Delicias Zapotec
+zeh|Eastern Hongshuihe Zhuang
+zgb|Guibei Zhuang
+zik|Zimakani
+zkd|Kadu
+zkn|Kanan
+zkr|Zakhring
+zlj|Liujiang Zhuang
+zln|Lianshan Zhuang
+zmp|Mpuono
+zmq|Mituku
+zng|Mang
+zph|Totomachapan Zapotec
+zpk|Tlacolulita Zapotec
+zpn|Santa Inés Yatzechi Zapotec
+zpp|El Alto Zapotec
+zpr|Santiago Xanica Zapotec
+zps|Coatlán Zapotec
+zpw|Zaniza Zapotec
+zpx|San Baltazar Loxicha Zapotec
+zrg|Mirgan
+zro|Záparo
+zrs|Mairasi
+zte|Elotepec Zapotec
+ztl|Lapaguía-Guivini Zapotec
+ztx|Zaachila Zapotec
+zun|Zuni
+zyg|Yang Zhuang
+zyj|Youjiang Zhuang
+zyn|Yongnan Zhuang
+zzj|Zuojiang Zhuang
+dj|dj
+chg|Chagatai
+gmy|Mycenaean Greek
+pro|Old Provençal (to 1500)
+emj|emj
+sul|sul
+gal|Galolen
+nci|Classical Nahuatl
+sci|Sri Lankan Creole Malay
+hn|hn
+ly|ly
+zhc|zhc
+aah|Abu' Arapesh
+aoc|Pemon
+bih|bih
+chn|Chinook jargon
+ckm|Chakavian
+cmi|Emberá-Chamí
+cwd|Woods Cree
+gba|Gbaya (Central African Republic)
+kmd|Majukayang Kalinga
+kzn|Kokola
+mgv|Matengo
+mik|Mikasuki
+mtj|Moskona
+nki|Thangal Naga
+nuz|Tlamacazapa Nahuatl
+ojs|Severn Ojibwa
+pez|Eastern Penan
+sel|Selkup
+tqb|Tembé
+vgt|Vlaamse Gebarentaal
+yas|Nugunu (Cameroon)
+zpf|San Pedro Quiatoni Zapotec
+eg|eg
+pom|Southeastern Pomo
+va|va
+bsb|Brunei Bisaya
+emx|Erromintxela
+kxi|Keningau Murut
+ens|ens
+mu|mu
+xx|xx
+ipa|ipa
+zt|zt
+pb|pb
+ua|ua
+lxn|lxn
+un|un
+ew|ew
+jje|Jejueo
+smr|Simeulue
+spv|Sambalpuri
+gld|Nanai
+pze|Pesse
+scandinavia|scandinavia
+sami|sami
+etc|Etchemin
+qtd|qtd
+swl|Swedish Sign Language
+sdk|Sos Kundi
+ot|ot
+obj|obj
+foc|foc
+ph|ph
+qaf|qaf
+qm|qm
+bsl|Basa-Gumna
+ate|Atemble
+nru|Narua
+hf|hf
+mpu|Makuráp
+soj|Soi
+ypk|ypk
+zl|zl
+fl|fl
+ev|ev
+bgx|Balkan Gagauz Turkish
+bio|Nai
+bte|Gamo-Ningi
+cpx|Pu-Xian Chinese
+czh|Huizhou Chinese
+frc|Cajun French
+mnp|Min Bei Chinese
+pcf|Paliyan
+pht|Phu Thai
+plj|plj
+sou|Southern Thai
+yoy|Yoy
+zpe|Petapa Zapotec
+zua|zua
+cjy|Jinyu Chinese
+cre|Cree
+ipk|Inupiaq
+jak|Jakun
+mol|mol
+pli|Pali
+tmw|Temuan
+zha|Zhuang
+wi|wi
+rto|rto
+egr|egr
+sjd|Kildin Sami
+sje|Pite Sami
+ptb|ptb
+str|Straits Salish
+enf|Forest Enets
+ddd|Dongotono
+ez|ez
+btk|btk
+cyr|cyr
+acy|Cypriot Arabic
+ek|ek
+pc|pc
+wu|wu
+bc|bc
+ir|ir
+pn|pn
+val|Vehes
+chh|Chinook
+ivo|ivo
+hex|hex
+rny|rny
+evm|evm
+bdr|West Coast Bajau
+rsk|Ruthenian
+dgs|Dogoso
+him|him
+mc|mc
+js|js
+elx|Elamite
+brj|Bieria
+kho|Khotanese
+uy|uy
+awk|Awabakal
+xue|xue
+php|php
+pul|pul
+cc|cc
+kfw|Kharam Naga
+ett|Etruscan
+wao|Wappo
+gmo|gmo
+tmz|Tamanaku
+uci|uci

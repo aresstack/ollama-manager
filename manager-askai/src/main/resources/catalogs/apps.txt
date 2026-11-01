@@ -1,0 +1,21 @@
+# Local-app compatibility facet (HuggingFace "Apps"), offline fallback snapshot.
+# Source: app entries embedded in https://huggingface.co/models ({"id","label","type":"apps"}).
+# Live-refreshed by CatalogRepository; this file is only used when live + cache are unavailable.
+# Format: id|Display Name  (the id is sent to the API as apps=<id>).
+llama.cpp|llama.cpp
+lmstudio|LM Studio
+jan|Jan
+drawthings|Draw Things
+diffusionbee|DiffusionBee
+joyfusion|JoyFusion
+vllm|vLLM
+ollama|Ollama
+mlx-lm|MLX LM
+docker-model-runner|Docker Model Runner
+lemonade|Lemonade
+sglang|SGLang
+unsloth|Unsloth Studio
+pi|Pi
+hermes-agent|Hermes Agent
+atomic-chat|Atomic Chat
+openclaw|OpenClaw

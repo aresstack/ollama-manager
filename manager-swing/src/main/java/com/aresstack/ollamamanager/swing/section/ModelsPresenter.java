@@ -131,13 +131,17 @@ public final class ModelsPresenter {
         });
     }
 
-    /** @return the online catalog for the install dialog, or {@code null} when not wired */
-    com.aresstack.ollamamanager.application.catalog.ModelCatalogService catalog() {
-        return services.catalog();
+    /** @return the settings file of the askai-java8 model installer, or {@code null} when not wired */
+    java.io.File modelInstallConfiguration() {
+        return services.modelInstallConfiguration();
     }
 
-    JobManager jobs() {
-        return jobs;
+    /** Open the model installer for the running server, or show why there is none. */
+    void openInstaller(java.util.function.BiConsumer<Endpoint, java.io.File> opener) {
+        Endpoint endpoint = runningEndpoint();
+        if (endpoint != null && services.modelInstallConfiguration() != null) {
+            opener.accept(endpoint, services.modelInstallConfiguration());
+        }
     }
 
     boolean isBusy() {

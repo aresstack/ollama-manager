@@ -1,0 +1,14 @@
+# HuggingFace "other" catalog: id | Display | Subgroup — bundled OFFLINE FALLBACK snapshot generated from
+# https://huggingface.co/api/models-tags-by-type (complete, not curated). Primary source is live;
+# this file is only used when live and cache are both unavailable. Regenerate by re-fetching.
+
+text-generation-inference|text-generation-inference|Inference
+model-index|Eval Results (legacy)|Metadata
+text-embeddings-inference|text-embeddings-inference|Inference
+custom_code|custom_code|Model type
+4-bit|4-bit precision|Quantization
+merge|Merge|Model type
+8-bit|8-bit precision|Quantization
+moe|Mixture of Experts|Model type
+co2_eq_emissions|Carbon Emissions|Metadata
+eval-results|Eval Results|Metadata

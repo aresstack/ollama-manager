@@ -12,6 +12,16 @@ and as `META-INF/licenses/Apache-2.0.txt` in the JAR.
 | [Okio](https://github.com/square/okio) (`okio`, `okio-jvm`) | 3.6.0 | Apache License 2.0 |
 | [Kotlin standard library](https://github.com/JetBrains/kotlin) (`kotlin-stdlib`, `-common`, `-jdk7`, `-jdk8`) | 1.9.10 | Apache License 2.0 |
 | [JetBrains annotations](https://github.com/JetBrains/java-annotations) | 13.0 | Apache License 2.0 |
+| [Apache Commons Math](https://commons.apache.org/proper/commons-math/) | 3.6.1 | Apache License 2.0 |
+| [iirj](https://github.com/berndporr/iirj) | 1.7 | Apache License 2.0 |
+
+Apache Commons Math ships `META-INF/NOTICE.txt`, which is kept unchanged in the JAR.
+
+The model installer (module `manager-askai`) is taken over from
+[askai-java8](https://github.com/Miguel0888/askai-java8) together with AresStack's
+`win-proxy-java` 0.1.0-beta.4 and `directml-model-catalog` 0.2.1, all MIT License, Copyright (c) 2026 AresStack
+(`licenses/MIT-AresStack.txt`). SLF4J (`slf4j-api`, `slf4j-nop` 1.7.36) is MIT License
+(`licenses/MIT-SLF4J.txt`). GraalJS, which win-proxy-java uses only to evaluate PAC scripts, is not bundled.
 
 Parsing of ollama.com library pages uses Jodd, licensed under the BSD 2-Clause License. Its license text
 (Copyright (c) 2003-present, Jodd Team) is shipped as `licenses/BSD-2-Clause-Jodd.txt` (ZIP) and
