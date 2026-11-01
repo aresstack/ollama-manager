@@ -381,6 +381,28 @@ public class HttpOllamaApiClientTest {
     }
 
     @Test
+    public void preloadOfEmbeddingModelFallsBackToEmbed() throws Exception {
+        server.json("POST", "/api/generate", 400,
+            "{\"error\":\"\\\"nomic-embed-text:latest\\\" does not support generate\"}");
+        server.json("POST", "/api/embed", 200, "{\"model\":\"nomic-embed-text:latest\",\"embeddings\":[]}");
+        client.preload(endpoint, "nomic-embed-text:latest", ModelOptions.none(), "30m", CancellationToken.none());
+        assertEquals("/api/embed", server.last().path);
+        Map<String, Object> request = body(server.last());
+        assertEquals("", request.get("input"));
+        assertEquals("30m", request.get("keep_alive"));
+        assertNull(request.get("stream"));
+    }
+
+    @Test
+    public void unloadOfEmbeddingModelFallsBackToEmbed() throws Exception {
+        server.json("POST", "/api/generate", 400, "{\"error\":\"model does not support generate\"}");
+        server.json("POST", "/api/embed", 200, "{\"embeddings\":[]}");
+        client.unload(endpoint, "nomic-embed-text:latest", CancellationToken.none());
+        assertEquals("/api/embed", server.last().path);
+        assertEquals(0L, body(server.last()).get("keep_alive"));
+    }
+
+    @Test
     public void unloadSendsKeepAliveZero() throws Exception {
         server.json("POST", "/api/generate", 200, "{\"done\":true,\"done_reason\":\"unload\"}");
         client.unload(endpoint, "llama3.1:8b", CancellationToken.none());

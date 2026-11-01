@@ -143,7 +143,32 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         if (!requestOptions.isEmpty()) {
             body.put("options", requestOptions);
         }
-        exchange(longClient, endpoint, "POST", "/api/generate", body, cancellation, true);
+        loadOrEmbed(longClient, endpoint, body, cancellation);
+    }
+
+    /**
+     * Send a load/unload request via {@code /api/generate}; embedding-only models reject that with
+     * "does not support generate", so the same request is then sent to {@code /api/embed} with an empty input.
+     */
+    private void loadOrEmbed(OkHttpClient httpClient, Endpoint endpoint, Map<String, Object> body,
+                             CancellationToken cancellation) throws OperationException {
+        try {
+            exchange(httpClient, endpoint, "POST", "/api/generate", body, cancellation, true);
+        } catch (OperationException e) {
+            if (!isGenerateUnsupported(e)) {
+                throw e;
+            }
+            Map<String, Object> embed = new LinkedHashMap<String, Object>(body);
+            embed.remove("stream");
+            embed.put("input", "");
+            exchange(httpClient, endpoint, "POST", "/api/embed", embed, cancellation, true);
+        }
+    }
+
+    static boolean isGenerateUnsupported(OperationException e) {
+        String message = e.getMessage();
+        return e.kind() == ErrorKind.HTTP_ERROR && message != null
+            && message.toLowerCase(java.util.Locale.ROOT).contains("does not support generate");
     }
 
     @Override
@@ -233,7 +258,7 @@ public final class HttpOllamaApiClient implements OllamaApiPort {
         Map<String, Object> body = modelBody(modelName);
         body.put("stream", Boolean.FALSE);
         body.put("keep_alive", Long.valueOf(0));
-        exchange(client, endpoint, "POST", "/api/generate", body, cancellation, true);
+        loadOrEmbed(client, endpoint, body, cancellation);
     }
 
     @Override
