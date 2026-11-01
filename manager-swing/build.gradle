@@ -65,10 +65,10 @@ tasks.register('managerZip', Zip) {
 
 // Fail the build if a required license or attribution file is missing from the shipped archives.
 def requiredJarEntries = ['META-INF/LICENSE', 'META-INF/THIRD-PARTY-NOTICES.md', 'META-INF/licenses/Apache-2.0.txt',
-                          'META-INF/licenses/MPL-2.0.txt', 'okhttp3/internal/publicsuffix/NOTICE']
+                          'META-INF/licenses/MPL-2.0.txt', 'META-INF/licenses/BSD-2-Clause-Jodd.txt', 'okhttp3/internal/publicsuffix/NOTICE']
 def requiredZipEntries = ['ollama-manager/ollama-manager.jar', 'ollama-manager/LICENSE',
                           'ollama-manager/THIRD-PARTY-NOTICES.md', 'ollama-manager/licenses/Apache-2.0.txt',
-                          'ollama-manager/licenses/MPL-2.0.txt']
+                          'ollama-manager/licenses/MPL-2.0.txt', 'ollama-manager/licenses/BSD-2-Clause-Jodd.txt']
 
 tasks.register('verifyDistributionContents') {
     group = 'verification'

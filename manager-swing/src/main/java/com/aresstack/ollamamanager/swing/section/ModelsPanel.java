@@ -49,13 +49,14 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     private final JLabel notice = new JLabel(" ");
     private final MessageBanner banner = new MessageBanner();
     private final EmptyState empty = new EmptyState("No models on this server",
-        "Pull a model from the Ollama library to get started.");
+        "Install a model from the Ollama library or Hugging Face to get started.");
     private final CardLayout listCards = new CardLayout();
     private final JPanel list = new JPanel(listCards);
     private final ScrollColumn column = new ScrollColumn(new java.awt.FlowLayout());
     private final JTextField pullName = new JTextField(24);
     private final JButton pull = new JButton("Pull");
     private final JButton pullShortcut = new JButton("Pull a model…");
+    private final JButton browse = new JButton("Install model…");
     private final JobProgressPanel progress = new JobProgressPanel();
     private final List<JButton> cardActions = new java.util.ArrayList<JButton>();
     private boolean actionsEnabled = true;
@@ -75,6 +76,9 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         pull.setToolTipText("Download the model to the running server's model directory.");
         pull.addActionListener(event -> presenter.pull(pullName.getText()));
         pullName.addActionListener(event -> presenter.pull(pullName.getText()));
+        browse.setMnemonic('I');
+        browse.setToolTipText("Search the Ollama library or Hugging Face (GGUF) and install a model.");
+        browse.addActionListener(event -> openInstallDialog());
 
         JLabel pullLabel = new JLabel("Pull model:");
         pullLabel.setDisplayedMnemonic('M');
@@ -83,6 +87,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         pullRow.add(pullLabel);
         pullRow.add(pullName);
         pullRow.add(pull);
+        pullRow.add(browse);
         pullRow.setOpaque(false);
 
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
@@ -90,7 +95,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         south.add(pullRow, BorderLayout.CENTER);
         south.add(progress, BorderLayout.SOUTH);
 
-        pullShortcut.addActionListener(event -> pullName.requestFocusInWindow());
+        pullShortcut.addActionListener(event -> openInstallDialog());
         empty.setAction(pullShortcut);
         column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
         column.setOpaque(false);
@@ -158,7 +163,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         }
         column.add(Box.createVerticalGlue());
         notice.setText(entries.isEmpty() ? " " : installed + " installed, " + loaded + " running");
-        empty.setText("No models on this server", "Pull a model from the Ollama library to get started.");
+        empty.setText("No models on this server", "Install a model from the Ollama library or Hugging Face to get started.");
         showList(!entries.isEmpty());
         updateButtons();
         column.revalidate();
@@ -343,11 +348,20 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         return typed == null ? null : typed.toString();
     }
 
+    private void openInstallDialog() {
+        if (presenter.catalog() == null) {
+            pullName.requestFocusInWindow();
+            return;
+        }
+        new ModelInstallDialog(this, presenter.catalog(), presenter.jobs(), presenter::pull).setVisible(true);
+    }
+
     private void updateButtons() {
         boolean enabled = actionsEnabled && mutationsAllowed;
         pull.setEnabled(enabled);
         pullName.setEnabled(enabled);
         pullShortcut.setEnabled(enabled);
+        browse.setEnabled(enabled && presenter.catalog() != null);
         for (JButton action : cardActions) {
             action.setEnabled(enabled);
         }
