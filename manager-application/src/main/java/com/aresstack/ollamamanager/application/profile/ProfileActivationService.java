@@ -81,6 +81,8 @@ public final class ProfileActivationService {
      * Make {@code profileId} active. Server state, applied settings and validity are all read again here, under
      * the lifecycle lock; a plan or validity shown earlier in the UI is never trusted.
      *
+     * @param expectedRevision the profile revision whose plan the user confirmed; activation fails if the profile
+     *                         was revised since, so stored settings are always the ones the user saw
      * @param expectedMode     the mode of the plan the user confirmed; activation fails if the server state
      *                         changed so that the mode is different now
      * @param restartConfirmed whether the user confirmed restarting the owned server; required when the mode is
@@ -89,22 +91,28 @@ public final class ProfileActivationService {
      *                         accepted only if it equals the evaluation made now
      * @return the plan that was carried out
      * @throws OperationException {@code INVALID_STATE} if the server is starting or stopping, another lifecycle
-     *                            operation runs, the mode differs from {@code expectedMode}, the profile is not
+     *                            operation runs, the profile revision or the mode differs from what was confirmed, the profile is not
      *                            valid and not approved, or a needed restart was not confirmed
      */
-    public ProfileActivationPlan activate(String profileId, ActivationMode expectedMode, boolean restartConfirmed,
-                                          ValidityApproval approval, CancellationToken cancellation)
+    public ProfileActivationPlan activate(String profileId, int expectedRevision, ActivationMode expectedMode,
+                                          boolean restartConfirmed, ValidityApproval approval,
+                                          CancellationToken cancellation)
         throws OperationException {
         if (expectedMode == null) {
             throw new IllegalArgumentException("expectedMode must not be null");
         }
-        ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
         return lock.run("activate profile " + profileId, () -> {
+            // Capture under the lock, so no restart or re-attach can swap the server between check and commit.
+            ProfileEnvironment.Snapshot snapshot = environment.capture(cancellation);
             ServerStatus status = lifecycle.status();
             ServerSettings applied = lifecycle.appliedSettings();
             ProfileActivationPlan[] plan = new ProfileActivationPlan[1];
             configurations.update(configuration -> {
                 ModelProfile profile = requireProfile(configuration, profileId);
+                if (profile.revision() != expectedRevision) {
+                    throw new OperationException(ErrorKind.INVALID_STATE, "profile " + profileId + " was revised to "
+                        + profile.revision() + " after revision " + expectedRevision + " was confirmed");
+                }
                 ProfileValidity validity = ProfileValidity.evaluate(profile, snapshot);
                 if (validity.result() != ProfileValidity.Result.VALID
                     && (approval == null || !approval.covers(profileId, profile.revision(), validity))) {

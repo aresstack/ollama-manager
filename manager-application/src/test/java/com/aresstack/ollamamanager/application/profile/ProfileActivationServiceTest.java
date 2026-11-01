@@ -54,9 +54,11 @@ public class ProfileActivationServiceTest {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ProfileEnvironment.Snapshot snapshot = new ProfileEnvironment.Snapshot(GpuFingerprint.CPU_ONLY,
         "0.12.6", Collections.singletonList(ProfileTestData.SCOPE.model()));
+    private Runnable duringCapture = () -> { };
     private final ProfileActivationService service = new ProfileActivationService(configurationService,
         cancellation -> {
             captures.incrementAndGet();
+            duringCapture.run();
             return snapshot;
         }, lifecycle, lock);
 
@@ -79,10 +81,10 @@ public class ProfileActivationServiceTest {
         assertTrue(plan.restartRequiredChanges().contains(ServerSettingCatalog.PARALLELISM));
         assertTrue(plan.restartRequiredChanges().contains(ServerSettingCatalog.KV_CACHE));
 
-        assertInvalidState(() -> service.activate("batch", ActivationMode.RESTART_OWNED_SERVER, false, null, NONE));
+        assertInvalidState(() -> service.activate("batch", 1, ActivationMode.RESTART_OWNED_SERVER, false, null, NONE));
         assertNull(configurations.stored.activeProfileId());
 
-        service.activate("batch", ActivationMode.RESTART_OWNED_SERVER, true, null, NONE);
+        service.activate("batch", 1, ActivationMode.RESTART_OWNED_SERVER, true, null, NONE);
         assertEquals("batch", configurations.stored.activeProfileId());
         assertEquals(Integer.valueOf(4), configurations.stored.desiredServerSettings().parallelism());
         assertEquals(2, runtime.starts.size());
@@ -93,14 +95,14 @@ public class ProfileActivationServiceTest {
     public void externalServerCannotBeChangedAutomatically() throws Exception {
         lifecycle.attachExternal(OllamaInstallation.external("0.12.6", Endpoint.DEFAULT), "0.12.6");
         assertEquals(ActivationMode.CANNOT_APPLY_TO_EXTERNAL, service.plan("batch").mode());
-        service.activate("batch", ActivationMode.CANNOT_APPLY_TO_EXTERNAL, false, null, NONE);
+        service.activate("batch", 1, ActivationMode.CANNOT_APPLY_TO_EXTERNAL, false, null, NONE);
         assertTrue(runtime.starts.isEmpty());
     }
 
     @Test
     public void matchingSettingsNeedOnlyRequestOptions() throws Exception {
         startOwned(ScenarioPreset.PARALLEL_THROUGHPUT.serverSettings());
-        ProfileActivationPlan plan = service.activate("batch", ActivationMode.REQUEST_OPTIONS_ONLY, false, null,
+        ProfileActivationPlan plan = service.activate("batch", 1, ActivationMode.REQUEST_OPTIONS_ONLY, false, null,
             NONE);
         assertTrue(plan.restartRequiredChanges().isEmpty());
         assertEquals(Integer.valueOf(4096), plan.requestOptions().numCtx());
@@ -110,7 +112,7 @@ public class ProfileActivationServiceTest {
     @Test
     public void stoppedServerAppliesOnNextStart() throws Exception {
         assertEquals(ActivationMode.APPLY_ON_NEXT_START,
-            service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE).mode());
+            service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false, null, NONE).mode());
     }
 
     @Test
@@ -119,7 +121,7 @@ public class ProfileActivationServiceTest {
         runtime.last.exitCode = 1;
 
         assertEquals(ActivationMode.APPLY_ON_NEXT_START, service.plan("batch").mode());
-        service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE);
+        service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false, null, NONE);
         assertEquals(1, runtime.starts.size());
     }
 
@@ -130,7 +132,7 @@ public class ProfileActivationServiceTest {
         assertTrue(runtime.startEntered.await(5, TimeUnit.SECONDS));
 
         assertInvalidState(() -> service.plan("batch"));
-        assertInvalidState(() -> service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE));
+        assertInvalidState(() -> service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false, null, NONE));
         assertNull(configurations.stored.activeProfileId());
 
         runtime.releaseStart.countDown();
@@ -142,8 +144,45 @@ public class ProfileActivationServiceTest {
         assertEquals(ActivationMode.APPLY_ON_NEXT_START, service.plan("batch").mode());
         startOwned(ServerSettings.defaults());
 
-        assertInvalidState(() -> service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE));
+        assertInvalidState(() -> service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false, null, NONE));
         assertNull(configurations.stored.activeProfileId());
+    }
+
+    @Test
+    public void serverCannotBeSwappedBetweenCaptureAndCommit() throws Exception {
+        lifecycle.attachExternal(OllamaInstallation.external("0.12.6", Endpoint.DEFAULT), "0.12.6");
+        Throwable[] reattach = new Throwable[1];
+        duringCapture = () -> {
+            try {
+                executor.submit(() -> {
+                    lifecycle.attachExternal(OllamaInstallation.external("0.13.0", Endpoint.DEFAULT), "0.13.0");
+                    return null;
+                }).get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                reattach[0] = e.getCause();
+            }
+        };
+
+        service.activate("batch", 1, ActivationMode.CANNOT_APPLY_TO_EXTERNAL, false, null, NONE);
+
+        assertTrue("a re-attach during activation must fail fast", reattach[0] instanceof OperationException);
+        assertEquals(ErrorKind.INVALID_STATE, ((OperationException) reattach[0]).kind());
+        assertEquals("0.12.6", lifecycle.status().reportedVersion());
+        assertEquals("batch", configurations.stored.activeProfileId());
+    }
+
+    @Test
+    public void revisedProfileSinceConfirmationIsRejectedEvenWithSameMode() throws Exception {
+        startOwned(ServerSettings.defaults());
+        assertEquals(ActivationMode.RESTART_OWNED_SERVER, service.plan("batch").mode());
+        repository.save(repository.find("batch").revise(ScenarioPreset.PARALLEL_THROUGHPUT.serverSettings()
+            .with(ServerSettingCatalog.PARALLELISM, 8), ScenarioPreset.PARALLEL_THROUGHPUT.modelOptions()));
+        assertEquals(ActivationMode.RESTART_OWNED_SERVER, service.plan("batch").mode());
+
+        assertInvalidState(() -> service.activate("batch", 1, ActivationMode.RESTART_OWNED_SERVER, true, null,
+            NONE));
+        assertNull(configurations.stored.activeProfileId());
+        assertEquals(1, runtime.starts.size());
     }
 
     @Test
@@ -160,7 +199,7 @@ public class ProfileActivationServiceTest {
     public void activationKeepsProfileRevisionSavedMeanwhile() throws Exception {
         repository.save(repository.find("batch").revise(ServerSettings.defaults(),
             ScenarioPreset.PARALLEL_THROUGHPUT.modelOptions()));
-        service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, null, NONE);
+        service.activate("batch", 2, ActivationMode.APPLY_ON_NEXT_START, false, null, NONE);
         assertEquals(2, repository.find("batch").revision());
         assertEquals("batch", configurations.stored.activeProfileId());
     }
@@ -201,7 +240,7 @@ public class ProfileActivationServiceTest {
         ProfileValidity validity = service.validity("batch", NONE);
         assertEquals(ProfileValidity.Result.OUTDATED, validity.result());
 
-        service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false,
+        service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false,
             new ValidityApproval("batch", 1, validity.result(), validity.findings()), NONE);
 
         assertEquals("batch", configurations.stored.activeProfileId());
@@ -248,12 +287,12 @@ public class ProfileActivationServiceTest {
         ProfileValidity seen = service.validity("batch", NONE);
         ValidityApproval approval = new ValidityApproval("batch", 1, seen.result(), seen.findings());
         try {
-            service.activate("batch", ActivationMode.RESTART_OWNED_SERVER, false, approval, NONE);
+            service.activate("batch", 1, ActivationMode.RESTART_OWNED_SERVER, false, approval, NONE);
             fail("a needed restart still needs its own confirmation");
         } catch (OperationException e) {
             assertTrue(e.getMessage().contains("restart"));
         }
-        service.activate("batch", ActivationMode.RESTART_OWNED_SERVER, true, approval, NONE);
+        service.activate("batch", 1, ActivationMode.RESTART_OWNED_SERVER, true, approval, NONE);
         assertEquals("batch", configurations.stored.activeProfileId());
     }
 
@@ -269,7 +308,7 @@ public class ProfileActivationServiceTest {
     }
 
     private void assertRejected(ValidityApproval approval) {
-        assertInvalidState(() -> service.activate("batch", ActivationMode.APPLY_ON_NEXT_START, false, approval,
+        assertInvalidState(() -> service.activate("batch", 1, ActivationMode.APPLY_ON_NEXT_START, false, approval,
             NONE));
     }
 

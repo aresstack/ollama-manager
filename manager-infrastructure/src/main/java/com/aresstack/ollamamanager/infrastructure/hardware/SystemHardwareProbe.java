@@ -91,7 +91,11 @@ public final class SystemHardwareProbe implements HardwareProbePort {
     private List<GpuDescriptor> nvidiaInventory(CancellationToken cancellation, boolean[] complete)
         throws OperationException {
         try {
-            return nvidiaSmi.inventory(cancellation);
+            NvidiaSmi.InventoryReport report = nvidiaSmi.inventoryReport(cancellation);
+            if (!report.isReliable()) {
+                complete[0] = false;
+            }
+            return report.gpus();
         } catch (OperationCancelledException e) {
             throw e;
         } catch (OperationException e) {
