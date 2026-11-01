@@ -125,20 +125,23 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         form.addRow("Model", model, null);
         form.addRow("Parallel chats", levels, levels.getToolTipText());
         form.addRow("Tokens per request", withUnit(maxTokens, "tokens"), maxTokens.getToolTipText());
-        JPanel contextRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
+        // Every field starts at the label column's edge and stretches to the card's width, so rows line up.
+        setContext.setOpaque(false);
+        setContext.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, Spacing.GAP));
+        JPanel contextRow = new JPanel(new BorderLayout());
         contextRow.setOpaque(false);
-        contextRow.add(setContext);
-        contextRow.add(numCtx);
-        contextRow.add(new JLabel("tokens"));
+        contextRow.add(setContext, BorderLayout.WEST);
+        contextRow.add(withUnit(numCtx, "tokens"), BorderLayout.CENTER);
         form.addRow("num_ctx", contextRow, setContext.getToolTipText());
-        form.addRow("Rounds per chat", rounds, rounds.getToolTipText());
+        form.addRow("Rounds per chat", withUnit(rounds, "requests"), rounds.getToolTipText());
 
         stopWhenUnstable.setOpaque(false);
         sweep.setOpaque(false);
-        JPanel sweepRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
+        sweep.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, Spacing.GAP));
+        JPanel sweepRow = new JPanel(new BorderLayout());
         sweepRow.setOpaque(false);
-        sweepRow.add(sweep);
-        sweepRow.add(serverValues);
+        sweepRow.add(sweep, BorderLayout.WEST);
+        sweepRow.add(serverValues, BorderLayout.CENTER);
         JPanel options = new JPanel();
         options.setOpaque(false);
         options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
@@ -244,11 +247,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         });
     }
 
-    private static JPanel withUnit(JSpinner spinner, String unit) {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
+    /** Field that fills the row with its unit at the right edge, so it aligns with plain fields. */
+    private static JPanel withUnit(javax.swing.JComponent field, String unit) {
+        JPanel row = new JPanel(new BorderLayout(Spacing.GAP, 0));
         row.setOpaque(false);
-        row.add(spinner);
-        row.add(new JLabel(unit));
+        row.add(field, BorderLayout.CENTER);
+        row.add(new JLabel(unit), BorderLayout.EAST);
         return row;
     }
 
