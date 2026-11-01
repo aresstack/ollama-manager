@@ -15,7 +15,7 @@ import java.awt.geom.Ellipse2D;
 
 /**
  * A round comic window chip (Ollama Manager deviation from askai): a separate MINIMIZE chip (always blue,
- * light bar) or CLOSE chip (always red, light ✕). One plain click runs the action, without any delay.
+ * light underscore) or CLOSE chip (always red, light ✕). One plain click runs the action, without any delay.
  */
 public final class ComicWindowChipButton extends JButton {
 
@@ -78,7 +78,8 @@ public final class ComicWindowChipButton extends JButton {
                 g2.drawLine(cx - arm, cy - arm, cx + arm, cy + arm);
                 g2.drawLine(cx + arm, cy - arm, cx - arm, cy + arm);
             } else {
-                g2.drawLine(cx - arm, cy, cx + arm, cy);
+                // underscore at the bottom (Windows minimize glyph), not a centered minus
+                g2.drawLine(cx - arm, cy + arm, cx + arm, cy + arm);
             }
         } finally {
             g2.dispose();
