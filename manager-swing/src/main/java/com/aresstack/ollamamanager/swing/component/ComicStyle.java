@@ -1,6 +1,8 @@
 package com.aresstack.ollamamanager.swing.component;
 
+import com.aresstack.comiccontrols.border.ComicFieldBorder;
 import com.aresstack.comiccontrols.control.ComicComboBoxUI;
+import com.aresstack.comiccontrols.control.ComicScrollPane;
 import com.aresstack.comiccontrols.control.ComicFormControls;
 import com.aresstack.comiccontrols.control.ComicListSupport;
 import com.aresstack.comiccontrols.control.ComicProgressBarUI;
@@ -60,6 +62,15 @@ public final class ComicStyle {
         } catch (SecurityException ignored) {
             // Without the listener, components added later keep the plain comic delegates of the theme.
         }
+    }
+
+    /** A text area in an askai comic scroll pane with the rounded comic field contour. */
+    public static JScrollPane fieldScroll(Component view) {
+        JScrollPane scroll = new ComicScrollPane(view, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+            JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scroll.setBorder(new ComicFieldBorder());
+        scroll.getViewport().setBackground(AskAiTheme.active().fieldBg());
+        return scroll;
     }
 
     /** Refresh the tree after a font or theme change, then put the comic controls back. */

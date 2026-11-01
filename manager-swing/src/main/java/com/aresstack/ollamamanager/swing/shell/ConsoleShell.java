@@ -1,6 +1,16 @@
 package com.aresstack.ollamamanager.swing.shell;
 
+import com.aresstack.askai.java8.ui.AppIcon;
+import com.aresstack.askai.java8.ui.AskAiTitleBar;
+import com.aresstack.comiccontrols.control.ComicWindowDragger;
+import com.aresstack.comiccontrols.control.ComicWindowResizer;
+import com.aresstack.comiccontrols.control.ComicWindowShape;
+import com.aresstack.comiccontrols.theme.ComicPalette;
+import com.aresstack.comiccontrols.theme.ResearchUiMetrics;
+import com.aresstack.comiccontrols.theme.ThemeColor;
 import com.aresstack.ollamamanager.swing.component.ComicStyle;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.section.BenchmarksPanel;
 import com.aresstack.ollamamanager.swing.section.BenchmarksPresenter;
@@ -56,9 +66,15 @@ public class ConsoleShell extends JFrame {
     private final NavigationList navigation = new NavigationList();
     private final Map<Section, JComponent> panels = new EnumMap<Section, JComponent>(Section.class);
     private final JSplitPane split;
+    /** The frameless window's ink-contour padding (doubles as the resize grip zone), as in askai. */
+    private static final int WINDOW_PADDING = 4;
+    private static final int RESIZE_GRIP = 6;
 
     public ConsoleShell(ConsoleServices services, JobManager jobs, AutoCloseable onClose) {
         super("Ollama Manager");
+        // As askai's AskAiFrame: frameless, with the askai title bar and the comic window contour.
+        setUndecorated(true);
+        AppIcon.apply(this);
         this.jobs = jobs;
         fontScale.apply(state.fontScale());
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -91,8 +107,27 @@ public class ConsoleShell extends JFrame {
         JPanel root = new JPanel(new BorderLayout());
         root.add(split, BorderLayout.CENTER);
         root.add(new StatusBar(jobs), BorderLayout.SOUTH);
-        setContentPane(root);
-        setJMenuBar(menuBar());
+        AskAiTitleBar titleBar = new AskAiTitleBar(getTitle(),
+            () -> setState(Frame.ICONIFIED),
+            () -> dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING)));
+        // Title bar ABOVE the menu bar, both inside the frameless window's ink contour (as in askai).
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.setOpaque(false);
+        titleBar.setAlignmentX(LEFT_ALIGNMENT);
+        header.add(titleBar);
+        JMenuBar menus = menuBar();
+        menus.setAlignmentX(LEFT_ALIGNMENT);
+        menus.setMaximumSize(new Dimension(Integer.MAX_VALUE, menus.getPreferredSize().height));
+        header.add(menus);
+        JPanel windowSurface = new JPanel(new BorderLayout());
+        windowSurface.add(header, BorderLayout.NORTH);
+        windowSurface.add(root, BorderLayout.CENTER);
+        setContentPane(windowSurface);
+        ComicWindowShape.install(this, windowSurface, ComicPalette.defaultPalette(), WINDOW_PADDING,
+            ResearchUiMetrics.RADIUS_WINDOW);
+        ComicWindowResizer.install(windowSurface, RESIZE_GRIP);
+        ComicWindowDragger.install(titleBar);
         ComicStyle.apply(getRootPane());
 
         setMinimumSize(new Dimension(720, 480));
@@ -161,6 +196,14 @@ public class ConsoleShell extends JFrame {
     private JMenuBar menuBar() {
         int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
         JMenuBar bar = new JMenuBar();
+        // Accent strip: the comic surface darkened towards the ink, so the menus stand out from the page.
+        ComicPalette palette = ComicPalette.defaultPalette();
+        bar.setOpaque(true);
+        // Darker brown than the page: the surface pulled towards the ink and the orange accent.
+        bar.setBackground(ThemeColor.mix(ThemeColor.mix(palette.getSurface(), palette.getAccentOrange(), 0.22f),
+            palette.getInk(), 0.18f));
+        bar.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0,
+            ThemeColor.mix(palette.getSurface(), palette.getInk(), 0.45f)));
 
         JMenu file = new JMenu("File");
         file.setMnemonic('F');

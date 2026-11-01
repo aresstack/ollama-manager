@@ -19,6 +19,8 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import com.aresstack.comiccontrols.control.ComicTextArea;
+import com.aresstack.ollamamanager.swing.component.ComicStyle;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.table.AbstractTableModel;
@@ -37,7 +39,9 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
 
     private final ProfileTableModel model = new ProfileTableModel();
     private final JTable table = new JTable(model);
-    private final JTextArea details = new JTextArea(4, 40);
+    private JScrollPane detailsScroll;
+    private JSplitPane split;
+    private final JTextArea details = new ComicTextArea(4, 40);
     private final MessageBanner notice = new MessageBanner();
     private final EmptyState empty = new EmptyState("No profiles stored yet",
         "Profiles are created from benchmark results or scenario presets.");
@@ -83,7 +87,8 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         list.setOpaque(false);
         list.add(new JScrollPane(table), "table");
         list.add(empty, "empty");
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, list, new JScrollPane(details));
+        detailsScroll = ComicStyle.fieldScroll(details);
+        split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, list, detailsScroll);
         split.setResizeWeight(0.7);
         split.setBorder(null);
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
@@ -93,6 +98,8 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
         body.add(south, BorderLayout.SOUTH);
         setBody(body);
         listCards.show(list, "empty");
+        detailsScroll.setVisible(false);
+        split.setDividerSize(0);
         updateButtons();
         presenter.bind(this);
         addHierarchyListener(event -> {
@@ -114,9 +121,12 @@ public final class ProfilesPanel extends SectionPanel implements ProfilesView {
     public void showProfiles(List<ProfileRow> rows) {
         model.setRows(rows);
         listCards.show(list, rows.isEmpty() ? "empty" : "table");
+        // The empty state already says there are no profiles; the check details only appear with profiles.
+        detailsScroll.setVisible(!rows.isEmpty());
+        split.setDividerSize(rows.isEmpty() ? 0 : new JSplitPane().getDividerSize());
+        split.revalidate();
         if (rows.isEmpty()) {
-            details.setText("No profiles stored yet. Profiles are created from benchmark results or scenario"
-                + " presets.");
+            details.setText("");
         } else {
             showSelection();
         }

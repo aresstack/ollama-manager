@@ -32,7 +32,7 @@ public final class JobsPanel extends SectionPanel {
     private final JobTableModel model = new JobTableModel();
     private final JTable table = new JTable(model);
     private final JobProgressPanel progress = new JobProgressPanel();
-    private final JTextArea log = new JTextArea();
+    private final JTextArea log = new com.aresstack.comiccontrols.control.ComicTextArea();
 
     public JobsPanel(ConsoleServices services, JobManager jobs) {
         super(Section.JOBS.title(), Section.JOBS.description());
@@ -62,7 +62,7 @@ public final class JobsPanel extends SectionPanel {
         top.setOpaque(false);
         top.add(new JScrollPane(table), BorderLayout.CENTER);
         top.add(progress, BorderLayout.SOUTH);
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, new JScrollPane(log));
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, com.aresstack.ollamamanager.swing.component.ComicStyle.fieldScroll(log));
         split.setResizeWeight(0.5);
         setBody(split);
         loadLog(services.serverLifecycle(), jobs);
