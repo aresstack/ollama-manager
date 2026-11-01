@@ -1,7 +1,7 @@
 # Third-party notices
 
-Ollama Manager bundles the following libraries in `ollama-manager.jar`. All are licensed under the
-Apache License 2.0. A complete copy of that license is shipped as `licenses/Apache-2.0.txt` in the ZIP
+Ollama Manager bundles the following libraries in `ollama-manager.jar`. The libraries in the first table are
+licensed under the Apache License 2.0. A complete copy of that license is shipped as `licenses/Apache-2.0.txt` in the ZIP
 and as `META-INF/licenses/Apache-2.0.txt` in the JAR.
 
 | Library | Version | License |
@@ -12,6 +12,15 @@ and as `META-INF/licenses/Apache-2.0.txt` in the JAR.
 | [Okio](https://github.com/square/okio) (`okio`, `okio-jvm`) | 3.6.0 | Apache License 2.0 |
 | [Kotlin standard library](https://github.com/JetBrains/kotlin) (`kotlin-stdlib`, `-common`, `-jdk7`, `-jdk8`) | 1.9.10 | Apache License 2.0 |
 | [JetBrains annotations](https://github.com/JetBrains/java-annotations) | 13.0 | Apache License 2.0 |
+
+Parsing of ollama.com library pages uses Jodd, licensed under the BSD 2-Clause License. Its license text
+(Copyright (c) 2003-present, Jodd Team) is shipped as `licenses/BSD-2-Clause-Jodd.txt` (ZIP) and
+`META-INF/licenses/BSD-2-Clause-Jodd.txt` (JAR).
+
+| Library | Version | License |
+|---|---|---|
+| [Jodd Lagarto](https://github.com/oblac/jodd-lagarto) | 6.0.6 | BSD 2-Clause |
+| [Jodd Util](https://github.com/oblac/jodd-util) (Lagarto dependency) | 6.1.0 | BSD 2-Clause |
 
 None of these libraries ships an Apache `NOTICE` file. OkHttp contains
 `okhttp3/internal/publicsuffix/NOTICE`, which is kept unchanged in the JAR at that path:
