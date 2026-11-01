@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Local HTTP server for tests. Public https URLs are mapped to it through {@link #resolver()}.
  */
-final class FakeHttpServer implements AutoCloseable {
+public final class FakeHttpServer implements AutoCloseable {
 
     interface Handler {
         void handle(HttpExchange exchange) throws IOException;
@@ -24,10 +24,10 @@ final class FakeHttpServer implements AutoCloseable {
 
     private final HttpServer server;
     private final Map<String, Handler> routes = new ConcurrentHashMap<String, Handler>();
-    final List<String> requests = Collections.synchronizedList(new ArrayList<String>());
+    public final List<String> requests = Collections.synchronizedList(new ArrayList<String>());
     final List<String> rangeHeaders = Collections.synchronizedList(new ArrayList<String>());
 
-    FakeHttpServer() throws IOException {
+    public FakeHttpServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             String path = exchange.getRequestURI().getRawPath();
@@ -50,7 +50,7 @@ final class FakeHttpServer implements AutoCloseable {
         server.start();
     }
 
-    UrlResolver resolver() {
+    public UrlResolver resolver() {
         String base = "http://127.0.0.1:" + server.getAddress().getPort();
         return url -> base + url.substring(url.indexOf('/', "https://".length()));
     }
@@ -63,7 +63,7 @@ final class FakeHttpServer implements AutoCloseable {
         route(path, exchange -> respond(exchange, 200, body));
     }
 
-    void text(String path, String body) {
+    public void text(String path, String body) {
         bytes(path, body.getBytes(StandardCharsets.UTF_8));
     }
 

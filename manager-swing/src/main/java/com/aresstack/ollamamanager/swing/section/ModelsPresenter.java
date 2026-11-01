@@ -128,6 +128,15 @@ public final class ModelsPresenter {
         });
     }
 
+    /** @return the online catalog for the install dialog, or {@code null} when not wired */
+    com.aresstack.ollamamanager.application.catalog.ModelCatalogService catalog() {
+        return services.catalog();
+    }
+
+    JobManager jobs() {
+        return jobs;
+    }
+
     boolean isBusy() {
         return busy;
     }

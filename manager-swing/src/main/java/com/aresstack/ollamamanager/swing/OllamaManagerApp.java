@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.swing;
 
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.catalog.ModelCatalogService;
 import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
@@ -15,6 +16,8 @@ import com.aresstack.ollamamanager.application.server.OwnedServerUsage;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
+import com.aresstack.ollamamanager.infrastructure.catalog.HuggingFaceCatalog;
+import com.aresstack.ollamamanager.infrastructure.catalog.OllamaLibraryCatalog;
 import com.aresstack.ollamamanager.infrastructure.distribution.GitHubReleaseCatalog;
 import com.aresstack.ollamamanager.infrastructure.distribution.PortableDistributionInstaller;
 import com.aresstack.ollamamanager.infrastructure.hardware.SystemHardwareProbe;
@@ -88,6 +91,8 @@ public final class OllamaManagerApp {
             .hardwareProbe(hardwareProbe)
             .gpuTelemetry(hardwareProbe.nvidiaSmi())
             .models(models)
+            .catalog(new ModelCatalogService(models,
+                Arrays.asList(OllamaLibraryCatalog.defaults(), HuggingFaceCatalog.defaults())))
             .installations(installations)
             .profiles(new ProfileActivationService(configuration, profileEnvironment, lifecycle,
                 lifecycleLock))

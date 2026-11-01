@@ -22,7 +22,6 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
@@ -80,11 +79,9 @@ public class ConsoleShell extends JFrame {
                 show(navigation.getSelectedValue());
             }
         });
-        JScrollPane navScroll = new JScrollPane(navigation);
-        navScroll.setBorder(null);
-        navScroll.setMinimumSize(new Dimension(160, 100));
+        navigation.setMinimumSize(new Dimension(160, 100));
         content.setMinimumSize(new Dimension(400, 100));
-        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navScroll, content);
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navigation, content);
         split.setDividerLocation(state.dividerLocation(220));
         split.setContinuousLayout(true);
         split.setBorder(null);

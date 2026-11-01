@@ -2,6 +2,7 @@ package com.aresstack.ollamamanager.swing.shell;
 
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
+import com.aresstack.ollamamanager.application.catalog.ModelCatalogService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
@@ -32,6 +33,7 @@ public final class ConsoleServices {
     private final ConcurrencyBenchmarkService benchmarks;
     private final BenchmarkHistoryPort benchmarkHistory;
     private final ExistingSettingsImport existingSettings;
+    private final ModelCatalogService catalog;
 
     private ConsoleServices(Builder builder) {
         if (builder.configuration == null) {
@@ -49,6 +51,7 @@ public final class ConsoleServices {
         this.benchmarks = builder.benchmarks;
         this.benchmarkHistory = builder.benchmarkHistory;
         this.existingSettings = builder.existingSettings;
+        this.catalog = builder.catalog;
     }
 
     /** Start a builder around the single shared configuration service. */
@@ -119,6 +122,11 @@ public final class ConsoleServices {
         return existingSettings;
     }
 
+    /** @return the online model catalog (Ollama library, Hugging Face), or {@code null} when not wired */
+    public ModelCatalogService catalog() {
+        return catalog;
+    }
+
     public static final class Builder {
         private final ConfigurationService configuration;
         private ServerLifecycleService serverLifecycle;
@@ -132,6 +140,7 @@ public final class ConsoleServices {
         private ConcurrencyBenchmarkService benchmarks;
         private BenchmarkHistoryPort benchmarkHistory;
         private ExistingSettingsImport existingSettings;
+        private ModelCatalogService catalog;
 
         private Builder(ConfigurationService configuration) {
             this.configuration = configuration;
@@ -185,6 +194,11 @@ public final class ConsoleServices {
 
         public Builder existingSettings(ExistingSettingsImport value) {
             this.existingSettings = value;
+            return this;
+        }
+
+        public Builder catalog(ModelCatalogService value) {
+            this.catalog = value;
             return this;
         }
 
