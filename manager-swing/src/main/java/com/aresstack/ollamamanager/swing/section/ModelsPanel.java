@@ -171,6 +171,12 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     }
 
     @Override
+    public void showSource(String text) {
+        String counts = notice.getText().trim();
+        notice.setText(counts.isEmpty() ? text : counts + "  ·  " + text);
+    }
+
+    @Override
     public void setMutationsAllowed(boolean allowed, String reason) {
         mutationsAllowed = allowed;
         if (allowed || reason == null) {

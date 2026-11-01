@@ -46,6 +46,16 @@ public final class DashboardPresenter {
         refreshGpuUsage();
     }
 
+    /** Re-read the server state and GPU usage, for example whenever the dashboard becomes visible. */
+    public void refreshStatus() {
+        if (busy) {
+            return;
+        }
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        view.showServerStatus(lifecycle == null ? null : lifecycle.status());
+        refreshGpuUsage();
+    }
+
     /** Sample GPU usage via the telemetry port only. */
     public void refreshGpuUsage() {
         if (services.gpuTelemetry() == null) {

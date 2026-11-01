@@ -66,10 +66,13 @@ public final class ModelsPresenter {
             entries -> {
                 if (generation == refreshGeneration) {
                     view.showModels(entries);
+                    view.showSource("from " + endpoint + ", read at "
+                        + new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date()));
                 }
             }, error -> {
                 if (generation == refreshGeneration) {
-                    view.showFailure("Load models", error);
+                    // Never keep showing an old list: a failed read must not look like "0 running".
+                    view.showUnavailable("Could not read models from " + endpoint + ": " + error.getMessage());
                 }
             });
     }
