@@ -35,6 +35,12 @@ public final class DashboardPresenter {
 
         ServerLifecycleService lifecycle = services.serverLifecycle();
         view.showServerStatus(lifecycle == null ? null : lifecycle.status());
+        if (lifecycle != null && services.setup() != null
+            && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL) {
+            // An external server can disappear without the manager noticing; check it in the background.
+            jobs.submit("Check external server", true, context -> services.setup().verifyAttached(
+                context.cancellation()), view::showServerStatus, error -> view.showServerStatus(lifecycle.status()));
+        }
 
         if (services.hardwareProbe() == null) {
             view.showHardware(null);

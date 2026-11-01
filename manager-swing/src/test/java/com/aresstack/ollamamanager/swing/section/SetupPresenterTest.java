@@ -136,6 +136,23 @@ public class SetupPresenterTest {
     }
 
     @Test
+    public void externalServerThatStoppedAnsweringIsForgotten() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+        presenter.useRunningServer();
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+
+        runningVersion = null;
+        presenter.detect();
+
+        assertEquals(RuntimeOwnership.NONE, lifecycle.status().ownership());
+        assertFalse(view.detection.isExternalAttached());
+        assertEquals(ServerState.STOPPED, services.setup().verifyAttached(
+            com.aresstack.ollamamanager.application.common.CancellationToken.none()).state());
+    }
+
+    @Test
     public void runningServerWithoutControlOffersNoStop() {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
@@ -338,7 +355,23 @@ public class SetupPresenterTest {
     }
 
     @Test
-    public void stopUsingExternalServerAllowsStartingOwnServer() throws Exception {
+    public void startIsRefusedWhileAnAnsweringExternalServerIsInUse() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+        presenter.useRunningServer();
+        presenter.select(PORTABLE);
+
+        presenter.startSelected();
+        assertFalse(calls.contains("start"));
+
+        presenter.stopUsingExternal();
+        assertTrue(view.notices.contains(SetupPresenter.DETACHED));
+        assertEquals(RuntimeOwnership.NONE, lifecycle.status().ownership());
+    }
+
+    @Test
+    public void vanishedExternalServerAllowsStartingOwnServer() throws Exception {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
@@ -347,14 +380,9 @@ public class SetupPresenterTest {
         runningVersion = null;
         presenter.detect();
 
-        presenter.startSelected();
-        assertEquals(SetupPresenter.DETACH_FIRST, view.notices.get(view.notices.size() - 1));
-        assertFalse(calls.contains("start"));
-
-        presenter.stopUsingExternal();
+        // The external server stopped answering, so it is forgotten and the own server can start at once.
         presenter.startSelected();
 
-        assertTrue(view.notices.contains(SetupPresenter.DETACHED));
         assertEquals(RuntimeOwnership.OWNED, lifecycle.status().ownership());
         assertTrue(calls.contains("start"));
     }

@@ -17,6 +17,8 @@ import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.distribution.DistributionPackage;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
+import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
+import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 
 import java.io.File;
@@ -76,6 +78,21 @@ public final class SetupService {
     public ServerStatus attachExisting(Endpoint endpoint, CancellationToken cancellation) throws OperationException {
         String version = api.version(endpoint, cancellation);
         lifecycle.attachExternal(OllamaInstallation.external(version, endpoint), version);
+        return lifecycle.status();
+    }
+
+    /**
+     * Check that an attached external server still answers and forget it when nothing answers any more, for example
+     * after it was stopped outside the manager. Other probe failures keep it attached.
+     *
+     * @return the status after the check
+     */
+    public ServerStatus verifyAttached(CancellationToken cancellation) throws OperationException {
+        ServerStatus status = lifecycle.status();
+        if (status.ownership() == RuntimeOwnership.EXTERNAL && status.state() == ServerState.RUNNING
+            && detectRunning(status.installation().endpoint(), cancellation) == null) {
+            lifecycle.detachExternal();
+        }
         return lifecycle.status();
     }
 
