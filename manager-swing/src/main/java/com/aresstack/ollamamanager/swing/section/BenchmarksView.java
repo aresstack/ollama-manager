@@ -42,6 +42,9 @@ public interface BenchmarksView {
     void runEnded(boolean failed);
 
     /** A stage of the running sweep finished; draw it right away. */
+    /** The model of the running benchmark is loaded; {@code embedding} says whether embedding requests are measured. */
+    void showWorkload(boolean embedding);
+
     void stageFinished(StageResult stage);
 
     /** One server value of a running sweep finished; the next stages belong to a new line. */

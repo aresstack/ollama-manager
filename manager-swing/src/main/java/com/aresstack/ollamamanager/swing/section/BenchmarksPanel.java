@@ -38,9 +38,10 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -64,6 +65,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private static final long serialVersionUID = 1L;
     static final String DEFAULT_LEVELS = "1, 2, 4, 6, 8, 12, 16";
     static final String DEFAULT_SERVER_VALUES = "1, 4, 8, 16";
+    static final String CHART_TITLE = "Total tokens per second over parallel chats";
+    static final String EMBEDDING_CHART_TITLE = "Total input tokens per second over parallel embedding requests";
+    /** What an embedding run measures, because Ollama gives an embedding-only model a single slot. */
+    static final String EMBEDDING_NOTE = "Ollama embeds this model one request at a time, whatever"
+        + " OLLAMA_NUM_PARALLEL says; more parallel requests only queue.";
+
     /** Highest number of parallel chats the UI accepts; the request enforces the same limit. */
     static final int MAX_LEVEL = 256;
     static final String SWEEP_WARNING = "The server is restarted once per value and once more at the end to restore"
@@ -95,6 +102,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private final JButton run = new JButton("Run benchmark");
     private final JobProgressPanel progress = new JobProgressPanel();
     private final ThroughputChart chart = new ThroughputChart();
+    private final CardPanel chartCard;
     private final WrapLabel verdict = new WrapLabel(" ");
     private final StageTableModel stageModel = new StageTableModel();
     private final JTable stageTable = new JTable(stageModel);
@@ -134,7 +142,8 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         model.setToolTipText("Installed model to measure.");
         model.setPrototypeDisplayValue("some-model-name:latest-q4_K_M");
         levels.setToolTipText("How many chats to start at the same time, one stage per number, for example 1, 2, 4, 8.");
-        maxTokens.setToolTipText("Tokens each chat generates per request. More tokens give steadier numbers but take longer.");
+        maxTokens.setToolTipText("Tokens each chat generates per request, or the size of each input for an embedding"
+            + " model. More tokens give steadier numbers but take longer.");
         setContext.setToolTipText("Send num_ctx with every request. Larger contexts need more VRAM per chat; unticked, the"
             + " server's default applies, which for some models is the model's full context and may not fit.");
         // An explicit context is part of the measured setting; the server default can be the model's full context.
@@ -219,17 +228,16 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         chartBox.setOpaque(false);
         chartBox.add(chart, BorderLayout.CENTER);
         chartBox.add(verdict, BorderLayout.SOUTH);
-        CardPanel chartCard = new CardPanel("Total tokens per second over parallel chats", chartBox);
+        chartCard = new CardPanel(CHART_TITLE, chartBox);
 
         Tables.setup(stageTable, "Benchmark stages");
-        // Server left, counts and states centred, measurements right; columns sized so headers stay readable.
-        Tables.alignCenter(stageTable, 1);
-        Tables.alignRight(stageTable, 2, 3, 4, 5, 6, 7, 8);
-        DefaultTableCellRenderer state = Tables.toneRenderer(value ->
-            "ok".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.ERROR);
-        state.setHorizontalAlignment(SwingConstants.CENTER);
-        stageTable.getColumnModel().getColumn(9).setCellRenderer(state);
-        Tables.fitHeaders(stageTable);
+        styleStageColumns();
+        // The column set changes between a chat and an embedding run; a structure change resets the renderers.
+        stageModel.addTableModelListener(event -> {
+            if (event.getFirstRow() == TableModelEvent.HEADER_ROW) {
+                styleStageColumns();
+            }
+        });
         JScrollPane stageScroll = new JScrollPane(stageTable);
         stageScroll.setPreferredSize(new Dimension(400, 150));
         CardPanel stageCard = new CardPanel("Per stage", stageScroll);
@@ -484,6 +492,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         // Stage results arrive through later UI events, so the chart is prepared after the start.
         shown.clear();
         chart.clear();
+        showWorkload(false);
         stageModel.setRows(Collections.<BenchmarkReport>emptyList());
         verdict.setText("Running…");
         if (candidates != null) {
@@ -495,6 +504,22 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             currentSweepLabel = "";
             chart.startSeries(name);
         }
+    }
+
+    /** Server left, counts centred, measurements right, the state coloured; columns sized so headers stay readable. */
+    private void styleStageColumns() {
+        int last = stageModel.getColumnCount() - 1;
+        Tables.alignCenter(stageTable, 1);
+        int[] measurements = new int[last - 2];
+        for (int i = 0; i < measurements.length; i++) {
+            measurements[i] = i + 2;
+        }
+        Tables.alignRight(stageTable, measurements);
+        DefaultTableCellRenderer state = Tables.toneRenderer(value ->
+            "ok".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.ERROR);
+        state.setHorizontalAlignment(SwingConstants.CENTER);
+        stageTable.getColumnModel().getColumn(last).setCellRenderer(state);
+        Tables.fitHeaders(stageTable);
     }
 
     private void askProfile() {
@@ -511,9 +536,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         String serverValue = (BenchmarkProfiles.hasServerValue(report)
             ? "OLLAMA_NUM_PARALLEL=" + report.serverNumParallel() : "OLLAMA_NUM_PARALLEL left unset (not measured)")
             + (report.numCtx() == null ? " and no num_ctx (server default)" : " and num_ctx=" + report.numCtx());
+        String measured = report.embedding()
+            ? optimum.parallel() + " parallel embedding requests (" + tps(optimum.aggregateTps())
+                + " input tok/s total).\n" + EMBEDDING_NOTE
+            : optimum.parallel() + " parallel chats (" + tps(optimum.aggregateTps()) + " tok/s total).";
         String name = (String) JOptionPane.showInputDialog(this,
-            "Profile name for " + report.model() + " with " + optimum.parallel() + " parallel chats"
-                + " (" + tps(optimum.aggregateTps()) + " tok/s total).\nThe profile sets " + serverValue + ":",
+            "Profile name for " + report.model() + " with " + measured + "\nThe profile sets " + serverValue + ":",
             "Save as profile", JOptionPane.PLAIN_MESSAGE, null, null, BenchmarkProfiles.defaultName(report, optimum));
         if (name != null) {
             presenter.saveProfile(report, optimum, name);
@@ -736,12 +764,35 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             }
             series.add(line);
         }
+        showWorkload(allEmbedding(reports));
         chart.setSeries(series);
         stageModel.setRows(reports);
         verdict.setText(verdictText(reports));
     }
 
-    /** One line naming the optimum; for several runs the run with the best optimum. */
+    @Override
+    public void showWorkload(boolean embedding) {
+        chart.setEmbedding(embedding);
+        stageModel.setEmbedding(embedding);
+        chartCard.setTitle(embedding ? EMBEDDING_CHART_TITLE : CHART_TITLE);
+    }
+
+    private static boolean allEmbedding(List<BenchmarkReport> reports) {
+        if (reports.isEmpty()) {
+            return false;
+        }
+        for (BenchmarkReport report : reports) {
+            if (!report.embedding()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * One line naming the optimum; for several runs the run with the best optimum. An embedding run gets no
+     * winner and no stable maximum, because Ollama serves it with one slot and the levels only differ in queueing.
+     */
     static String verdictText(List<BenchmarkReport> reports) {
         BenchmarkReport best = null;
         for (BenchmarkReport report : reports) {
@@ -758,6 +809,14 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
             return empty ? "No stage finished." : "No stable stage: every stage had errors or left the GPU.";
         }
         StageResult optimum = best.optimum();
+        if (best.embedding()) {
+            // Input tokens of queued embedding requests; the "optimum" is only the level with the best total.
+            String text = String.format(Locale.ROOT,
+                "%s: best %.1f input tok/s total with %d parallel embedding %s (%.1f tok/s per request). %s",
+                best.model(), optimum.aggregateTps(), optimum.parallel(),
+                optimum.parallel() == 1 ? "request" : "requests", optimum.perChatTpsAvg(), EMBEDDING_NOTE);
+            return best.complete() ? text : text + " (run incomplete)";
+        }
         String text = String.format(Locale.ROOT, "%s: optimum %d parallel %s at %.1f tok/s total (%.1f tok/s per chat)",
             best.model(), optimum.parallel(), optimum.parallel() == 1 ? "chat" : "chats", optimum.aggregateTps(),
             optimum.perChatTpsAvg());
@@ -799,13 +858,34 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         progress.attach(job);
     }
 
-    /** Per-stage numbers of one or more runs. */
+    /**
+     * Per-stage numbers of one or more runs. For an embedding run the columns speak of requests and input tokens,
+     * and the first-token columns give way to the request latency, because an embedding request has no first token.
+     */
     static final class StageTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
-        private static final String[] COLUMNS = {"Server", "Chats", "Total tok/s", "Per chat", "Slowest chat",
+        private static final String[] CHAT_COLUMNS = {"Server", "Chats", "Total tok/s", "Per chat", "Slowest chat",
             "1st token p50", "1st token p95", "Latency p95", "Peak VRAM", "State"};
+        private static final String[] EMBEDDING_COLUMNS = {"Server", "Requests", "Input tok/s", "Per request",
+            "Slowest request", "Latency p50", "Latency p95", "Peak VRAM", "State"};
         private final List<String> labels = new ArrayList<String>();
         private final List<StageResult> rows = new ArrayList<StageResult>();
+        private boolean embedding;
+
+        void setEmbedding(boolean embedding) {
+            if (this.embedding != embedding) {
+                this.embedding = embedding;
+                fireTableStructureChanged();
+            }
+        }
+
+        boolean isEmbedding() {
+            return embedding;
+        }
+
+        private String[] columns() {
+            return embedding ? EMBEDDING_COLUMNS : CHAT_COLUMNS;
+        }
 
         void setRows(List<BenchmarkReport> reports) {
             labels.clear();
@@ -832,12 +912,12 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
 
         @Override
         public int getColumnCount() {
-            return COLUMNS.length;
+            return columns().length;
         }
 
         @Override
         public String getColumnName(int column) {
-            return COLUMNS[column];
+            return columns()[column];
         }
 
         @Override
@@ -849,12 +929,17 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
                 case 2: return tps(s.aggregateTps());
                 case 3: return tps(s.perChatTpsAvg());
                 case 4: return tps(s.perChatTpsMin());
+                // An embedding request's time to first token is its whole duration, so p50 of it is the latency p50.
                 case 5: return s.ttftP50Millis() + " ms";
-                case 6: return s.ttftP95Millis() + " ms";
-                case 7: return s.latencyP95Millis() + " ms";
-                case 8: return s.peakVramBytes() == null ? "–" : Format.bytes(s.peakVramBytes());
+                case 6: return (embedding ? s.latencyP95Millis() : s.ttftP95Millis()) + " ms";
+                case 7: return embedding ? vram(s) : s.latencyP95Millis() + " ms";
+                case 8: return embedding ? state(s) : vram(s);
                 default: return state(s);
             }
+        }
+
+        private static String vram(StageResult s) {
+            return s.peakVramBytes() == null ? "–" : Format.bytes(s.peakVramBytes());
         }
 
         private static String state(StageResult s) {

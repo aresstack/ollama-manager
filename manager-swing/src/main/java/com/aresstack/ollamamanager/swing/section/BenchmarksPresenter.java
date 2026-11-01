@@ -43,6 +43,11 @@ public final class BenchmarksPresenter {
     private final JobManager jobs;
     private BenchmarksView view;
     private boolean running;
+    /**
+     * OLLAMA_NUM_PARALLEL of an external server as last read from its environment, so that it is still known
+     * after a run; {@code null} until read. Set on the UI thread only.
+     */
+    private String externalParallel;
 
     public BenchmarksPresenter(ConsoleServices services, JobManager jobs) {
         this.services = services;
@@ -89,8 +94,10 @@ public final class BenchmarksPresenter {
         if (!owned && services.existingSettings() != null) {
             // An external server's OLLAMA_* come from the system environment it was started in.
             jobs.submit("Read the server's environment", false,
-                context -> externalSettings(context.cancellation()),
-                settings -> view.showServerParallel(ConcurrencyBenchmarkService.serverParallelText(settings)), null);
+                context -> externalSettings(context.cancellation()), settings -> {
+                    externalParallel = ConcurrencyBenchmarkService.serverParallelText(settings);
+                    view.showServerParallel(externalParallel);
+                }, null);
         }
         jobs.submit("Load models for benchmark", true,
             context -> services.models().inventory(endpoint, context.cancellation()), entries -> {
@@ -144,11 +151,16 @@ public final class BenchmarksPresenter {
     }
 
     /**
-     * OLLAMA_NUM_PARALLEL as applied to the running owned server: a number, {@link #SERVER_DEFAULT} when it runs
-     * unset, or {@code null} when unknown (external server before its environment was read).
+     * OLLAMA_NUM_PARALLEL of the running server: a number, {@link #SERVER_DEFAULT} when it runs unset, or
+     * {@code null} when unknown. An owned server reports what it was started with; an external server the value
+     * last read from its environment.
      */
     String serverParallelText() {
-        return ConcurrencyBenchmarkService.serverParallelText(appliedSettings());
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.OWNED) {
+            return ConcurrencyBenchmarkService.serverParallelText(lifecycle.appliedSettings());
+        }
+        return externalParallel;
     }
 
     /**
@@ -181,6 +193,11 @@ public final class BenchmarksPresenter {
                 @Override
                 public void stageFinished(StageResult stage) {
                     SwingUtilities.invokeLater(() -> view.stageFinished(stage));
+                }
+
+                @Override
+                public void workload(boolean embedding) {
+                    SwingUtilities.invokeLater(() -> view.showWorkload(embedding));
                 }
             }, context.cancellation());
         }, report -> view.showReport(report));
@@ -237,6 +254,11 @@ public final class BenchmarksPresenter {
                 @Override
                 public void stageFinished(StageResult stage) {
                     SwingUtilities.invokeLater(() -> view.stageFinished(stage));
+                }
+
+                @Override
+                public void workload(boolean embedding) {
+                    SwingUtilities.invokeLater(() -> view.showWorkload(embedding));
                 }
 
                 @Override

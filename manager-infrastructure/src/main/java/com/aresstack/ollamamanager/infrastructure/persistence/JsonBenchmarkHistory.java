@@ -91,6 +91,7 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
         map.put("environment", environmentMap(report.environment()));
         map.put("loadMillis", report.loadMillis());
         map.put("complete", report.complete());
+        map.put("embedding", report.embedding());
         List<Object> stages = new ArrayList<Object>();
         for (StageResult stage : report.stages()) {
             Map<String, Object> s = new LinkedHashMap<String, Object>();
@@ -136,7 +137,7 @@ public final class JsonBenchmarkHistory implements BenchmarkHistoryPort {
             (String) map.get("model"), numCtx == null ? null : numCtx.intValue(), num(map, "maxTokens").intValue(),
             (String) map.get("serverNumParallel"), serverSettings(map.get("serverSettings")),
             environment(map.get("environment")), num(map, "loadMillis").longValue(), stages,
-            Boolean.TRUE.equals(map.get("complete")));
+            Boolean.TRUE.equals(map.get("complete")), Boolean.TRUE.equals(map.get("embedding")));
     }
 
     private static Map<String, Object> environmentMap(BenchmarkEnvironment environment) {

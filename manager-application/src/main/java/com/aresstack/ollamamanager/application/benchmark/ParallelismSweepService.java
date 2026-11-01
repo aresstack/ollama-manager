@@ -32,6 +32,10 @@ public final class ParallelismSweepService {
 
         void stageFinished(StageResult stage);
 
+        /** Whether the model is measured with embedding requests; see {@link ConcurrencyBenchmarkService.Listener}. */
+        default void workload(boolean embedding) {
+        }
+
         void reportFinished(BenchmarkReport report);
 
         /**
@@ -141,6 +145,11 @@ public final class ParallelismSweepService {
                             @Override
                             public void stageFinished(StageResult stage) {
                                 listener.stageFinished(stage);
+                            }
+
+                            @Override
+                            public void workload(boolean embedding) {
+                                listener.workload(embedding);
                             }
                         }, cancellation);
                 } catch (OperationCancelledException e) {

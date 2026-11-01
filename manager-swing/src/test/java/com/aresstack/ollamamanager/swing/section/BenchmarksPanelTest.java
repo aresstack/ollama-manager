@@ -66,6 +66,47 @@ public class BenchmarksPanelTest {
         assertTrue(text, text.contains("optimum 4 parallel chats"));
     }
 
+    @Test
+    public void verdictOfAnEmbeddingRunNamesTheBestLevelAndTheQueueing() {
+        BenchmarkReport report = new BenchmarkReport("e", 0, "nomic-embed-text", 2048, 128, "4", null, null, 0,
+            Arrays.asList(new StageResult(1, 1, 0, 500, 500, 480, 1, 1, 1, 1, 100, null, 1.0, null),
+                new StageResult(8, 8, 0, 300, 280, 2100, 1, 1, 1, 1, 100, null, 1.0, null),
+                new StageResult(16, 16, 0, 120, 100, 1900, 1, 1, 1, 1, 100, null, 1.0, null)), true, true);
+        String text = BenchmarksPanel.verdictText(Collections.singletonList(report));
+        assertTrue(text, text.contains("best 2100.0 input tok/s total with 8 parallel embedding requests"));
+        assertTrue(text, text.contains("300.0 tok/s per request"));
+        assertTrue(text, text.contains("one request at a time"));
+        // Neither a server-value winner nor a stable maximum: the levels only differ in queueing.
+        assertFalse(text, text.contains("wins"));
+        assertFalse(text, text.contains("still stable"));
+        String compared = BenchmarksPanel.verdictText(Arrays.asList(report, report));
+        assertFalse(compared, compared.contains("wins"));
+    }
+
+    @Test
+    public void stageTableSpeaksOfRequestsForAnEmbeddingRun() {
+        BenchmarksPanel.StageTableModel model = new BenchmarksPanel.StageTableModel();
+        BenchmarkReport report = new BenchmarkReport("e", 0, "nomic-embed-text", null, 128, "4", null, null, 0,
+            Collections.singletonList(new StageResult(8, 8, 0, 300, 280, 2100, 40, 70, 60, 95, 100, 2048L, 1.0, null)),
+            true, true);
+        model.setRows(Collections.singletonList(report));
+        assertEquals("Chats", model.getColumnName(1));
+        assertEquals("State", model.getColumnName(model.getColumnCount() - 1));
+
+        model.setEmbedding(true);
+
+        assertEquals("Requests", model.getColumnName(1));
+        assertEquals("Input tok/s", model.getColumnName(2));
+        assertEquals("Latency p50", model.getColumnName(5));
+        assertEquals("Latency p95", model.getColumnName(6));
+        assertEquals("Peak VRAM", model.getColumnName(7));
+        assertEquals("State", model.getColumnName(8));
+        assertEquals(9, model.getColumnCount());
+        assertEquals("40 ms", model.getValueAt(0, 5));
+        assertEquals("95 ms", model.getValueAt(0, 6));
+        assertEquals("ok", model.getValueAt(0, 8));
+    }
+
     private static final List<Integer> UP_TO_16 = Arrays.asList(1, 2, 4, 8, 16);
 
     @Test

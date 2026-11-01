@@ -24,6 +24,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * Finds out how many chats one model can serve at the same time. For each level it starts that many chats
  * simultaneously, measures per-chat speed, total throughput, time to first token, latency, errors, VRAM and
  * whether the model stays on the GPU. The optimum is the stage with the highest total throughput.
+ * <p>
+ * An embedding model cannot generate, so it is measured with parallel {@code /api/embed} requests instead: each
+ * request embeds one text of about the requested number of tokens, and the throughput is input tokens per
+ * second. The model's {@code /api/show} capabilities decide; a model that rejects generation is treated the same.
+ * Ollama loads an embedding-only model with a single slot whatever {@code OLLAMA_NUM_PARALLEL} says, so the
+ * levels of such a run measure how a queue of requests is served, not true parallelism: the total stays about
+ * flat and the per-request time includes the wait for the slot.
  */
 public final class ConcurrencyBenchmarkService {
 
@@ -33,12 +40,26 @@ public final class ConcurrencyBenchmarkService {
     /** Keep the model loaded between stages so that load time is measured once. */
     static final String KEEP_ALIVE = "10m";
     static final long TELEMETRY_INTERVAL_MILLIS = 500;
+    /** Capability tag of {@code /api/show} for models that embed. */
+    static final String EMBEDDING_CAPABILITY = "embedding";
+    /** Capability tag of {@code /api/show} for models that generate text. */
+    static final String COMPLETION_CAPABILITY = "completion";
+    /** Ollama's answer when an embedding-only model is asked to generate. */
+    static final String GENERATE_UNSUPPORTED = "does not support generate";
+    /** Roughly one token per word for the texts an embedding request gets. */
+    private static final String[] INPUT_WORDS = ("The history of computing runs from mechanical calculators and "
+        + "punched cards over vacuum tubes and transistors to integrated circuits and modern GPUs that run large "
+        + "language models").split(" ");
 
     /** Receives progress on the calling job's thread or a worker thread. */
     public interface Listener {
         void phase(String text, double fraction);
 
         void stageFinished(StageResult stage);
+
+        /** Called once the model is loaded, before the first stage: whether it is measured with embedding requests. */
+        default void workload(boolean embedding) {
+        }
     }
 
     private final OllamaApiPort api;
@@ -89,23 +110,38 @@ public final class ConcurrencyBenchmarkService {
                                Listener listener, CancellationToken cancellation) throws OperationException {
         String serverNumParallel = serverParallelText(applied);
         long started = System.currentTimeMillis();
-        ModelOptions options = new ModelOptions(request.numCtx(), request.maxTokens(), null, null);
         int totalSteps = request.levels().size() + 1;
 
         listener.phase("Loading " + request.model(), 0);
+        boolean embedding = embeds(endpoint, request.model(), cancellation);
         GenerationMetrics warmup;
         try {
-            warmup = api.generate(endpoint, request.model(), "Hi", new ModelOptions(request.numCtx(), 1, null, null),
-                KEEP_ALIVE, cancellation);
+            if (!embedding) {
+                try {
+                    warmup = api.generate(endpoint, request.model(), "Hi",
+                        new ModelOptions(request.numCtx(), 1, null, null), KEEP_ALIVE, cancellation);
+                } catch (OperationException e) {
+                    if (!isGenerateUnsupported(e)) {
+                        throw e;
+                    }
+                    // The capabilities did not say so, but the server does: measure it as an embedding model.
+                    embedding = true;
+                    warmup = api.embed(endpoint, request.model(), "Hi", new ModelOptions(request.numCtx(), null, null,
+                        null), KEEP_ALIVE, cancellation);
+                }
+            } else {
+                warmup = api.embed(endpoint, request.model(), "Hi", new ModelOptions(request.numCtx(), null, null,
+                    null), KEEP_ALIVE, cancellation);
+            }
         } catch (OperationCancelledException e) {
             throw e;
         } catch (OperationException e) {
-            String context = request.numCtx() == null ? "the server's default context size"
-                : "num_ctx " + request.numCtx();
-            throw new OperationException(e.kind(), "loading " + request.model() + " with " + context + " failed: "
-                + e.getMessage() + (request.numCtx() == null ? ". Set a context size in the benchmark settings;"
-                + " the default can be the model's full context" : ". Try a smaller context size"), e);
+            throw new OperationException(e.kind(), loadFailure(request, e), e);
         }
+        listener.workload(embedding);
+        ModelOptions options = embedding ? new ModelOptions(request.numCtx(), null, null, null)
+            : new ModelOptions(request.numCtx(), request.maxTokens(), null, null);
+        String input = embedding ? embeddingInput(request.maxTokens()) : request.prompt();
 
         // Record what is measured on while the model is loaded, so a profile saved later is scoped to this run.
         BenchmarkEnvironment measuredOn = environment == null ? null
@@ -119,8 +155,9 @@ public final class ConcurrencyBenchmarkService {
                 complete = false;
                 break;
             }
-            listener.phase(level + (level == 1 ? " chat" : " chats at once"), (double) step / totalSteps);
-            StageResult stage = runStage(endpoint, request, options, level, cancellation);
+            listener.phase(level + (embedding ? (level == 1 ? " embedding" : " embeddings at once")
+                : (level == 1 ? " chat" : " chats at once")), (double) step / totalSteps);
+            StageResult stage = runStage(endpoint, request, options, input, embedding, level, cancellation);
             if (cancellation.isCancelled()) {
                 complete = false;
                 break;
@@ -138,7 +175,7 @@ public final class ConcurrencyBenchmarkService {
         }
         BenchmarkReport report = new BenchmarkReport(UUID.randomUUID().toString(), started, request.model(),
             request.numCtx(), request.maxTokens(), serverNumParallel, applied, measuredOn, warmup.loadMillis(),
-            stages, complete);
+            stages, complete, embedding);
         if (history != null) {
             history.save(report);
         }
@@ -146,8 +183,66 @@ public final class ConcurrencyBenchmarkService {
         return report;
     }
 
+    /**
+     * Whether {@code model} is measured with embedding requests: its capabilities name embedding but not
+     * completion. Unknown capabilities mean a chat model; the warm-up corrects that when the server disagrees.
+     */
+    private boolean embeds(Endpoint endpoint, String model, CancellationToken cancellation)
+        throws OperationCancelledException {
+        try {
+            return isEmbeddingOnly(api.show(endpoint, model, cancellation).capabilities());
+        } catch (OperationCancelledException e) {
+            throw e;
+        } catch (OperationException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    static boolean isEmbeddingOnly(List<String> capabilities) {
+        if (capabilities == null) {
+            return false;
+        }
+        boolean embedding = false;
+        boolean completion = false;
+        for (String capability : capabilities) {
+            embedding |= EMBEDDING_CAPABILITY.equalsIgnoreCase(capability);
+            completion |= COMPLETION_CAPABILITY.equalsIgnoreCase(capability);
+        }
+        return embedding && !completion;
+    }
+
+    static boolean isGenerateUnsupported(OperationException e) {
+        return e.getMessage() != null
+            && e.getMessage().toLowerCase(java.util.Locale.ROOT).contains(GENERATE_UNSUPPORTED);
+    }
+
+    /** Why loading failed, with a hint on the context size unless the server rejected the model itself. */
+    static String loadFailure(ConcurrencyBenchmarkRequest request, OperationException e) {
+        String context = request.numCtx() == null ? "the server's default context size" : "num_ctx " + request.numCtx();
+        String text = "loading " + request.model() + " with " + context + " failed: " + e.getMessage();
+        if (e.kind() == com.aresstack.ollamamanager.application.common.ErrorKind.HTTP_ERROR
+            && e.getMessage() != null && e.getMessage().toLowerCase(java.util.Locale.ROOT).contains("does not support")) {
+            return text;
+        }
+        return text + (request.numCtx() == null ? ". Set a context size in the benchmark settings; the default can be"
+            + " the model's full context" : ". Try a smaller context size");
+    }
+
+    /** A text of about {@code tokens} tokens for one embedding request. */
+    static String embeddingInput(int tokens) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < Math.max(1, tokens); i++) {
+            if (i > 0) {
+                text.append(' ');
+            }
+            text.append(INPUT_WORDS[i % INPUT_WORDS.length]);
+        }
+        return text.toString();
+    }
+
     private StageResult runStage(final Endpoint endpoint, final ConcurrencyBenchmarkRequest request,
-                                 final ModelOptions options, int level, final CancellationToken cancellation) {
+                                 final ModelOptions options, final String input, final boolean embedding, int level,
+                                 final CancellationToken cancellation) {
         final List<GenerationMetrics> results = Collections.synchronizedList(new ArrayList<GenerationMetrics>());
         final List<String> errors = Collections.synchronizedList(new ArrayList<String>());
         final CountDownLatch start = new CountDownLatch(1);
@@ -161,8 +256,9 @@ public final class ConcurrencyBenchmarkService {
                 try {
                     start.await();
                     for (int round = 0; round < request.roundsPerChat() && !cancellation.isCancelled(); round++) {
-                        results.add(api.generate(endpoint, request.model(), request.prompt(), options, KEEP_ALIVE,
-                            cancellation));
+                        results.add(embedding
+                            ? api.embed(endpoint, request.model(), input, options, KEEP_ALIVE, cancellation)
+                            : api.generate(endpoint, request.model(), input, options, KEEP_ALIVE, cancellation));
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -199,11 +295,21 @@ public final class ConcurrencyBenchmarkService {
         long wallMillis = Math.max(0, (end - begin) / 1_000_000L);
         samplePeak(peakVram, cancellation);
         Double gpuShare = gpuShare(endpoint, request.model(), cancellation);
-        return summarize(level, results, errors, wallMillis, peakVram.get() < 0 ? null : peakVram.get(), gpuShare);
+        return summarize(level, results, errors, wallMillis, peakVram.get() < 0 ? null : peakVram.get(), gpuShare,
+            embedding);
     }
 
     static StageResult summarize(int level, List<GenerationMetrics> results, List<String> errors, long wallMillis,
                                  Long peakVram, Double gpuShare) {
+        return summarize(level, results, errors, wallMillis, peakVram, gpuShare, false);
+    }
+
+    /**
+     * @param embedding count input tokens and their processing speed instead of generated tokens, because an
+     *                  embedding request generates nothing
+     */
+    static StageResult summarize(int level, List<GenerationMetrics> results, List<String> errors, long wallMillis,
+                                 Long peakVram, Double gpuShare, boolean embedding) {
         List<GenerationMetrics> copy;
         synchronized (results) {
             copy = new ArrayList<GenerationMetrics>(results);
@@ -214,10 +320,10 @@ public final class ConcurrencyBenchmarkService {
         List<Long> ttft = new ArrayList<Long>();
         List<Long> latency = new ArrayList<Long>();
         for (GenerationMetrics metrics : copy) {
-            double tps = metrics.generationTokensPerSecond();
+            double tps = embedding ? metrics.promptTokensPerSecond() : metrics.generationTokensPerSecond();
             sum += tps;
             min = Math.min(min, tps);
-            tokens += metrics.evalTokens();
+            tokens += embedding ? metrics.promptTokens() : metrics.evalTokens();
             ttft.add(metrics.ttftMillis());
             latency.add(metrics.wallMillis());
         }
