@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.domain.server.ServerSetting;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
@@ -40,6 +42,9 @@ import java.util.Set;
 public final class SetupPresenter {
 
     static final String NOT_WIRED = "Setup is not connected in this build.";
+    static final String IMPORTED = "Taken over from the existing installation (%2$s): %1$s. A server the manager"
+        + " starts uses the same values; change them under Server settings.";
+    static final String IMPORT_FAILED = "The existing installation's settings could not be read: %s";
     static final String ATTACHED = "Using the running server. Models can be pulled, loaded and deleted on it; the"
         + " manager never stops or restarts it. To use your own server settings, start an installation as the"
         + " manager's server on another port.";
@@ -68,6 +73,8 @@ public final class SetupPresenter {
     private SetupView view;
     private SetupDetection detection;
     private boolean busy;
+    /** Notice about settings taken over in the background; read and cleared on the UI thread. */
+    private volatile String lastImport;
     private long detectGeneration;
 
     public SetupPresenter(ConsoleServices services, JobManager jobs) {
@@ -95,6 +102,7 @@ public final class SetupPresenter {
             if (generation == detectGeneration) {
                 detection = found;
                 view.showDetection(found);
+                showImportNotice();
             }
         }, error -> {
             if (generation == detectGeneration) {
@@ -102,6 +110,14 @@ public final class SetupPresenter {
             }
         });
         view.trackJob(job);
+    }
+
+    private void showImportNotice() {
+        String notice = lastImport;
+        lastImport = null;
+        if (notice != null) {
+            view.showNotice(notice);
+        }
     }
 
     /** Use the server found on the endpoint; it is attached as external and never stopped or restarted. */
@@ -297,6 +313,7 @@ public final class SetupPresenter {
      * than "nothing answers" is recorded, never treated as a free port, and does not hide the installations.
      */
     private SetupDetection collect(SetupService setup, JobContext context) throws OperationException {
+        importExistingSettings(context);
         ManagerConfiguration configuration = services.configuration().current();
         ServerSettings settings = configuration.desiredServerSettings();
         Endpoint endpoint = settings.bind();
@@ -325,6 +342,32 @@ public final class SetupPresenter {
         boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
         return new SetupDetection(endpoint, settings, version, probeFailure, attached, discovered, portable,
             configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory());
+    }
+
+    /**
+     * Take over what an existing installation is configured with, such as its model folder, before anything reads
+     * the settings. A failed read never blocks detection; the settings stay as they are then.
+     */
+    private void importExistingSettings(JobContext context) throws OperationException {
+        ExistingSettingsImport existing = services.existingSettings();
+        if (existing == null) {
+            return;
+        }
+        context.phase("Reading the existing installation's settings");
+        try {
+            List<ServerSetting<?>> imported = existing.importUnchosen(context.cancellation());
+            if (!imported.isEmpty()) {
+                StringBuilder names = new StringBuilder();
+                for (ServerSetting<?> setting : imported) {
+                    names.append(names.length() == 0 ? "" : ", ").append(setting.label());
+                }
+                lastImport = String.format(IMPORTED, names, existing.sourceDescription());
+            }
+        } catch (OperationCancelledException e) {
+            throw e;
+        } catch (OperationException e) {
+            lastImport = String.format(IMPORT_FAILED, e.getMessage());
+        }
     }
 
     boolean isBusy() {

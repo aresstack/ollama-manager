@@ -27,6 +27,7 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.util.List;
 import java.util.Locale;
 
@@ -52,6 +53,7 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
     private final ValueLabel gpuUsageText = new ValueLabel();
     private final JButton refresh = new JButton("Refresh");
     private final JButton stop = new JButton("Stop server…");
+    private final JButton restart = new JButton("Restart…");
     private final JobProgressPanel progress = new JobProgressPanel();
 
     public DashboardPanel(DashboardPresenter presenter) {
@@ -59,20 +61,28 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         this.presenter = presenter;
         refresh.setMnemonic('R');
         stop.setMnemonic('S');
-        stop.setToolTipText("Stops only a server started by Ollama Manager. On Windows running requests are aborted.");
+        stop.setToolTipText("Stops the server after a confirmation. Running requests are aborted.");
         stop.setEnabled(false);
+        restart.setToolTipText("Restarts the server with the stored server settings after a confirmation. An external"
+            + " server is replaced by one started from the same installation.");
+        restart.setEnabled(false);
+        restart.addActionListener(event -> presenter.restartRequested());
         refresh.addActionListener(event -> presenter.refresh());
         stop.addActionListener(event -> presenter.stopRequested());
         addToolbarItem(refresh);
 
         FormPanel server = new FormPanel();
         server.addRow("State", serverState, "Lifecycle state of the server the manager is looking at.");
-        server.addRow("Owner", ownership, "Only servers started by Ollama Manager can be stopped or restarted.");
+        server.addRow("Owner", ownership, "Whether Ollama Manager started this server. Both kinds can be stopped and restarted after a confirmation.");
         server.addRow("Version", version, "Version reported by the running server.");
         server.addRow("Configured address", endpoint, "Address the manager uses for its own server (OLLAMA_HOST).");
         server.addRow("Installation", installation, "Selected installation kind from the configuration.");
         CardPanel serverCard = new CardPanel("Server", server);
-        serverCard.setTrailing(stop);
+        JPanel serverActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        serverActions.setOpaque(false);
+        serverActions.add(restart);
+        serverActions.add(stop);
+        serverCard.setTrailing(serverActions);
 
         FormPanel hardware = new FormPanel();
         hardware.addRow("System", os, "Operating system and architecture.");
@@ -123,6 +133,7 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
             ownership.show("", Theme.Tone.NEUTRAL);
             version.show("");
             stop.setEnabled(false);
+            restart.setEnabled(false);
             banner.clear();
             return;
         }
@@ -132,10 +143,11 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         ownership.show(ownershipText(status.ownership()), ownershipTone(status.ownership()));
         version.show(status.reportedVersion());
         stop.setEnabled(presenter.canStop(status));
+        restart.setEnabled(presenter.canRestart(status));
         if (status.ownership() == RuntimeOwnership.EXTERNAL) {
             banner.info("This server was found running but not started by Ollama Manager. Models can be managed"
-                + " on it; it is never stopped or restarted from here. To run it with your own server settings,"
-                + " start an installation from Setup on another port.");
+                + " on it. Restart replaces it with a server started from the same installation with the stored"
+                + " server settings; Stop ends it. Both ask for confirmation first.");
         } else if (status.state() == ServerState.FAILED) {
             banner.error("The managed server failed." + (status.message().isEmpty() ? "" : " " + status.message())
                 + " See Jobs & logs for the server log.");
@@ -254,6 +266,11 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
     }
 
     @Override
+    public void setRestartEnabled(boolean enabled) {
+        restart.setEnabled(enabled);
+    }
+
+    @Override
     public void showFailure(String action, Exception error) {
         Dialogs.showError(this, action, error);
     }
@@ -264,7 +281,12 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
     }
 
     @Override
-    public boolean confirmStop() {
-        return Dialogs.confirmStop(this);
+    public boolean confirmStop(boolean external) {
+        return Dialogs.confirmStop(this, external);
+    }
+
+    @Override
+    public boolean confirmRestart(boolean external) {
+        return Dialogs.confirmRestart(this, external);
     }
 }

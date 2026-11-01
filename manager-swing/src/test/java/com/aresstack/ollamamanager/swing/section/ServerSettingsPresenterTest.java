@@ -132,6 +132,13 @@ public class ServerSettingsPresenterTest {
             edits.putAll(texts);
         }
 
+        Set<ServerSetting<?>> imported = java.util.Collections.emptySet();
+
+        @Override
+        public void showImported(Set<ServerSetting<?>> value, String source) {
+            imported = value;
+        }
+
         @Override
         public void showApplied(Map<ServerSetting<?>, String> value, Set<ServerSetting<?>> pending,
                                 String source) {
