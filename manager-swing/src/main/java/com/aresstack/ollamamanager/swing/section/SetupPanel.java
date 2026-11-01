@@ -1,59 +1,79 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.hardware.Confidence;
 import com.aresstack.ollamamanager.application.hardware.PackageRecommendation;
 import com.aresstack.ollamamanager.domain.distribution.DistributionPackage;
 import com.aresstack.ollamamanager.domain.server.InstallationKind;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
+import com.aresstack.ollamamanager.swing.component.ActionBar;
+import com.aresstack.ollamamanager.swing.component.CardPanel;
 import com.aresstack.ollamamanager.swing.component.Dialogs;
+import com.aresstack.ollamamanager.swing.component.EmptyState;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
+import com.aresstack.ollamamanager.swing.component.MessageBanner;
+import com.aresstack.ollamamanager.swing.component.ScrollColumn;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
+import com.aresstack.ollamamanager.swing.component.StatusBadge;
+import com.aresstack.ollamamanager.swing.component.Tables;
+import com.aresstack.ollamamanager.swing.component.Theme;
+import com.aresstack.ollamamanager.swing.component.WrapLabel;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
+import javax.swing.JTable;
+import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
 import java.awt.event.HierarchyEvent;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Setup assistant in three blocks: a server found on the configured endpoint, installations on disk, and a
- * portable installation with package recommendation, progress and Cancel.
+ * Setup assistant in three steps: a server found on the configured endpoint, installations on this computer,
+ * and a portable installation with package recommendation, progress and Cancel. Pure view: every action goes
+ * through {@link SetupPresenter}, which asks for confirmation through this view before starting or removing.
  */
 public final class SetupPanel extends SectionPanel implements SetupView {
 
     private static final long serialVersionUID = 1L;
 
-    private final JLabel running = new JLabel("Not checked yet.");
+    private final StatusBadge runningState = new StatusBadge("Not checked yet", Theme.Tone.NEUTRAL);
+    private final WrapLabel runningText = new WrapLabel("Detection runs when this section opens.");
     private final JButton useRunning = new JButton("Use running server (read-only)");
     private final JButton stopUsing = new JButton("Stop using it");
-    private final DefaultListModel<OllamaInstallation> installationModel = new DefaultListModel<OllamaInstallation>();
-    private final JList<OllamaInstallation> installations = new JList<OllamaInstallation>(installationModel);
+
+    private final InstallationTableModel installationModel = new InstallationTableModel();
+    private final JTable installations = new JTable(installationModel);
+    private final EmptyState noInstallations = new EmptyState("No Ollama installation found",
+        "Install a portable version below, or install Ollama normally and detect again.");
+    private final CardLayout installationCards = new CardLayout();
+    private final JPanel installationList = new JPanel(installationCards);
     private final JButton select = new JButton("Select");
     private final JButton start = new JButton("Start selected…");
     private final JButton uninstall = new JButton("Remove…");
-    private final JTextArea recommendation = new JTextArea(4, 40);
+
+    private final WrapLabel recommendationText = new WrapLabel(
+        "Recommend packages to check the GPU and choose the portable packages that fit this computer.");
+    private final StatusBadge confidence = new StatusBadge();
     private final Map<DistributionPackage, JCheckBox> packages =
         new EnumMap<DistributionPackage, JCheckBox>(DistributionPackage.class);
     private final JButton recommend = new JButton("Recommend packages");
     private final JButton install = new JButton("Install latest");
+
     private final JButton detect = new JButton("Detect again");
-    private final JLabel notice = new JLabel(" ");
+    private final MessageBanner notice = new MessageBanner();
     private final JobProgressPanel progress = new JobProgressPanel();
     private SetupDetection detection;
     private boolean busy;
@@ -64,78 +84,22 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         detect.addActionListener(event -> presenter.detect());
         addToolbarItem(detect);
 
-        useRunning.setMnemonic('U');
-        useRunning.setToolTipText("Show this server in the manager. It is never stopped, restarted or changed.");
-        useRunning.addActionListener(event -> presenter.useRunningServer());
-        stopUsing.setToolTipText("Forget the external server in the manager. The server keeps running unchanged.");
-        stopUsing.addActionListener(event -> presenter.stopUsingExternal());
-        JPanel runningBlock = new JPanel(new BorderLayout(0, Spacing.GAP));
-        runningBlock.setBorder(BorderFactory.createTitledBorder("Running server"));
-        runningBlock.add(running, BorderLayout.CENTER);
-        runningBlock.add(row(useRunning, stopUsing), BorderLayout.SOUTH);
-
-        installations.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        installations.setVisibleRowCount(4);
-        installations.getAccessibleContext().setAccessibleName("Installations");
-        installations.setCellRenderer((list, value, index, selected, focused) -> {
-            JLabel label = new JLabel(describe(value));
-            label.setOpaque(true);
-            label.setBackground(selected ? list.getSelectionBackground() : list.getBackground());
-            label.setForeground(selected ? list.getSelectionForeground() : list.getForeground());
-            return label;
-        });
-        installations.addListSelectionListener(event -> updateButtons());
-        select.setMnemonic('S');
-        select.addActionListener(event -> presenter.select(installations.getSelectedValue()));
-        start.setMnemonic('T');
-        start.setToolTipText("Start the selected installation as the manager's own server with the stored"
-            + " server settings.");
-        start.addActionListener(event -> presenter.startSelected());
-        uninstall.setToolTipText("Remove a portable version from disk. Refused while it runs.");
-        uninstall.addActionListener(event -> presenter.uninstall(installations.getSelectedValue()));
-        JPanel installationBlock = new JPanel(new BorderLayout(0, Spacing.GAP));
-        installationBlock.setBorder(BorderFactory.createTitledBorder("Installations"));
-        installationBlock.add(new JScrollPane(installations), BorderLayout.CENTER);
-        installationBlock.add(row(select, start, uninstall), BorderLayout.SOUTH);
-
-        recommendation.setEditable(false);
-        recommendation.setLineWrap(true);
-        recommendation.setWrapStyleWord(true);
-        recommendation.getAccessibleContext().setAccessibleName("Package recommendation");
-        recommendation.setText("Recommend packages to check the GPU and choose the portable packages.");
-        JPanel packageRow = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        for (DistributionPackage value : DistributionPackage.values()) {
-            JCheckBox box = new JCheckBox(value.name(), value == DistributionPackage.BASE);
-            box.setToolTipText(value.assetName());
-            packages.put(value, box);
-            packageRow.add(box);
-        }
-        recommend.setMnemonic('R');
-        recommend.addActionListener(event -> presenter.recommend());
-        install.setMnemonic('I');
-        install.setToolTipText("Download the latest stable release into the manager's portable directory.");
-        install.addActionListener(event -> presenter.install(selectedPackages()));
-        JPanel portableBlock = new JPanel(new BorderLayout(0, Spacing.GAP));
-        portableBlock.setBorder(BorderFactory.createTitledBorder("Portable installation"));
-        portableBlock.add(new JScrollPane(recommendation), BorderLayout.CENTER);
-        JPanel portableSouth = new JPanel(new BorderLayout(0, Spacing.GAP));
-        portableSouth.add(packageRow, BorderLayout.NORTH);
-        portableSouth.add(row(recommend, install), BorderLayout.SOUTH);
-        portableBlock.add(portableSouth, BorderLayout.SOUTH);
-
-        JPanel blocks = new JPanel();
-        blocks.setLayout(new BoxLayout(blocks, BoxLayout.PAGE_AXIS));
-        blocks.add(runningBlock);
-        blocks.add(Box.createVerticalStrut(Spacing.GAP));
-        blocks.add(installationBlock);
-        blocks.add(Box.createVerticalStrut(Spacing.GAP));
-        blocks.add(portableBlock);
+        JPanel column = new JPanel();
+        column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+        column.setOpaque(false);
+        column.add(runningCard(presenter));
+        column.add(Box.createVerticalStrut(Spacing.GAP));
+        column.add(installationCard(presenter));
+        column.add(Box.createVerticalStrut(Spacing.GAP));
+        column.add(portableCard(presenter));
 
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
+        south.setOpaque(false);
         south.add(notice, BorderLayout.NORTH);
         south.add(progress, BorderLayout.SOUTH);
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
-        body.add(new JScrollPane(blocks), BorderLayout.CENTER);
+        body.setOpaque(false);
+        body.add(ScrollColumn.wrap(column), BorderLayout.CENTER);
         body.add(south, BorderLayout.SOUTH);
         setBody(body);
         updateButtons();
@@ -147,25 +111,131 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         });
     }
 
+    private CardPanel runningCard(SetupPresenter presenter) {
+        useRunning.setMnemonic('U');
+        useRunning.setToolTipText("Show this server in the manager. It is never stopped, restarted or changed.");
+        useRunning.addActionListener(event -> presenter.useRunningServer());
+        stopUsing.setToolTipText("Forget the external server in the manager. The server keeps running unchanged.");
+        stopUsing.addActionListener(event -> presenter.stopUsingExternal());
+        JPanel content = new JPanel(new BorderLayout(0, Spacing.GAP));
+        content.setOpaque(false);
+        content.add(runningText, BorderLayout.CENTER);
+        content.add(new ActionBar().addAction(useRunning).addAction(stopUsing), BorderLayout.SOUTH);
+        CardPanel card = new CardPanel("1 · Server on the configured address", content);
+        card.setTrailing(runningState);
+        return card;
+    }
+
+    private CardPanel installationCard(SetupPresenter presenter) {
+        Tables.setup(installations, "Installations");
+        installations.setAutoCreateRowSorter(false);
+        installations.getColumnModel().getColumn(3).setCellRenderer(Tables.toneRenderer(
+            value -> "selected".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.NEUTRAL));
+        Tables.setWidthInChars(installations, 0, 12);
+        Tables.setWidthInChars(installations, 1, 10);
+        Tables.setWidthInChars(installations, 2, 40);
+        Tables.setWidthInChars(installations, 3, 10);
+        installations.getSelectionModel().addListSelectionListener(event -> updateButtons());
+        JScrollPane scroll = new JScrollPane(installations);
+        scroll.setPreferredSize(new Dimension(100, installations.getRowHeight() * 5
+            + installations.getTableHeader().getPreferredSize().height + 4));
+        installationList.setOpaque(false);
+        installationList.add(scroll, "table");
+        installationList.add(noInstallations, "empty");
+        installationCards.show(installationList, "empty");
+
+        select.setMnemonic('S');
+        select.setToolTipText("Remember this installation as the one the manager starts.");
+        select.addActionListener(event -> presenter.select(selectedInstallation()));
+        start.setMnemonic('T');
+        start.setToolTipText("Start the selected installation as the manager's own server with the stored"
+            + " server settings.");
+        start.addActionListener(event -> presenter.startSelected());
+        uninstall.setToolTipText("Remove a portable version from disk. Refused while it runs.");
+        uninstall.addActionListener(event -> presenter.uninstall(selectedInstallation()));
+
+        JPanel content = new JPanel(new BorderLayout(0, Spacing.GAP));
+        content.setOpaque(false);
+        content.add(new WrapLabel("Portable versions managed here and regular installations found on this"
+            + " computer. The selected one is what Start uses."), BorderLayout.NORTH);
+        content.add(installationList, BorderLayout.CENTER);
+        content.add(new ActionBar().addAction(select).addAction(start).addTrailing(uninstall), BorderLayout.SOUTH);
+        return new CardPanel("2 · Installations on this computer", content);
+    }
+
+    private CardPanel portableCard(SetupPresenter presenter) {
+        JPanel packageRow = new JPanel();
+        packageRow.setLayout(new BoxLayout(packageRow, BoxLayout.X_AXIS));
+        packageRow.setOpaque(false);
+        for (DistributionPackage value : DistributionPackage.values()) {
+            JCheckBox box = new JCheckBox(packageLabel(value), value == DistributionPackage.BASE);
+            box.setToolTipText(value.assetName());
+            packages.put(value, box);
+            if (packageRow.getComponentCount() > 0) {
+                packageRow.add(Box.createHorizontalStrut(Spacing.MARGIN));
+            }
+            packageRow.add(box);
+        }
+        recommend.setMnemonic('R');
+        recommend.setToolTipText("Check the GPU and tick the packages that fit it.");
+        recommend.addActionListener(event -> presenter.recommend());
+        install.setMnemonic('I');
+        install.setToolTipText("Download the latest stable release into the manager's portable directory."
+            + " The download can be cancelled.");
+        install.addActionListener(event -> presenter.install(selectedPackages()));
+        confidence.setVisible(false);
+        confidence.setFocusable(false);
+
+        JPanel content = new JPanel(new BorderLayout(0, Spacing.GAP));
+        content.setOpaque(false);
+        content.add(recommendationText, BorderLayout.NORTH);
+        content.add(packageRow, BorderLayout.CENTER);
+        content.add(new ActionBar().addAction(recommend).addAction(install), BorderLayout.SOUTH);
+        CardPanel card = new CardPanel("3 · Portable installation", content);
+        card.setTrailing(confidence);
+        return card;
+    }
+
+    static String packageLabel(DistributionPackage value) {
+        switch (value) {
+            case BASE:
+                return "Base (CPU, NVIDIA CUDA)";
+            case ROCM:
+                return "AMD ROCm add-on";
+            case MLX:
+                return "MLX add-on";
+            default:
+                return value.name();
+        }
+    }
+
     @Override
     public void showDetection(SetupDetection value) {
         detection = value;
-        running.setText(value.isServerRunning()
-            ? "Ollama " + value.runningVersion() + " answers on " + value.endpoint().toHostValue() + "."
-            : value.probeFailure() != null
-                ? value.endpoint().toHostValue() + " is occupied but not usable: " + value.probeFailure()
-                : "No server answers on " + value.endpoint().toHostValue() + ".");
-        if (value.isExternalAttached()) {
-            running.setText(running.getText() + " The manager uses an external server read-only.");
+        String host = value.endpoint().toHostValue();
+        if (value.isServerRunning()) {
+            runningState.show(value.isExternalAttached() ? "in use, read-only" : "running", Theme.Tone.SUCCESS);
+            runningText.setText("Ollama " + value.runningVersion() + " answers on " + host + "."
+                + (value.isExternalAttached()
+                    ? " The manager uses this external server read-only: it is never stopped, restarted or changed."
+                    : " You can use it read-only, or stop it yourself and start an installation below."));
+        } else if (value.probeFailure() != null) {
+            runningState.show("occupied, not usable", Theme.Tone.WARNING);
+            runningText.setText(host + " is occupied but does not answer like an Ollama server: "
+                + value.probeFailure() + " Change the network address in the server settings, or free the port.");
+        } else {
+            runningState.show("no server", Theme.Tone.NEUTRAL);
+            runningText.setText("No server answers on " + host + ". Select an installation below and start it, or"
+                + " install a portable version.");
         }
-        OllamaInstallation previous = installations.getSelectedValue();
-        installationModel.clear();
-        for (OllamaInstallation installation : value.installations()) {
-            installationModel.addElement(installation);
-        }
-        OllamaInstallation keep = previous != null && installationModel.contains(previous) ? previous : value.selected();
+        OllamaInstallation previous = selectedInstallation();
+        installationModel.setRows(value.installations(), value);
+        installationCards.show(installationList, value.installations().isEmpty() ? "empty" : "table");
+        OllamaInstallation keep = previous != null && value.installations().contains(previous)
+            ? previous : value.selected();
         if (keep != null) {
-            installations.setSelectedValue(keep, true);
+            int row = value.installations().indexOf(keep);
+            installations.setRowSelectionInterval(row, row);
         }
         if (value.isSelectionMissing()) {
             showNotice("The stored installation no longer exists on disk. Select another one or install a portable"
@@ -178,17 +248,35 @@ public final class SetupPanel extends SectionPanel implements SetupView {
     public void showRecommendation(PackageRecommendation value) {
         StringBuilder text = new StringBuilder();
         if (!value.isPlatformSupported()) {
-            text.append("This platform is not supported by the portable packages.\n");
+            text.append("This platform is not supported by the portable packages. ");
         }
-        text.append("Recommended: ").append(value.packages()).append(" (confidence ").append(value.confidence())
-            .append(")");
+        text.append("Recommended: ");
+        List<String> names = new ArrayList<String>();
+        for (DistributionPackage pkg : value.packages()) {
+            names.add(packageLabel(pkg));
+        }
+        text.append(names.isEmpty() ? "none" : String.join(", ", names)).append('.');
         for (String reason : value.reasons()) {
             text.append("\n• ").append(reason);
         }
-        recommendation.setText(text.toString());
-        recommendation.setCaretPosition(0);
+        recommendationText.setText(text.toString());
+        confidence.show("confidence: " + value.confidence().name().toLowerCase(java.util.Locale.ROOT),
+            confidenceTone(value.confidence()));
+        confidence.setVisible(true);
         for (Map.Entry<DistributionPackage, JCheckBox> entry : packages.entrySet()) {
             entry.getValue().setSelected(value.packages().contains(entry.getKey()));
+        }
+    }
+
+    static Theme.Tone confidenceTone(Confidence value) {
+        switch (value) {
+            case HIGH:
+                return Theme.Tone.SUCCESS;
+            case MEDIUM:
+                return Theme.Tone.WARNING;
+            case LOW:
+            default:
+                return Theme.Tone.ERROR;
         }
     }
 
@@ -201,7 +289,23 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     @Override
     public void showNotice(String text) {
-        notice.setText(text == null || text.isEmpty() ? " " : text);
+        if (text == null || text.isEmpty()) {
+            notice.clear();
+        } else {
+            notice.show(noticeTone(text), text);
+        }
+    }
+
+    static Theme.Tone noticeTone(String text) {
+        if (text.startsWith("Not removed") || text.contains("cannot be used") || text.contains("no longer exists")
+            || text.startsWith("Select ") || text.startsWith("Another server") || text.contains("already")
+            || text.startsWith("The manager still")) {
+            return Theme.Tone.WARNING;
+        }
+        if (text.contains("cancelled")) {
+            return Theme.Tone.NEUTRAL;
+        }
+        return Theme.Tone.SUCCESS;
     }
 
     @Override
@@ -227,6 +331,14 @@ public final class SetupPanel extends SectionPanel implements SetupView {
             + " with the stored server settings?");
     }
 
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        if (installations != null) {
+            Tables.fitRowHeight(installations);
+        }
+    }
+
     private Set<DistributionPackage> selectedPackages() {
         Set<DistributionPackage> result = EnumSet.noneOf(DistributionPackage.class);
         for (Map.Entry<DistributionPackage, JCheckBox> entry : packages.entrySet()) {
@@ -237,17 +349,13 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         return result;
     }
 
-    private String describe(OllamaInstallation installation) {
-        if (installation == null) {
-            return "";
-        }
-        String kind = installation.kind() == InstallationKind.MANAGED_PORTABLE ? "portable" : "installed";
-        String marker = detection != null && detection.isSelected(installation) ? "  (selected)" : "";
-        return "Ollama " + installation.version() + " · " + kind + " · " + installation.binaryDirectory() + marker;
+    private OllamaInstallation selectedInstallation() {
+        int row = installations.getSelectedRow();
+        return row < 0 ? null : installationModel.row(installations.convertRowIndexToModel(row));
     }
 
     private void updateButtons() {
-        OllamaInstallation chosen = installations.getSelectedValue();
+        OllamaInstallation chosen = selectedInstallation();
         useRunning.setEnabled(!busy && detection != null && detection.isServerRunning()
             && !detection.isExternalAttached());
         stopUsing.setEnabled(!busy && detection != null && detection.isExternalAttached());
@@ -261,11 +369,51 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         }
     }
 
-    private static JPanel row(JButton... buttons) {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        for (JButton button : buttons) {
-            panel.add(button);
+    private static final class InstallationTableModel extends AbstractTableModel {
+        private static final long serialVersionUID = 1L;
+        private static final String[] COLUMNS = {"Version", "Kind", "Folder", "Use"};
+        private final List<OllamaInstallation> rows = new ArrayList<OllamaInstallation>();
+        private SetupDetection detection;
+
+        OllamaInstallation row(int index) {
+            return rows.get(index);
         }
-        return panel;
+
+        void setRows(List<OllamaInstallation> values, SetupDetection current) {
+            rows.clear();
+            rows.addAll(values);
+            detection = current;
+            fireTableDataChanged();
+        }
+
+        @Override
+        public int getRowCount() {
+            return rows.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return COLUMNS.length;
+        }
+
+        @Override
+        public String getColumnName(int column) {
+            return COLUMNS[column];
+        }
+
+        @Override
+        public Object getValueAt(int index, int column) {
+            OllamaInstallation installation = rows.get(index);
+            switch (column) {
+                case 0:
+                    return "Ollama " + installation.version();
+                case 1:
+                    return installation.kind() == InstallationKind.MANAGED_PORTABLE ? "portable" : "installed";
+                case 2:
+                    return installation.binaryDirectory() == null ? "" : installation.binaryDirectory().getPath();
+                default:
+                    return detection != null && detection.isSelected(installation) ? "selected" : "";
+            }
+        }
     }
 }
