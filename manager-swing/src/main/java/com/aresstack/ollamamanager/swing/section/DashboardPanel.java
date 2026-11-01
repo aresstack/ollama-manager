@@ -117,6 +117,12 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         scroll.getVerticalScrollBar().setUnitIncrement(Spacing.MARGIN);
         setBody(scroll);
         presenter.bind(this);
+        // The server may have been started, attached or stopped elsewhere meanwhile: never show a stale state.
+        addHierarchyListener(event -> {
+            if ((event.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+                presenter.refreshStatus();
+            }
+        });
     }
 
     @Override
