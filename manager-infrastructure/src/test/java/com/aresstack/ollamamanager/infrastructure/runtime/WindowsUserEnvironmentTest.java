@@ -40,13 +40,15 @@ public class WindowsUserEnvironmentTest {
             return CommandResult.completed(0, "");
         }, true);
 
-        environment.write(Collections.singletonMap("OLLAMA_NUM_PARALLEL", "4"), CancellationToken.none());
+        environment.write(Collections.singletonMap("OLLAMA_NUM_PARALLEL", "4"),
+            Collections.singleton("OLLAMA_KEEP_ALIVE"), CancellationToken.none());
 
         List<String> command = commands.get(0);
         assertEquals("powershell.exe", command.get(0));
         String script = new String(Base64.getDecoder().decode(command.get(command.size() - 1)),
             Charset.forName("UTF-16LE"));
         assertTrue(script.contains("'OLLAMA_NUM_PARALLEL','4','User'"));
+        assertTrue(script.contains("SetEnvironmentVariable('OLLAMA_KEEP_ALIVE',$null,'User')"));
     }
 
     @Test
@@ -54,7 +56,8 @@ public class WindowsUserEnvironmentTest {
         WindowsUserEnvironment environment = new WindowsUserEnvironment(
             (command, timeout, cancellation) -> CommandResult.completed(1, "denied"), true);
         try {
-            environment.write(Collections.singletonMap("OLLAMA_NUM_PARALLEL", "4"), CancellationToken.none());
+            environment.write(Collections.singletonMap("OLLAMA_NUM_PARALLEL", "4"), Collections.<String>emptySet(),
+                CancellationToken.none());
             fail();
         } catch (OperationException e) {
             assertTrue(e.getMessage().contains("denied"));

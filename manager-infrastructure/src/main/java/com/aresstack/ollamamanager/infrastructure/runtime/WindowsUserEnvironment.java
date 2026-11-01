@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.Collections;
 
 /**
  * Writes user environment variables on Windows through {@code [Environment]::SetEnvironmentVariable(..., 'User')},
@@ -47,12 +49,12 @@ public final class WindowsUserEnvironment implements UserEnvironmentPort {
     }
 
     @Override
-    public void write(Map<String, String> variables, CancellationToken cancellation) throws OperationException {
+    public void write(Map<String, String> variables, Set<String> remove, CancellationToken cancellation) throws OperationException {
         if (!windows) {
             throw new OperationException(ErrorKind.UNSUPPORTED_PLATFORM,
                 "Writing user environment variables is only supported on Windows.");
         }
-        String encoded = Base64.getEncoder().encodeToString(script(variables).getBytes(Charset.forName("UTF-16LE")));
+        String encoded = Base64.getEncoder().encodeToString(script(variables, remove).getBytes(Charset.forName("UTF-16LE")));
         CommandResult result = runner.run(Arrays.asList("powershell.exe", "-NoProfile", "-NonInteractive",
             "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded), TIMEOUT_MILLIS, cancellation);
         if (!result.isFound()) {
@@ -66,10 +68,18 @@ public final class WindowsUserEnvironment implements UserEnvironmentPort {
 
     /** Build the PowerShell script; names and values are single-quoted literals, so nothing is interpreted. */
     static String script(Map<String, String> variables) {
+        return script(variables, Collections.<String>emptySet());
+    }
+
+    /** Setting a user variable to {@code $null} deletes it from {@code HKCU\\Environment}. */
+    static String script(Map<String, String> variables, Set<String> remove) {
         StringBuilder script = new StringBuilder("$ErrorActionPreference='Stop';");
         for (Map.Entry<String, String> entry : variables.entrySet()) {
             script.append("[Environment]::SetEnvironmentVariable(").append(quote(entry.getKey())).append(',')
                 .append(quote(entry.getValue())).append(",'User');");
+        }
+        for (String name : remove) {
+            script.append("[Environment]::SetEnvironmentVariable(").append(quote(name)).append(",$null,'User');");
         }
         return script.toString();
     }

@@ -8,16 +8,17 @@ import com.aresstack.ollamamanager.domain.common.Preconditions;
 import com.aresstack.ollamamanager.domain.server.ServerSettings;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
 
 /**
  * Writes the explicitly chosen server settings as {@code OLLAMA_*} variables into the user environment.
  * <p>
- * Only chosen settings are written; an unset setting never sets a variable. A variable already present in the user
- * environment for an unset setting is left alone, because the manager cannot tell whether the user wants it gone.
+ * Chosen settings are written; for every unset setting the variable is deleted from the user environment, so the
+ * user environment mirrors the manager's settings exactly.
  */
 public final class PermanentEnvironmentService {
-
-    static final String NOTHING_SET = "No setting is set, so there is nothing to save permanently.";
 
     private final UserEnvironmentPort environment;
 
@@ -33,6 +34,13 @@ public final class PermanentEnvironmentService {
         return environment.targetDescription();
     }
 
+    /** @return the variables deleted from the user environment for {@code settings}: those of unset settings */
+    public static Set<String> removals(ServerSettings settings) {
+        Set<String> remove = new TreeSet<String>(ServerSettingCatalog.environmentVariables());
+        remove.removeAll(settings.toEnvironment().keySet());
+        return remove;
+    }
+
     /** @return the variables that were written */
     public Map<String, String> persist(ServerSettings settings, CancellationToken cancellation)
         throws OperationException {
@@ -41,10 +49,7 @@ public final class PermanentEnvironmentService {
                 "Saving settings permanently is not supported on this operating system yet.");
         }
         Map<String, String> variables = settings.toEnvironment();
-        if (variables.isEmpty()) {
-            throw new OperationException(ErrorKind.INVALID_STATE, NOTHING_SET);
-        }
-        environment.write(variables, cancellation);
+        environment.write(variables, removals(settings), cancellation);
         return variables;
     }
 }
