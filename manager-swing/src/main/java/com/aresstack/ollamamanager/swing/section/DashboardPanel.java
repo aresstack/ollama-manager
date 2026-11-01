@@ -202,9 +202,8 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
                 meter.setHigherIsBetter(true);
                 meter.setThresholds(0.25, 0.10);
                 meter.show(freeFraction(sample), freeCaption(sample));
-                meter.setToolTipText(usageTooltip(sample));
-                gpuUsage.addRow(sample.gpuName(), meter, "Free VRAM reported by the driver; the tooltip adds what is"
-                    + " in use and how busy the GPU is.");
+                // The row tooltip is applied to label and meter alike, so pass the telemetry details here.
+                gpuUsage.addRow(sample.gpuName(), meter, usageTooltip(sample));
             }
         }
         gpuUsage.addFiller();
