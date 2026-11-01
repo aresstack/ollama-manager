@@ -41,7 +41,7 @@ public class ModelsPresenterTest {
         presenter.pull("llama3.2:3b");
 
         assertTrue(api.calls.isEmpty());
-        assertEquals("unavailable:No running Ollama server. Start or attach a server first.",
+        assertEquals("unavailable:No running Ollama server. Start one in Setup.",
             view.events.get(0));
     }
 
@@ -99,7 +99,7 @@ public class ModelsPresenterTest {
         pending.get(0).run();
 
         assertFalse(view.events.contains("models:0"));
-        assertEquals("unavailable:No running Ollama server. Start or attach a server first.",
+        assertEquals("unavailable:No running Ollama server. Start one in Setup.",
             view.events.get(view.events.size() - 1));
     }
 

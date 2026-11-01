@@ -122,16 +122,15 @@ public class SetupPresenterTest {
     }
 
     @Test
-    public void useRunningServerAttachesIt() throws Exception {
+    public void runningServerIsUsedAutomaticallyOnDetection() throws Exception {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
+
         presenter.detect();
 
-        presenter.useRunningServer();
-
         assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+        assertTrue(view.detection.isExternalAttached());
         assertNull(services.configuration().current().selectedInstallationKind());
-        assertTrue(view.notices.contains(SetupPresenter.ATTACHED));
         assertFalse(calls.contains("start"));
     }
 
@@ -140,7 +139,6 @@ public class SetupPresenterTest {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
-        presenter.useRunningServer();
         assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
 
         runningVersion = null;
@@ -150,6 +148,11 @@ public class SetupPresenterTest {
         assertFalse(view.detection.isExternalAttached());
         assertEquals(ServerState.STOPPED, services.setup().verifyAttached(
             com.aresstack.ollamamanager.application.common.CancellationToken.none()).state());
+
+        // The server comes back: it is used again without any click.
+        runningVersion = "0.40.14";
+        presenter.detect();
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
     }
 
     @Test
@@ -167,6 +170,7 @@ public class SetupPresenterTest {
     public void runningExternalServerIsStoppedAfterConfirmation() throws Exception {
         runningVersion = "0.40.13";
         TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        control.onTerminate = () -> runningVersion = null;
         ServerLifecycleService controlled = new ServerLifecycleService(runtime, 0, lock, control, 0);
         ConsoleServices withControl = TestServices.builder().serverLifecycle(controlled)
             .setup(new SetupService(runtime, api, controlled, stub(HardwareProbePort.class, (method, args) -> null),
@@ -197,7 +201,6 @@ public class SetupPresenterTest {
         SetupPresenter presenter = new SetupPresenter(withControl, inline());
         presenter.bind(view);
         presenter.detect();
-        presenter.useRunningServer();
 
         presenter.restartRunningServer();
 
@@ -288,7 +291,7 @@ public class SetupPresenterTest {
 
         assertFalse(calls.contains("start"));
         assertEquals(0, view.startQuestions);
-        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("A server already answers on"));
+        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("An Ollama server not started by the manager"));
     }
 
     @Test
@@ -359,15 +362,14 @@ public class SetupPresenterTest {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
-        presenter.useRunningServer();
         presenter.select(PORTABLE);
 
         presenter.startSelected();
-        assertFalse(calls.contains("start"));
 
-        presenter.stopUsingExternal();
-        assertTrue(view.notices.contains(SetupPresenter.DETACHED));
-        assertEquals(RuntimeOwnership.NONE, lifecycle.status().ownership());
+        assertFalse(calls.contains("start"));
+        assertEquals(String.format(SetupPresenter.EXTERNAL_RUNNING, Endpoint.DEFAULT.toHostValue()),
+            view.notices.get(view.notices.size() - 1));
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
     }
 
     @Test
@@ -375,7 +377,6 @@ public class SetupPresenterTest {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
-        presenter.useRunningServer();
         presenter.select(PORTABLE);
         runningVersion = null;
         presenter.detect();

@@ -111,6 +111,8 @@ final class TestServices {
         final File binary = new File("/opt/ollama/bin/ollama").getAbsoluteFile();
         final List<ExternalServerProcess> terminated = new ArrayList<ExternalServerProcess>();
         private boolean running = true;
+        /** Runs after a termination, for example to make the fake API stop answering. */
+        Runnable onTerminate = () -> { };
 
         @Override
         public ExternalServerProcess find(Endpoint endpoint, CancellationToken cancellation) {
@@ -121,6 +123,7 @@ final class TestServices {
         public void terminate(ExternalServerProcess process, long gracePeriodMillis, CancellationToken cancellation) {
             terminated.add(process);
             running = false;
+            onTerminate.run();
         }
     }
 
