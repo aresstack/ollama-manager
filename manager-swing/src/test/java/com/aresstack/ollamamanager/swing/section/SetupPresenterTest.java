@@ -55,8 +55,14 @@ public class SetupPresenterTest {
     private final RecordingView view = new RecordingView();
     private String runningVersion;
     private boolean portableInUse;
+    private OperationException probeError;
+    private OllamaInstallation started;
+    private final List<File> discoveryDirectories = new ArrayList<File>();
 
     private final OllamaApiPort api = stub(OllamaApiPort.class, (method, args) -> {
+        if (probeError != null) {
+            throw probeError;
+        }
         if (runningVersion == null) {
             throw new OperationException(ErrorKind.CONNECTION_FAILED, "refused");
         }
@@ -65,9 +71,13 @@ public class SetupPresenterTest {
     private final OllamaRuntimePort runtime = stub(OllamaRuntimePort.class, (method, args) -> {
         switch (method) {
             case "discover":
+                @SuppressWarnings("unchecked")
+                List<File> directories = (List<File>) args[0];
+                discoveryDirectories.addAll(directories);
                 return Collections.singletonList(INSTALLED);
             case "start":
                 calls.add("start");
+                started = (OllamaInstallation) args[0];
                 return new RunningServer((OllamaInstallation) args[0], (ServerSettings) args[1]);
             default:
                 return null;
@@ -292,6 +302,58 @@ public class SetupPresenterTest {
         assertTrue(view.notices.contains(SetupPresenter.DETACHED));
         assertEquals(RuntimeOwnership.OWNED, lifecycle.status().ownership());
         assertTrue(calls.contains("start"));
+    }
+
+    @Test
+    public void unusableEndpointStillListsInstallationsAndBlocksStart() throws Exception {
+        probeError = new OperationException(ErrorKind.NOT_OLLAMA, "not ollama");
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+
+        assertFalse(view.detection.isServerRunning());
+        assertEquals("not ollama", view.detection.probeFailure());
+        assertEquals(2, view.detection.installations().size());
+
+        presenter.select(PORTABLE);
+        presenter.startSelected();
+
+        assertFalse(calls.contains("start"));
+        assertTrue(view.notices.get(view.notices.size() - 1).contains("cannot be used"));
+    }
+
+    @Test
+    public void startUsesTheCurrentSelectionNotAnOlderDetection() throws Exception {
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+        presenter.select(PORTABLE);
+        // Another selection is stored before the screen refreshed.
+        services.configuration().update(current -> current.withSelectedInstallation(INSTALLED.kind(),
+            INSTALLED.binaryDirectory()));
+
+        presenter.startSelected();
+
+        assertEquals(INSTALLED, started);
+    }
+
+    @Test
+    public void storedInstallationDirectoryIsSearched() throws Exception {
+        services.configuration().update(current -> current.withSelectedInstallation(INSTALLED.kind(),
+            INSTALLED.binaryDirectory()));
+
+        presenter(inline()).detect();
+
+        assertEquals(Collections.singletonList(INSTALLED.binaryDirectory()), discoveryDirectories);
+        assertEquals(INSTALLED, view.detection.selected());
+    }
+
+    @Test
+    public void recommendationShowsItsOwnProgress() {
+        SetupPresenter presenter = presenter(new JobManager(task -> { }, UiDispatcher.inline()));
+
+        presenter.recommend();
+
+        assertEquals("Recommend packages", view.tracked.title());
+        assertTrue(presenter.isBusy());
     }
 
     private SetupPresenter presenter(JobManager jobs) {

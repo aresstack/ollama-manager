@@ -3,6 +3,7 @@ package com.aresstack.ollamamanager.swing.section;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
 import com.aresstack.ollamamanager.domain.server.InstallationKind;
 import com.aresstack.ollamamanager.domain.server.OllamaInstallation;
+import com.aresstack.ollamamanager.domain.server.ServerSettings;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -16,18 +17,23 @@ import java.util.List;
 public final class SetupDetection {
 
     private final Endpoint endpoint;
+    private final ServerSettings settings;
     private final String runningVersion;
+    private final String probeFailure;
     private final boolean externalAttached;
     private final List<OllamaInstallation> discovered;
     private final List<OllamaInstallation> portable;
     private final InstallationKind selectedKind;
     private final File selectedDirectory;
 
-    SetupDetection(Endpoint endpoint, String runningVersion, boolean externalAttached,
+    SetupDetection(Endpoint endpoint, ServerSettings settings, String runningVersion, String probeFailure,
+                   boolean externalAttached,
                    List<OllamaInstallation> discovered,
                    List<OllamaInstallation> portable, InstallationKind selectedKind, File selectedDirectory) {
         this.endpoint = endpoint;
+        this.settings = settings;
         this.runningVersion = runningVersion;
+        this.probeFailure = probeFailure;
         this.externalAttached = externalAttached;
         this.discovered = Collections.unmodifiableList(new ArrayList<OllamaInstallation>(discovered));
         this.portable = Collections.unmodifiableList(new ArrayList<OllamaInstallation>(portable));
@@ -47,6 +53,16 @@ public final class SetupDetection {
 
     public boolean isServerRunning() {
         return runningVersion != null;
+    }
+
+    /** @return why the endpoint could not be checked (not Ollama, no answer in time), or {@code null} */
+    public String probeFailure() {
+        return probeFailure;
+    }
+
+    /** @return the stored server settings this detection was made with */
+    ServerSettings settings() {
+        return settings;
     }
 
     /** @return whether the manager currently uses an external server read-only */

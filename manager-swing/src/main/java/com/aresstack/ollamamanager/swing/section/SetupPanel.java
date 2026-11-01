@@ -152,7 +152,9 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         detection = value;
         running.setText(value.isServerRunning()
             ? "Ollama " + value.runningVersion() + " answers on " + value.endpoint().toHostValue() + "."
-            : "No server answers on " + value.endpoint().toHostValue() + ".");
+            : value.probeFailure() != null
+                ? value.endpoint().toHostValue() + " is occupied but not usable: " + value.probeFailure()
+                : "No server answers on " + value.endpoint().toHostValue() + ".");
         if (value.isExternalAttached()) {
             running.setText(running.getText() + " The manager uses an external server read-only.");
         }

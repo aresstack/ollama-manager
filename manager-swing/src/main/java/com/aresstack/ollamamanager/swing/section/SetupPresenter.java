@@ -1,6 +1,7 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.hardware.SupportOverrides;
@@ -19,9 +20,12 @@ import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobState;
 import com.aresstack.ollamamanager.swing.job.JobWork;
+import com.aresstack.ollamamanager.swing.job.JobContext;
 import com.aresstack.ollamamanager.swing.job.JobManager;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -53,6 +57,9 @@ public final class SetupPresenter {
         + " server settings to start the manager's own server on another port.";
     static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it on the dashboard"
         + " before starting another installation.";
+    static final String SELECT_FIRST = "Select an installation first.";
+    static final String PORT_UNUSABLE = "%s cannot be used: %s. Change Bind in the server settings to another"
+        + " port.";
     static final String NO_PACKAGES = "Select at least the base package.";
 
     private final ConsoleServices services;
@@ -83,22 +90,7 @@ public final class SetupPresenter {
             view.showNotice(NOT_WIRED);
             return;
         }
-        Job job = jobs.submit("Detect Ollama", true, context -> {
-            ManagerConfiguration configuration = services.configuration().current();
-            Endpoint endpoint = configuration.desiredServerSettings().bind();
-            context.phase("Checking " + endpoint.toHostValue());
-            String version = setup.detectRunning(endpoint, context.cancellation());
-            context.phase("Searching installations");
-            List<OllamaInstallation> discovered = setup.detectExisting(Collections.emptyList(),
-                context.cancellation());
-            PortableInstallationService installations = services.installations();
-            List<OllamaInstallation> portable = installations == null
-                ? Collections.<OllamaInstallation>emptyList() : installations.installedVersions();
-            ServerLifecycleService lifecycle = services.serverLifecycle();
-            boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
-            return new SetupDetection(endpoint, version, attached, discovered, portable,
-                configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory());
-        }, found -> {
+        Job job = jobs.submit("Detect Ollama", true, context -> collect(setup, context), found -> {
             if (generation == detectGeneration) {
                 detection = found;
                 view.showDetection(found);
@@ -154,7 +146,7 @@ public final class SetupPresenter {
             return;
         }
         setBusy(true);
-        jobs.submit("Recommend packages", true,
+        Job job = jobs.submit("Recommend packages", true,
             context -> setup.recommendPackages(SupportOverrides.none(), false, context.cancellation()),
             recommendation -> {
                 setBusy(false);
@@ -162,7 +154,9 @@ public final class SetupPresenter {
             }, error -> {
                 setBusy(false);
                 view.showFailure("Recommend packages", error);
-            }).addListener(this::releaseIfCancelled);
+            });
+        job.addListener(this::releaseIfCancelled);
+        view.trackJob(job);
     }
 
     /** Download and install the latest portable release with {@code packages}, then select it. */
@@ -227,40 +221,66 @@ public final class SetupPresenter {
     /** Start the selected installation as the manager's own server with the stored settings. */
     public void startSelected() {
         final ServerLifecycleService lifecycle = services.serverLifecycle();
-        final OllamaInstallation selected = detection == null ? null : detection.selected();
-        if (busy || lifecycle == null || selected == null) {
-            return;
-        }
-        ServerStatus now = lifecycle.status();
-        if (now.ownership() == RuntimeOwnership.OWNED && now.state() == ServerState.RUNNING) {
-            view.showNotice(ALREADY_RUNNING);
-            return;
-        }
-        if (now.ownership() == RuntimeOwnership.EXTERNAL) {
-            view.showNotice(DETACH_FIRST);
-            return;
-        }
-        if (detection.isServerRunning()) {
-            // Never start a second server on a port that another Ollama already serves.
-            view.showNotice(String.format(PORT_TAKEN, detection.endpoint().toHostValue()));
-            return;
-        }
-        if (!view.confirmStart(selected, detection.endpoint().toHostValue())) {
+        final SetupService setup = services.setup();
+        if (busy || lifecycle == null || setup == null) {
             return;
         }
         setBusy(true);
-        Job job = jobs.submit("Start server", true, context -> {
-            ServerSettings settings = services.configuration().current().desiredServerSettings();
-            return lifecycle.start(selected, settings, context.cancellation());
-        }, status -> {
-            setBusy(false);
-            view.showNotice(status.state() == ServerState.RUNNING ? STARTED : status.message());
-            detect();
+        // Decide on a fresh snapshot of selection, settings and endpoint, and start exactly what was confirmed.
+        Job check = jobs.submit("Check before start", true, context -> collect(setup, context), fresh -> {
+            ++detectGeneration;
+            detection = fresh;
+            view.showDetection(fresh);
+            String refusal = startRefusal(fresh, lifecycle.status());
+            if (refusal != null) {
+                setBusy(false);
+                view.showNotice(refusal);
+                return;
+            }
+            if (!view.confirmStart(fresh.selected(), fresh.endpoint().toHostValue())) {
+                setBusy(false);
+                return;
+            }
+            start(lifecycle, fresh.selected(), fresh.settings());
         }, error -> {
             setBusy(false);
-            showFailure("Start server", error);
-            detect();
+            view.showFailure("Check before start", error);
         });
+        check.addListener(this::releaseIfCancelled);
+        view.trackJob(check);
+    }
+
+    private static String startRefusal(SetupDetection fresh, ServerStatus now) {
+        if (fresh.selected() == null) {
+            return SELECT_FIRST;
+        }
+        if (now.ownership() == RuntimeOwnership.OWNED && now.state() == ServerState.RUNNING) {
+            return ALREADY_RUNNING;
+        }
+        if (now.ownership() == RuntimeOwnership.EXTERNAL) {
+            return DETACH_FIRST;
+        }
+        if (fresh.isServerRunning()) {
+            // Never start a second server on a port that another Ollama already serves.
+            return String.format(PORT_TAKEN, fresh.endpoint().toHostValue());
+        }
+        if (fresh.probeFailure() != null) {
+            return String.format(PORT_UNUSABLE, fresh.endpoint().toHostValue(), fresh.probeFailure());
+        }
+        return null;
+    }
+
+    private void start(ServerLifecycleService lifecycle, OllamaInstallation installation, ServerSettings settings) {
+        Job job = jobs.submit("Start server", true,
+            context -> lifecycle.start(installation, settings, context.cancellation()), status -> {
+                setBusy(false);
+                view.showNotice(status.state() == ServerState.RUNNING ? STARTED : status.message());
+                detect();
+            }, error -> {
+                setBusy(false);
+                showFailure("Start server", error);
+                detect();
+            });
         job.addListener(current -> {
             if (current.state() == JobState.CANCELLED && busy) {
                 setBusy(false);
@@ -269,6 +289,41 @@ public final class SetupPresenter {
             }
         });
         view.trackJob(job);
+    }
+
+    /**
+     * Read the configuration, probe the endpoint and list installations. A probe that fails for another reason
+     * than "nothing answers" is recorded, never treated as a free port, and does not hide the installations.
+     */
+    private SetupDetection collect(SetupService setup, JobContext context) throws OperationException {
+        ManagerConfiguration configuration = services.configuration().current();
+        ServerSettings settings = configuration.desiredServerSettings();
+        Endpoint endpoint = settings.bind();
+        context.phase("Checking " + endpoint.toHostValue());
+        String version = null;
+        String probeFailure = null;
+        try {
+            version = setup.detectRunning(endpoint, context.cancellation());
+        } catch (OperationCancelledException e) {
+            throw e;
+        } catch (OperationException e) {
+            probeFailure = e.getMessage();
+        }
+        context.phase("Searching installations");
+        List<File> extra = new ArrayList<File>();
+        if (configuration.selectedInstallationKind() == InstallationKind.MANAGED_INSTALLED
+            && configuration.selectedBinaryDirectory() != null) {
+            // A stored installation outside the default locations must not look missing.
+            extra.add(configuration.selectedBinaryDirectory());
+        }
+        List<OllamaInstallation> discovered = setup.detectExisting(extra, context.cancellation());
+        PortableInstallationService installations = services.installations();
+        List<OllamaInstallation> portable = installations == null
+            ? Collections.<OllamaInstallation>emptyList() : installations.installedVersions();
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
+        return new SetupDetection(endpoint, settings, version, probeFailure, attached, discovered, portable,
+            configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory());
     }
 
     boolean isBusy() {
