@@ -144,10 +144,12 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             boolean pending = pendingRestart.contains(entry.getKey());
             label.show(pending ? running + " — restart pending" : running,
                 pending ? Theme.Tone.WARNING : Theme.Tone.SUCCESS);
-            label.setToolTipText(pending ? "The stored value differs from what the running server uses."
-                : "The running server uses this value.");
+            label.setToolTipText("<html>" + Html.escape(running) + "<br>" + (pending
+                ? "The stored value differs from what the running server uses; restart to apply it."
+                : "The running server uses this value.") + "</html>");
             label.setVisible(true);
         }
+        fitAppliedWidth();
     }
 
     @Override
@@ -210,12 +212,19 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         }
     }
 
+    /** Reserve one shared width: the widest badge currently shown, at least a typical value. */
     private void fitAppliedWidth() {
         StatusBadge sample = new StatusBadge("running: 4096 — restart pending", Theme.Tone.WARNING);
         int width = sample.getPreferredSize().width;
+        for (StatusBadge badge : appliedLabels.values()) {
+            if (badge.isVisible()) {
+                width = Math.max(width, badge.getPreferredSize().width);
+            }
+        }
         for (JPanel cell : appliedCells) {
             cell.setPreferredSize(new java.awt.Dimension(width, sample.getPreferredSize().height));
         }
+        revalidate();
     }
 
     @Override
