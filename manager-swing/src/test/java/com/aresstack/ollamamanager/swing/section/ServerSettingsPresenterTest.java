@@ -1,6 +1,9 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
+import com.aresstack.ollamamanager.application.configuration.PermanentEnvironmentService;
+import com.aresstack.ollamamanager.application.port.UserEnvironmentPort;
 import com.aresstack.ollamamanager.domain.server.ServerSetting;
 import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
 import com.aresstack.ollamamanager.swing.job.JobManager;
@@ -107,6 +110,70 @@ public class ServerSettingsPresenterTest {
         assertEquals(ServerSettingsPresenter.SERVER_FAILED, view.appliedSource);
     }
 
+    @Test
+    public void savePermanentlyStoresAndWritesOnlySetVariables() throws Exception {
+        FakeUserEnvironment environment = new FakeUserEnvironment();
+        ConsoleServices services = TestServices.builder()
+            .permanentEnvironment(new PermanentEnvironmentService(environment)).build();
+        ServerSettingsPresenter presenter = presenter(services);
+        view.edits.put(ServerSettingCatalog.PARALLELISM, "4");
+
+        presenter.savePermanently();
+
+        assertEquals("Windows user environment variables", view.permanentTarget);
+        assertEquals(1, view.confirmations);
+        assertEquals(Integer.valueOf(4), services.configuration().current().desiredServerSettings().parallelism());
+        assertEquals(1, environment.written.size());
+        assertEquals("4", environment.written.get("OLLAMA_NUM_PARALLEL"));
+        assertEquals(ServerSettingsPresenter.SAVED_PERMANENT, view.notices.get(view.notices.size() - 1));
+    }
+
+    @Test
+    public void declinedConfirmationWritesNothing() throws Exception {
+        FakeUserEnvironment environment = new FakeUserEnvironment();
+        ConsoleServices services = TestServices.builder()
+            .permanentEnvironment(new PermanentEnvironmentService(environment)).build();
+        ServerSettingsPresenter presenter = presenter(services);
+        view.confirm = false;
+        view.edits.put(ServerSettingCatalog.PARALLELISM, "4");
+
+        presenter.savePermanently();
+
+        assertTrue(environment.written.isEmpty());
+        assertNull(services.configuration().current().desiredServerSettings().parallelism());
+    }
+
+    @Test
+    public void unsupportedSystemDisablesSavePermanently() throws Exception {
+        FakeUserEnvironment environment = new FakeUserEnvironment();
+        environment.supported = false;
+        presenter(TestServices.builder().permanentEnvironment(new PermanentEnvironmentService(environment)).build())
+            .savePermanently();
+
+        assertNull(view.permanentTarget);
+        assertEquals(0, view.confirmations);
+    }
+
+    private static final class FakeUserEnvironment implements UserEnvironmentPort {
+        final Map<String, String> written = new LinkedHashMap<String, String>();
+        boolean supported = true;
+
+        @Override
+        public boolean isSupported() {
+            return supported;
+        }
+
+        @Override
+        public String targetDescription() {
+            return "Windows user environment variables";
+        }
+
+        @Override
+        public void write(Map<String, String> variables, CancellationToken cancellation) {
+            written.putAll(variables);
+        }
+    }
+
     private ServerSettingsPresenter presenter(ConsoleServices services) {
         ServerSettingsPresenter presenter = new ServerSettingsPresenter(services, jobs);
         presenter.bind(view);
@@ -159,6 +226,21 @@ public class ServerSettingsPresenterTest {
 
         @Override
         public void setBusy(boolean busy) {
+        }
+
+        String permanentTarget;
+        boolean confirm = true;
+        int confirmations;
+
+        @Override
+        public void setPermanentTarget(String target) {
+            permanentTarget = target;
+        }
+
+        @Override
+        public boolean confirmPermanent(String message) {
+            confirmations++;
+            return confirm;
         }
 
         @Override

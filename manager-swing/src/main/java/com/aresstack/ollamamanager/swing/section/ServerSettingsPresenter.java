@@ -4,6 +4,7 @@ import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
+import com.aresstack.ollamamanager.application.configuration.PermanentEnvironmentService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
@@ -15,6 +16,7 @@ import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -26,6 +28,11 @@ public final class ServerSettingsPresenter {
     static final String SAVED = "Saved.";
     static final String SAVED_RESTART = "Saved. Restart the server to apply the changes; running requests are"
         + " aborted on restart.";
+    static final String SAVED_PERMANENT = "Saved and written to the user environment variables. The Ollama app"
+        + " uses them the next time it starts.";
+    static final String RESTART_HINT = "Restart the server to apply the changes; running requests are aborted on"
+        + " restart.";
+    static final String NOTHING_TO_PERSIST = "No setting is set, so nothing is written to the environment variables.";
     static final String RUNNING_OWNED = "The right column shows what the running server started by the manager uses.";
     static final String NO_OWNED_SERVER = "No server started by the manager is running; stored values apply on"
         + " the next start.";
@@ -53,6 +60,8 @@ public final class ServerSettingsPresenter {
 
     public void bind(ServerSettingsView boundView) {
         this.view = boundView;
+        PermanentEnvironmentService permanent = services.permanentEnvironment();
+        view.setPermanentTarget(permanent != null && permanent.isSupported() ? permanent.targetDescription() : null);
     }
 
     public void load() {
@@ -117,6 +126,63 @@ public final class ServerSettingsPresenter {
             setBusy(false);
             view.showFailure("Save server settings", error);
         });
+    }
+
+    /**
+     * Save like {@link #save()}, then write every set value as an {@code OLLAMA_*} variable into the user
+     * environment, overwriting existing values, so an Ollama started without the manager uses them too. Unset
+     * settings write nothing and leave an existing variable alone.
+     */
+    public void savePermanently() {
+        final PermanentEnvironmentService permanent = services.permanentEnvironment();
+        if (busy || loaded == null || permanent == null || !permanent.isSupported()) {
+            return;
+        }
+        SettingsDraft draft = SettingsDraft.parse(view.editedValues());
+        view.showErrors(draft.errors());
+        if (!draft.isValid()) {
+            view.showNotice("Fix the marked fields before saving.");
+            return;
+        }
+        final ServerSettings base = loaded;
+        final ServerSettings desired = draft.settings();
+        Map<String, String> variables = desired.toEnvironment();
+        if (variables.isEmpty()) {
+            view.showNotice(NOTHING_TO_PERSIST);
+            return;
+        }
+        if (!view.confirmPermanent(confirmText(variables, permanent.targetDescription()))) {
+            return;
+        }
+        setBusy(true);
+        jobs.submit("Save server settings permanently", false, context -> {
+            ManagerConfiguration saved = services.configuration().update(current -> {
+                if (!current.desiredServerSettings().equals(base)) {
+                    throw new OperationException(ErrorKind.INVALID_STATE, CHANGED_MEANWHILE);
+                }
+                return current.withDesiredServerSettings(desired);
+            });
+            permanent.persist(saved.desiredServerSettings(), context.cancellation());
+            return saved;
+        }, (ManagerConfiguration saved) -> {
+                setBusy(false);
+                show(saved.desiredServerSettings());
+                ServerLifecycleService lifecycle = services.serverLifecycle();
+                boolean restart = lifecycle != null && lifecycle.restartRequired(saved.desiredServerSettings());
+                view.showNotice(SAVED_PERMANENT + (restart ? " " + RESTART_HINT : ""));
+            }, error -> {
+                setBusy(false);
+                view.showFailure("Save server settings permanently", error);
+            });
+    }
+
+    static String confirmText(Map<String, String> variables, String target) {
+        StringBuilder text = new StringBuilder("Write these values into the ").append(target)
+            .append("?\nExisting values are overwritten. Unset settings are not written.\n\n");
+        for (Map.Entry<String, String> entry : variables.entrySet()) {
+            text.append(entry.getKey()).append(" = ").append(entry.getValue()).append('\n');
+        }
+        return text.append("\nThe Ollama app and other programs use them the next time they start.").toString();
     }
 
     /** Discard edits and show the last loaded values again. */

@@ -67,6 +67,8 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
     private final MessageBanner notice = new MessageBanner();
     private final MessageBanner appliedSource = new MessageBanner();
     private final JButton save = new JButton("Save");
+    private final JButton permanent = new JButton("Save permanently");
+    private String permanentTarget;
     private final JButton revert = new JButton("Revert");
     private final JButton reload = new JButton("Reload");
     private final WrapLabel legend = new WrapLabel("");
@@ -116,12 +118,14 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         revert.setToolTipText("Discard unsaved edits.");
         reload.setMnemonic('L');
         reload.setToolTipText("Load the stored settings again.");
+        permanent.setMnemonic('P');
+        permanent.addActionListener(event -> presenter.savePermanently());
         save.addActionListener(event -> presenter.save());
         revert.addActionListener(event -> presenter.revert());
         reload.addActionListener(event -> presenter.load());
         addToolbarItem(reload);
 
-        ActionBar buttons = new ActionBar().addAction(save).addAction(revert);
+        ActionBar buttons = new ActionBar().addAction(save).addAction(permanent).addAction(revert);
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
         south.setOpaque(false);
         south.setBorder(BorderFactory.createEmptyBorder(Spacing.GAP, 0, 0, 0));
@@ -229,8 +233,24 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
             editor.setEnabled(!busy);
         }
         save.setEnabled(!busy);
+        permanent.setEnabled(!busy && permanentTarget != null);
         revert.setEnabled(!busy);
         reload.setEnabled(!busy);
+    }
+
+    @Override
+    public void setPermanentTarget(String target) {
+        permanentTarget = target;
+        permanent.setEnabled(target != null);
+        permanent.setToolTipText(target == null
+            ? "Writing the settings into the user environment is only supported on Windows."
+            : "<html>Save, then write every set value into the " + Html.escape(target) + ",<br>overwriting existing"
+                + " values. The Ollama app uses them the next time it starts.<br>Unset settings write nothing.</html>");
+    }
+
+    @Override
+    public boolean confirmPermanent(String message) {
+        return Dialogs.confirm(this, "Save permanently", message);
     }
 
     @Override

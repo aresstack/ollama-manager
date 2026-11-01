@@ -28,6 +28,8 @@ import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationR
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
 import com.aresstack.ollamamanager.infrastructure.runtime.ExternalServerControls;
 import com.aresstack.ollamamanager.infrastructure.runtime.SystemInstalledEnvironment;
+import com.aresstack.ollamamanager.infrastructure.runtime.WindowsUserEnvironment;
+import com.aresstack.ollamamanager.application.configuration.PermanentEnvironmentService;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
@@ -104,6 +106,7 @@ public final class OllamaManagerApp {
             .profileRepository(profileRepository)
             .setup(setup)
             .existingSettings(existingSettings)
+            .permanentEnvironment(new PermanentEnvironmentService(WindowsUserEnvironment.forCurrentSystem()))
             .serverParallelism(new ServerParallelismService(lifecycle, configuration, existingSettings, lifecycleLock))
             .build();
     }
