@@ -1,5 +1,8 @@
 package com.aresstack.ollamamanager.swing.component;
 
+import com.aresstack.comiccontrols.theme.AskAiTheme;
+import com.aresstack.comiccontrols.theme.ComicPalette;
+
 import javax.swing.UIManager;
 import java.awt.Color;
 import java.awt.Font;
@@ -24,16 +27,17 @@ public final class Theme {
 
     /** Colour that stands for {@code tone}, readable on the panel background. */
     public static Color color(Tone tone) {
-        boolean dark = isDark();
+        // The askai-java8 comic palette of the active theme (petrol = good, orange = attention, red = fault).
+        ComicPalette palette = AskAiTheme.active().comicPalette();
         switch (tone) {
             case SUCCESS:
-                return dark ? new Color(0x5FC27A) : new Color(0x1E7D3A);
+                return palette.getAgentPetrol();
             case WARNING:
-                return dark ? new Color(0xE6B04D) : new Color(0x9A6400);
+                return blend(palette.getAccentOrange(), palette.getInk(), 0.25f);
             case ERROR:
-                return dark ? new Color(0xF07B7B) : new Color(0xB3261E);
+                return palette.getAccentRed();
             case INFO:
-                return dark ? new Color(0x7FB4F0) : new Color(0x1B5FA8);
+                return palette.getNavigationBlue();
             case NEUTRAL:
             default:
                 return mutedForeground();

@@ -1,5 +1,7 @@
 package com.aresstack.ollamamanager.swing.component;
 
+import com.aresstack.comiccontrols.control.ComicSectionPanel;
+
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -8,10 +10,10 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 
 /**
- * Group of related values with a bold heading and an optional trailing component (for example a badge or a
+ * Comic plate (askai {@link ComicSectionPanel}) grouping related values with a bold heading and an optional trailing component (for example a badge or a
  * button). Replaces titled borders so headings scale with the font and all groups share the same padding.
  */
-public class CardPanel extends JPanel {
+public class CardPanel extends ComicSectionPanel {
 
     private static final long serialVersionUID = 1L;
 
@@ -21,7 +23,7 @@ public class CardPanel extends JPanel {
     private JComponent trailing;
 
     public CardPanel(String title) {
-        super(new BorderLayout(0, Spacing.GAP));
+        setLayout(new BorderLayout(0, Spacing.GAP));
         heading.setText(title);
         header.setOpaque(false);
         header.add(heading, BorderLayout.CENTER);
@@ -77,10 +79,9 @@ public class CardPanel extends JPanel {
 
     private void applyLook() {
         heading.setFont(Theme.derived(1.1f, true));
-        setBackground(Theme.background());
-        setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Theme.lineColor()),
-            BorderFactory.createEmptyBorder(Spacing.GAP + 2, Spacing.MARGIN - 4, Spacing.MARGIN - 4,
-                Spacing.MARGIN - 4)));
+        heading.setForeground(Theme.foreground());
+        // The askai comic plate (ComicSectionPanel) paints the rounded ink contour; only the padding is set here.
+        setBorder(BorderFactory.createEmptyBorder(Spacing.GAP + 4, Spacing.MARGIN, Spacing.MARGIN - 2,
+            Spacing.MARGIN - 2));
     }
 }
