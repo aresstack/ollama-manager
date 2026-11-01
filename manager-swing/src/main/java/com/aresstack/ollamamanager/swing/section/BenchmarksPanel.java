@@ -37,7 +37,9 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingConstants;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -87,8 +89,6 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private final JTable stageTable = new JTable(stageModel);
     private final HistoryTableModel historyModel = new HistoryTableModel();
     private final JTable historyTable = new JTable(historyModel);
-    private final JButton showRun = new JButton("Show");
-    private final JButton compareRuns = new JButton("Compare");
     private final JButton saveProfile = new JButton("Profile…");
     private final JButton deleteRun = new JButton("Delete");
     private boolean running;
@@ -174,25 +174,33 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         CardPanel chartCard = new CardPanel("Total tokens per second over parallel chats", chartBox);
 
         Tables.setup(stageTable, "Benchmark stages");
-        Tables.alignRight(stageTable, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-        stageTable.getColumnModel().getColumn(9).setCellRenderer(Tables.toneRenderer(value ->
-            "ok".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.ERROR));
+        // Server left, counts and states centred, measurements right; columns sized so headers stay readable.
+        Tables.alignCenter(stageTable, 1);
+        Tables.alignRight(stageTable, 2, 3, 4, 5, 6, 7, 8);
+        DefaultTableCellRenderer state = Tables.toneRenderer(value ->
+            "ok".equals(value) ? Theme.Tone.SUCCESS : Theme.Tone.ERROR);
+        state.setHorizontalAlignment(SwingConstants.CENTER);
+        stageTable.getColumnModel().getColumn(9).setCellRenderer(state);
+        Tables.fitHeaders(stageTable);
         JScrollPane stageScroll = new JScrollPane(stageTable);
         stageScroll.setPreferredSize(new Dimension(400, 150));
         CardPanel stageCard = new CardPanel("Per stage", stageScroll);
 
         Tables.setup(historyTable, "Benchmark history");
+        Tables.alignRight(historyTable, 3, 4, 5);
+        Tables.fitHeaders(historyTable);
+        historyTable.setToolTipText("Select a run to see its chart and stages; select several to compare them.");
         historyTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        historyTable.getSelectionModel().addListSelectionListener(event -> updateButtons());
-        showRun.setToolTipText("Draw the selected run.");
-        showRun.addActionListener(event -> {
-            List<BenchmarkReport> selected = selectedReports();
-            if (!selected.isEmpty()) {
-                showReport(selected.get(0));
+        historyTable.getSelectionModel().addListSelectionListener(event -> {
+            updateButtons();
+            // Selecting runs shows them; several selected runs are drawn on top of each other.
+            if (!event.getValueIsAdjusting() && !running) {
+                List<BenchmarkReport> selected = selectedReports();
+                if (!selected.isEmpty()) {
+                    showReports(selected);
+                }
             }
         });
-        compareRuns.setToolTipText("Draw all selected runs on top of each other.");
-        compareRuns.addActionListener(event -> showReports(selectedReports()));
         saveProfile.setToolTipText("Create a model profile with the selected run's optimum.");
         saveProfile.addActionListener(event -> askProfile());
         deleteRun.addActionListener(event -> {
@@ -202,8 +210,6 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
         });
         JPanel historyButtons = new JPanel(new FlowLayout(FlowLayout.TRAILING, Spacing.GAP, 0));
         historyButtons.setOpaque(false);
-        historyButtons.add(showRun);
-        historyButtons.add(compareRuns);
         historyButtons.add(saveProfile);
         historyButtons.add(deleteRun);
         JScrollPane historyScroll = new JScrollPane(historyTable);
@@ -398,9 +404,7 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     private void updateButtons() {
         run.setEnabled(!running && hasModels);
         int selected = historyTable.getSelectedRowCount();
-        // None of these may touch the display of a running sweep.
-        showRun.setEnabled(selected == 1 && !running);
-        compareRuns.setEnabled(selected >= 2 && !running);
+        // Neither may touch the display of a running sweep.
         saveProfile.setEnabled(selected == 1 && !running);
         deleteRun.setEnabled(selected >= 1 && !running);
     }
@@ -593,8 +597,8 @@ public final class BenchmarksPanel extends SectionPanel implements BenchmarksVie
     /** Per-stage numbers of one or more runs. */
     static final class StageTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
-        private static final String[] COLUMNS = {"Server", "Chats", "Total tok/s", "Per chat tok/s", "Slowest chat",
-            "First token p50", "First token p95", "Latency p95", "Peak VRAM", "State"};
+        private static final String[] COLUMNS = {"Server", "Chats", "Total tok/s", "Per chat", "Slowest chat",
+            "1st token p50", "1st token p95", "Latency p95", "Peak VRAM", "State"};
         private final List<String> labels = new ArrayList<String>();
         private final List<StageResult> rows = new ArrayList<StageResult>();
 
