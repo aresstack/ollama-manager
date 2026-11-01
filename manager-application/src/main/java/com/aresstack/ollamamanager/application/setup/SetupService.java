@@ -96,6 +96,33 @@ public final class SetupService {
         return lifecycle.status();
     }
 
+    /**
+     * Keep the manager in step with the server on {@code endpoint} without user action: an Ollama server that
+     * answers there is used automatically when the manager has no server, and an attached one that stopped
+     * answering is forgotten. A lifecycle operation in progress is left alone.
+     *
+     * @return the status after the check
+     */
+    public ServerStatus synchronize(Endpoint endpoint, CancellationToken cancellation) throws OperationException {
+        ServerStatus status = verifyAttached(cancellation);
+        if (status.ownership() != RuntimeOwnership.NONE || status.state() == ServerState.STARTING
+            || status.state() == ServerState.STOPPING) {
+            return status;
+        }
+        String version = detectRunning(endpoint, cancellation);
+        if (version != null) {
+            try {
+                lifecycle.attachExternal(OllamaInstallation.external(version, endpoint), version);
+            } catch (OperationException e) {
+                if (e.kind() != ErrorKind.INVALID_STATE) {
+                    throw e;
+                }
+                // Another server operation runs right now; the next check adopts the server.
+            }
+        }
+        return lifecycle.status();
+    }
+
     /** Probe the hardware and recommend portable packages with the existing advisor. */
     public PackageRecommendation recommendPackages(SupportOverrides overrides, boolean mlxRequested,
                                                    CancellationToken cancellation) throws OperationException {

@@ -4,6 +4,7 @@ import com.aresstack.ollamamanager.application.common.TransferProgress;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
+import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
 import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
@@ -48,7 +49,7 @@ public final class ModelsPresenter {
         }
         ServerStatus status = lifecycle.status();
         if (status.state() != ServerState.RUNNING || status.installation() == null) {
-            view.showUnavailable("No running Ollama server. Start or attach a server first.");
+            view.showUnavailable("No running Ollama server. Start one in Setup.");
             return null;
         }
         return status.installation().endpoint();
@@ -59,6 +60,7 @@ public final class ModelsPresenter {
         final long generation = ++refreshGeneration;
         final Endpoint endpoint = runningEndpoint();
         if (endpoint == null) {
+            adoptRunningServer(generation);
             return;
         }
         view.setMutationsAllowed(true, null);
@@ -74,6 +76,23 @@ public final class ModelsPresenter {
                     // Never keep showing an old list: a failed read must not look like "0 running".
                     view.showUnavailable("Could not read models from " + endpoint + ": " + error.getMessage());
                 }
+            });
+    }
+
+    /** Use a server that answers on the configured address without a claim step, then load its models. */
+    private void adoptRunningServer(long generation) {
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (services.setup() == null || services.models() == null || lifecycle == null
+            || lifecycle.status().ownership() != RuntimeOwnership.NONE) {
+            return;
+        }
+        jobs.submit("Check server", true, context -> services.setup().synchronize(
+            services.configuration().current().desiredServerSettings().bind(), context.cancellation()), status -> {
+                if (generation == refreshGeneration && status.state() == ServerState.RUNNING) {
+                    refresh();
+                }
+            }, error -> {
+                // Nothing usable answers; the view already says that no server runs.
             });
     }
 

@@ -45,8 +45,6 @@ public final class SetupPresenter {
     static final String IMPORTED = "Taken over from the existing installation (%2$s): %1$s. A server the manager"
         + " starts uses the same values; change them under Server settings.";
     static final String IMPORT_FAILED = "The existing installation's settings could not be read: %s";
-    static final String ATTACHED = "Using the running server. Models can be managed on it, and Stop or Restart"
-        + " control it after a confirmation; Restart applies the stored server settings.";
     static final String SERVER_STOPPED = "Server stopped.";
     static final String SERVER_RESTARTED = "Server restarted with the stored server settings; the manager now"
         + " controls it.";
@@ -58,10 +56,9 @@ public final class SetupPresenter {
     static final String START_CANCELLED = "Start cancelled. Check the dashboard for the server state.";
     static final String LIFECYCLE_BUSY = "Another server operation is running. Try again when it has finished.";
     static final String NOT_REMOVED = "Not removed: ";
-    static final String DETACHED = "No longer using the external server. It keeps running unchanged.";
-    static final String DETACH_FIRST = "The manager still uses an external server. Choose \"Stop using it\" first;"
-        + " the external server itself is not touched.";
-    static final String PORT_TAKEN = "A server already answers on %s. Use, restart or stop it in section 1, or change"
+    static final String EXTERNAL_RUNNING = "An Ollama server not started by the manager runs on %s. Restart it in"
+        + " section 1 to run it with the stored settings, or stop it first.";
+    static final String PORT_TAKEN = "A server already answers on %s. Restart or stop it in section 1, or change"
         + " the network address in the server settings to start the manager's own server on another port.";
     static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it in section 1"
         + " before starting another installation.";
@@ -184,32 +181,8 @@ public final class SetupPresenter {
     private void attachIfNeeded(ServerLifecycleService lifecycle, Endpoint endpoint, JobContext context)
         throws OperationException {
         if (lifecycle.status().ownership() == RuntimeOwnership.NONE && services.setup() != null) {
-            services.setup().attachExisting(endpoint, context.cancellation());
+            services.setup().synchronize(endpoint, context.cancellation());
         }
-    }
-
-    /** Use the server found on the endpoint; it is attached as external and can then be stopped or restarted. */
-    public void useRunningServer() {
-        final SetupService setup = services.setup();
-        if (busy || setup == null || detection == null || !detection.isServerRunning()) {
-            return;
-        }
-        final Endpoint endpoint = detection.endpoint();
-        run("Use running server", false, context -> {
-            setup.attachExisting(endpoint, context.cancellation());
-            return null;
-        }, ATTACHED);
-    }
-
-    /** Forget the attached external server; the server process itself is never touched. */
-    public void stopUsingExternal() {
-        ServerLifecycleService lifecycle = services.serverLifecycle();
-        if (busy || lifecycle == null || lifecycle.status().ownership() != RuntimeOwnership.EXTERNAL) {
-            return;
-        }
-        lifecycle.detachExternal();
-        view.showNotice(DETACHED);
-        detect();
     }
 
     /** Store {@code installation} as the one the manager starts. */
@@ -343,7 +316,7 @@ public final class SetupPresenter {
             return ALREADY_RUNNING;
         }
         if (now.ownership() == RuntimeOwnership.EXTERNAL) {
-            return DETACH_FIRST;
+            return String.format(EXTERNAL_RUNNING, fresh.endpoint().toHostValue());
         }
         if (fresh.isServerRunning()) {
             // Never start a second server on a port that another Ollama already serves.
@@ -412,6 +385,10 @@ public final class SetupPresenter {
             && lifecycle.status().installation().endpoint().equals(endpoint)) {
             // The attached server no longer answers, for example because it was stopped outside the manager.
             lifecycle.detachExternal();
+        }
+        if (lifecycle != null && version != null && lifecycle.status().ownership() == RuntimeOwnership.NONE) {
+            // A server on the configured address is used automatically; no claim step is needed.
+            setup.synchronize(endpoint, context.cancellation());
         }
         boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
         return new SetupDetection(endpoint, settings, version, probeFailure, attached, discovered, portable,
