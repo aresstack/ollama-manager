@@ -25,4 +25,7 @@ public interface ProfilesView {
 
     /** Ask whether to restart the owned server for this plan; warns that running requests are aborted. */
     boolean confirmRestart(ProfileRow row, ProfileActivationPlan plan);
+
+    /** Ask whether to delete this profile for good; says so if it is the active one. */
+    boolean confirmDelete(ProfileRow row);
 }

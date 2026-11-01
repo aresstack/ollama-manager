@@ -63,7 +63,8 @@ public final class ManagerModelCard extends JPanel {
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(ThemeColor.of("models.cardBorder")),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
-        setBackground(ThemeColor.of("models.cardBackground"));
+        // A running model is told apart by the progress-bar accent and its badge; installed models carry no badge.
+        setBackground(running ? runningBackground() : ThemeColor.of("models.cardBackground"));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
 
         JPanel text = new JPanel(new GridLayout(0, 1, 0, 3));
@@ -81,12 +82,14 @@ public final class ManagerModelCard extends JPanel {
         right.setOpaque(false);
         capabilityIconLabel.setToolTipText("Model capabilities (from /api/show)");
         right.add(capabilityIconLabel);
-        JLabel status = new JLabel(running ? "RUNNING" : "INSTALLED");
-        status.setOpaque(true);
-        status.setForeground(ThemeColor.of("bubble.userForeground"));
-        status.setBackground(running ? ThemeColor.of("models.runningBadge") : ThemeColor.of("models.installedBadge"));
-        status.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
-        right.add(status);
+        if (running) {
+            JLabel status = new JLabel("RUNNING");
+            status.setOpaque(true);
+            status.setForeground(ThemeColor.of("bubble.userForeground"));
+            status.setBackground(com.aresstack.ollamamanager.swing.component.Theme.runningAccent());
+            status.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+            right.add(status);
+        }
         for (final Action action : actions) {
             if (action == null) {
                 continue;
@@ -104,6 +107,13 @@ public final class ManagerModelCard extends JPanel {
             right.add(button);
         }
         add(right, BorderLayout.EAST);
+    }
+
+    /** Card background of a running model: the progress-bar accent washed towards the card background. */
+    private static java.awt.Color runningBackground() {
+        return com.aresstack.ollamamanager.swing.component.Theme.blend(
+                com.aresstack.ollamamanager.swing.component.Theme.runningAccent(),
+                ThemeColor.of("models.cardBackground"), 0.35f);
     }
 
     /** Enable or disable all action buttons, for example while another model operation runs. */

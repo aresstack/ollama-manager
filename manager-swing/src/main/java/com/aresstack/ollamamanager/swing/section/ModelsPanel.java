@@ -39,8 +39,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Model library as two lists of model cards, ported from the askai-java8 models view: running models (from
- * {@code /api/ps}) first, installed models (from {@code /api/tags}) below. Every card carries its own actions.
+ * Model library as one list of model cards, ported from the askai-java8 models view. Running models (from
+ * {@code /api/ps}) come first with a green wash and a badge; the rest follow by name. Every card carries its
+ * own actions.
  */
 public final class ModelsPanel extends SectionPanel implements ModelsView {
 
@@ -119,23 +120,12 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
             loaded += entry.isLoaded() ? 1 : 0;
             installed += entry.isInstalled() ? 1 : 0;
         }
-        addHeader("Running models (" + loaded + ")");
-        if (loaded == 0) {
-            addPlaceholder("No model is loaded right now. Use Load on an installed model.");
-        }
-        for (ModelEntry entry : entries) {
-            if (entry.isLoaded()) {
-                addCard(runningCard(entry));
-            }
-        }
-        addHeader("Installed models (" + installed + ")");
-        if (installed == 0) {
-            addPlaceholder("No model is installed on this server.");
-        }
-        for (ModelEntry entry : entries) {
-            if (entry.isInstalled()) {
-                addCard(installedCard(entry));
-            }
+        // One list: running models first, each with a green wash and badge, then the rest by name.
+        List<ModelEntry> ordered = new java.util.ArrayList<ModelEntry>(entries);
+        java.util.Collections.sort(ordered, (a, b) -> a.isLoaded() != b.isLoaded() ? (a.isLoaded() ? -1 : 1)
+            : a.identity().name().compareToIgnoreCase(b.identity().name()));
+        for (ModelEntry entry : ordered) {
+            addCard(entry.isLoaded() ? runningCard(entry) : installedCard(entry));
         }
         column.add(Box.createVerticalGlue());
         notice.setText(entries.isEmpty() ? " " : installed + " installed, " + loaded + " running");
@@ -193,7 +183,9 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         final String name = entry.identity().name();
         return register(name, new ManagerModelCard(name, details, meta, true,
             ManagerModelCard.Action.normal("Unload", "Remove the model from memory. The files stay on disk.",
-                () -> presenter.unload(name))));
+                () -> presenter.unload(name)),
+            entry.isInstalled() ? ManagerModelCard.Action.destructive("Delete", "Delete the model files from"
+                + " disk. You must type the model name to confirm.", () -> presenter.delete(name)) : null));
     }
 
     private JPanel installedCard(ModelEntry entry) {
@@ -203,7 +195,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
             ManagerModelCard.shortDate(model.modifiedAt()), ManagerModelCard.shortDigest(entry.identity().digest()));
         final String name = entry.identity().name();
         return register(name, new ManagerModelCard(name, details, meta, false,
-            entry.isLoaded() ? null : ManagerModelCard.Action.primary("Load",
+            ManagerModelCard.Action.primary("Load",
                 "Load the model into memory now and show whether it runs on GPU, CPU or split.",
                 () -> presenter.load(name)),
             ManagerModelCard.Action.destructive("Delete", "Delete the model files from disk. You must type the"
@@ -238,27 +230,6 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         column.add(Box.createVerticalStrut(Spacing.GAP));
     }
 
-    private void addHeader(String title) {
-        JLabel header = new JLabel(title);
-        // Section header exactly as askai's OllamaModelsPanel draws it.
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
-        header.setBorder(BorderFactory.createEmptyBorder(10, 2, 2, 2));
-        header.setAlignmentX(Component.LEFT_ALIGNMENT);
-        column.add(header);
-        javax.swing.JSeparator separator = new javax.swing.JSeparator();
-        separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
-        separator.setAlignmentX(Component.LEFT_ALIGNMENT);
-        column.add(separator);
-        column.add(Box.createVerticalStrut(4));
-    }
-
-    private void addPlaceholder(String message) {
-        JLabel label = new JLabel(message);
-        label.setForeground(Theme.mutedForeground());
-        label.setBorder(BorderFactory.createEmptyBorder(4, 4, Spacing.GAP, 4));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        column.add(label);
-    }
 
     static String join(String... parts) {
         StringBuilder builder = new StringBuilder();

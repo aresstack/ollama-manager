@@ -1,5 +1,8 @@
 package com.aresstack.ollamamanager.swing.section;
 
+import com.aresstack.askai.java8.ui.ManagerModelCard;
+import com.aresstack.ollamamanager.domain.model.LoadedModel;
+import com.aresstack.ollamamanager.application.model.ModelEntry;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.hardware.GpuDescriptor;
 import com.aresstack.ollamamanager.domain.hardware.GpuUsageSample;
@@ -19,6 +22,7 @@ import com.aresstack.ollamamanager.swing.component.Spacing;
 import com.aresstack.ollamamanager.swing.component.StatusBadge;
 import com.aresstack.ollamamanager.swing.component.Theme;
 import com.aresstack.ollamamanager.swing.component.ValueLabel;
+import com.aresstack.ollamamanager.swing.component.WrapLabel;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
@@ -28,8 +32,11 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.FlowLayout;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 /**
@@ -56,6 +63,10 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
     private final JButton stop = new JButton("Stop server…");
     private final JButton restart = new JButton("Restart…");
     private final JobProgressPanel progress = new JobProgressPanel();
+    private final JPanel modelColumn = new JPanel();
+    private final WrapLabel modelNote = new WrapLabel("");
+    private final Map<String, ManagerModelCard> modelCards = new HashMap<String, ManagerModelCard>();
+    private boolean modelActionsEnabled = true;
 
     public DashboardPanel(DashboardPresenter presenter) {
         super(Section.DASHBOARD.title(), Section.DASHBOARD.description());
@@ -85,6 +96,12 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         serverActions.add(stop);
         serverCard.setTrailing(serverActions);
 
+        modelColumn.setLayout(new BoxLayout(modelColumn, BoxLayout.Y_AXIS));
+        modelColumn.setOpaque(false);
+        modelNote.setAlignmentX(Component.LEFT_ALIGNMENT);
+        CardPanel modelsCard = new CardPanel("Running models", modelColumn);
+        showRunningModels(null, "Loading…");
+
         FormPanel hardware = new FormPanel();
         hardware.addRow("System", os, "Operating system and architecture.");
         hardware.addRow("CPU", cpu, "Processor name and logical cores.");
@@ -100,6 +117,8 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         column.setOpaque(false);
         column.add(serverCard);
         column.add(Box.createVerticalStrut(Spacing.GAP));
+        column.add(modelsCard);
+        column.add(Box.createVerticalStrut(Spacing.GAP));
         column.add(hardwareCard);
         column.add(Box.createVerticalStrut(Spacing.GAP));
         column.add(usageCard);
@@ -110,11 +129,8 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         north.setOpaque(false);
         north.add(banner, BorderLayout.NORTH);
         north.add(column, BorderLayout.CENTER);
-        JPanel top = new JPanel(new BorderLayout());
-        top.setOpaque(false);
-        top.add(north, BorderLayout.NORTH);
-        JScrollPane scroll = new JScrollPane(top);
-        scroll.setBorder(null);
+        // ScrollColumn tracks the viewport width, so wrapped text shrinks back after maximize + restore.
+        JScrollPane scroll = com.aresstack.ollamamanager.swing.component.ScrollColumn.wrap(north);
         scroll.getVerticalScrollBar().setUnitIncrement(Spacing.MARGIN);
         setBody(scroll);
         presenter.bind(this);
@@ -183,6 +199,61 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
             }
         }
         gpus.show(text.length() == 0 ? "No GPU detected" : text.toString());
+    }
+
+    @Override
+    public void showRunningModels(List<ModelEntry> loaded, String note) {
+        modelColumn.removeAll();
+        modelCards.clear();
+        if (loaded == null || loaded.isEmpty()) {
+            modelNote.setText(note != null ? note : "No model is loaded right now. Load one in the Models section.");
+            modelColumn.add(modelNote);
+        } else {
+            for (ModelEntry entry : loaded) {
+                ManagerModelCard card = runningCard(entry);
+                card.setAlignmentX(Component.LEFT_ALIGNMENT);
+                card.setActionsEnabled(modelActionsEnabled);
+                modelCards.put(entry.identity().name(), card);
+                modelColumn.add(card);
+            }
+        }
+        modelColumn.revalidate();
+        modelColumn.repaint();
+    }
+
+    @Override
+    public void showRunningModelCapabilities(Map<String, List<String>> capabilities) {
+        for (Map.Entry<String, List<String>> entry : capabilities.entrySet()) {
+            ManagerModelCard card = modelCards.get(entry.getKey());
+            if (card != null) {
+                card.setCapabilities(entry.getValue());
+            }
+        }
+    }
+
+    @Override
+    public void setModelActionsEnabled(boolean enabled) {
+        modelActionsEnabled = enabled;
+        for (ManagerModelCard card : modelCards.values()) {
+            card.setActionsEnabled(enabled);
+        }
+    }
+
+    /** Same card as the Models section shows for a loaded model, with Unload as its only action. */
+    private ManagerModelCard runningCard(ModelEntry entry) {
+        LoadedModel model = entry.loaded();
+        String placement = entry.placement().name().toLowerCase(Locale.ROOT);
+        String details = ManagerModelCard.join(entry.isInstalled() ? entry.installed().family() : null,
+            entry.isInstalled() ? entry.installed().parameterSize() : null, entry.identity().quantization(),
+            "on " + placement);
+        String meta = ManagerModelCard.join("RAM " + ManagerModelCard.formatBytes(model.sizeBytes()),
+            "VRAM " + ManagerModelCard.formatBytes(model.vramBytes()),
+            model.contextLength() == null ? null : "context " + model.contextLength(),
+            model.expiresAt() == null ? null : "expires " + ManagerModelCard.shortDate(model.expiresAt()));
+        final String name = entry.identity().name();
+        return new ManagerModelCard(name, details, meta, true,
+            ManagerModelCard.Action.normal("Unload", "Remove the model from memory. The files stay on disk.",
+                () -> presenter.unloadRequested(name)));
     }
 
     @Override

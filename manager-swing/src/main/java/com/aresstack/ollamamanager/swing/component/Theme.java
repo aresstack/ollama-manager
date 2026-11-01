@@ -45,6 +45,19 @@ public final class Theme {
     }
 
     /** Soft background for a banner or badge of {@code tone}. */
+    /**
+     * The accent the job progress bar ("Detect hardware" and friends) is filled with. Running model cards and
+     * their badge use the same colour, so "running" and "working" read alike.
+     */
+    public static Color runningAccent() {
+        return AskAiTheme.active().comicPalette().getAccentOrange();
+    }
+
+    /** Fill colour of a meter bar in {@code tone}. */
+    public static Color meterFill(Tone tone) {
+        return blend(color(tone), background(), 0.45f);
+    }
+
     public static Color tint(Tone tone) {
         Color base = tone == Tone.NEUTRAL ? foreground() : color(tone);
         return blend(base, background(), isDark() ? 0.78f : 0.86f);

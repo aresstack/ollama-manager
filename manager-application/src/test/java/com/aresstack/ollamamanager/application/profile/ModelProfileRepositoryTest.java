@@ -72,6 +72,37 @@ public class ModelProfileRepositoryTest {
     }
 
     @Test
+    public void deactivateUnsetsOnlyTheProfilesSettings() throws Exception {
+        ModelProfile profile = ScenarioPreset.PARALLEL_THROUGHPUT.createProfile("p1", ProfileTestData.SCOPE);
+        repository.save(profile);
+        java.io.File models = new java.io.File("models").getAbsoluteFile();
+        configurations.save(configurations.load()
+            .withDesiredServerSettings(profile.serverSettings().with(ServerSettingCatalog.MODEL_ROOT, models))
+            .withActiveProfileId("p1"));
+
+        repository.deactivate();
+
+        assertNull(repository.active());
+        assertEquals(1, repository.list().size());
+        org.junit.Assert.assertFalse(configurations.load().desiredServerSettings().isChosen(ServerSettingCatalog.FLASH_ATTENTION));
+        assertEquals(models, configurations.load().desiredServerSettings().modelRoot());
+    }
+
+    @Test
+    public void deletingActiveProfileUnsetsItsSettings() throws Exception {
+        ModelProfile profile = ScenarioPreset.PARALLEL_THROUGHPUT.createProfile("p1", ProfileTestData.SCOPE);
+        repository.save(profile);
+        configurations.save(configurations.load().withDesiredServerSettings(profile.serverSettings())
+            .withActiveProfileId("p1"));
+
+        repository.delete("p1");
+
+        assertEquals(0, repository.list().size());
+        assertEquals(com.aresstack.ollamamanager.domain.server.ServerSettings.defaults(),
+            configurations.load().desiredServerSettings());
+    }
+
+    @Test
     public void presetsUseTheirWorkloadInScope() {
         ModelProfile profile = ScenarioPreset.PARALLEL_THROUGHPUT.createProfile("p", ProfileTestData.SCOPE);
         assertEquals("batch", profile.scope().workload());
