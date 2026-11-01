@@ -1,20 +1,23 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
+import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
+import com.aresstack.ollamamanager.domain.server.ServerState;
 import com.aresstack.ollamamanager.domain.server.ServerStatus;
 import com.aresstack.ollamamanager.swing.job.Job;
 import com.aresstack.ollamamanager.swing.job.JobManager;
+import com.aresstack.ollamamanager.swing.job.JobWork;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 /**
- * Loads dashboard data through the application services and runs the stop use case.
+ * Loads dashboard data through the application services and runs the stop and restart use cases.
  */
 public final class DashboardPresenter {
 
     private final ConsoleServices services;
     private final JobManager jobs;
     private DashboardView view;
-    private boolean stopping;
+    private boolean busy;
 
     public DashboardPresenter(ConsoleServices services, JobManager jobs) {
         this.services = services;
@@ -55,24 +58,65 @@ public final class DashboardPresenter {
 
     /** Whether the Stop action may be offered for {@code status}. */
     public boolean canStop(ServerStatus status) {
-        return !stopping && services.serverLifecycle() != null && status != null && status.canBeStoppedByManager();
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        return !busy && lifecycle != null && lifecycle.canStop(status);
     }
 
-    /** Stop the owned server after the user confirmed the hard-kill warning. */
+    /** Whether the Restart action may be offered: a running owned server, or a controllable external one. */
+    public boolean canRestart(ServerStatus status) {
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (busy || lifecycle == null || status == null || status.state() != ServerState.RUNNING) {
+            return false;
+        }
+        return status.ownership() == RuntimeOwnership.OWNED
+            || status.ownership() == RuntimeOwnership.EXTERNAL && lifecycle.canControlExternal();
+    }
+
+    /** Stop the server after the user confirmed the warning. */
     public void stopRequested() {
         final ServerLifecycleService lifecycle = services.serverLifecycle();
-        if (lifecycle == null || !canStop(lifecycle.status()) || !view.confirmStop()) {
+        if (lifecycle == null) {
             return;
         }
-        // Disable at once so a second click cannot queue a second stop while this one runs.
-        stopping = true;
+        ServerStatus status = lifecycle.status();
+        if (!canStop(status) || !view.confirmStop(status.ownership() == RuntimeOwnership.EXTERNAL)) {
+            return;
+        }
+        run("Stop server", lifecycle, context -> lifecycle.stop());
+    }
+
+    /** Restart with the stored server settings after the user confirmed the warning. */
+    public void restartRequested() {
+        final ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (lifecycle == null) {
+            return;
+        }
+        ServerStatus status = lifecycle.status();
+        if (!canRestart(status) || !view.confirmRestart(status.ownership() == RuntimeOwnership.EXTERNAL)) {
+            return;
+        }
+        final boolean external = status.ownership() == RuntimeOwnership.EXTERNAL;
+        run("Restart server", lifecycle, context -> {
+            if (external && services.existingSettings() != null) {
+                // The replacement must keep what the installation is configured with, above all its model folder.
+                services.existingSettings().importUnchosen(context.cancellation());
+            }
+            return lifecycle.restart(services.configuration().current().desiredServerSettings(),
+                context.cancellation());
+        });
+    }
+
+    private void run(String title, ServerLifecycleService lifecycle, JobWork<ServerStatus> work) {
+        // Disable at once so a second click cannot queue a second transition while this one runs.
+        busy = true;
         view.setStopEnabled(false);
-        Job job = jobs.submit("Stop server", false, context -> lifecycle.stop(), status -> {
-            stopping = false;
+        view.setRestartEnabled(false);
+        Job job = jobs.submit(title, false, work, status -> {
+            busy = false;
             view.showServerStatus(status);
         }, error -> {
-            stopping = false;
-            view.showFailure("Stop server", error);
+            busy = false;
+            view.showFailure(title, error);
             view.showServerStatus(lifecycle.status());
         });
         view.trackJob(job);

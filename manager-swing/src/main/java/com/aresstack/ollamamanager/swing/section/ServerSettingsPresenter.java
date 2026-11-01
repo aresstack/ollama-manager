@@ -1,7 +1,9 @@
 package com.aresstack.ollamamanager.swing.section;
 
 import com.aresstack.ollamamanager.application.common.ErrorKind;
+import com.aresstack.ollamamanager.application.common.OperationCancelledException;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.domain.configuration.ManagerConfiguration;
 import com.aresstack.ollamamanager.domain.server.RuntimeOwnership;
@@ -27,8 +29,8 @@ public final class ServerSettingsPresenter {
     static final String RUNNING_OWNED = "The right column shows what the running server started by the manager uses.";
     static final String NO_OWNED_SERVER = "No server started by the manager is running; stored values apply on"
         + " the next start.";
-    static final String EXTERNAL_UNKNOWN = "External server: its actual settings are unknown and are not changed"
-        + " by the manager.";
+    static final String EXTERNAL_UNKNOWN = "External server: its running values are unknown. Stored values apply"
+        + " when the manager starts a server; use Restart on the dashboard to restart this installation with them.";
     static final String SERVER_FAILED = "The server started by the manager is not running (it exited"
         + " unexpectedly); stored values apply on the next start.";
     static final String SERVER_TRANSITION = "The server is starting or stopping; its running values are shown once"
@@ -40,6 +42,8 @@ public final class ServerSettingsPresenter {
     private final JobManager jobs;
     private ServerSettingsView view;
     private ServerSettings loaded;
+    private ExistingSettingsImport.Detected detected;
+    private String detectedSource;
     private boolean busy;
 
     public ServerSettingsPresenter(ConsoleServices services, JobManager jobs) {
@@ -56,10 +60,27 @@ public final class ServerSettingsPresenter {
             return;
         }
         setBusy(true);
-        jobs.submit("Load server settings", false, context -> services.configuration().current(),
-            configuration -> {
+        jobs.submit("Load server settings", false, context -> {
+            ExistingSettingsImport existing = services.existingSettings();
+            ExistingSettingsImport.Detected detected = null;
+            if (existing != null) {
+                try {
+                    existing.importUnchosen(context.cancellation());
+                    detected = existing.detect(context.cancellation());
+                } catch (OperationCancelledException e) {
+                    throw e;
+                } catch (OperationException e) {
+                    // Reading the existing installation is optional; the stored settings are shown anyway.
+                    detected = null;
+                }
+            }
+            return new Loaded(services.configuration().current(), detected,
+                existing == null ? null : existing.sourceDescription());
+        }, result -> {
                 setBusy(false);
-                show(configuration.desiredServerSettings());
+                this.detected = result.detected;
+                this.detectedSource = result.source;
+                show(result.configuration.desiredServerSettings());
                 view.showNotice(null);
             }, error -> {
                 setBusy(false);
@@ -111,6 +132,32 @@ public final class ServerSettingsPresenter {
         view.showErrors(Collections.emptyMap());
         view.showValues(SettingsDraft.texts(settings));
         showApplied(settings);
+        showImported(settings);
+    }
+
+    /** Mark stored values that equal what the existing installation is configured with. */
+    private void showImported(ServerSettings settings) {
+        Set<ServerSetting<?>> imported = new LinkedHashSet<ServerSetting<?>>();
+        if (detected != null) {
+            for (ServerSetting<?> setting : detected.values().keySet()) {
+                if (detected.matches(settings, setting)) {
+                    imported.add(setting);
+                }
+            }
+        }
+        view.showImported(imported, detectedSource);
+    }
+
+    private static final class Loaded {
+        final ManagerConfiguration configuration;
+        final ExistingSettingsImport.Detected detected;
+        final String source;
+
+        Loaded(ManagerConfiguration configuration, ExistingSettingsImport.Detected detected, String source) {
+            this.configuration = configuration;
+            this.detected = detected;
+            this.source = source;
+        }
     }
 
     /** Keep stored and running values apart; a stored change that needs a restart is never shown as active. */

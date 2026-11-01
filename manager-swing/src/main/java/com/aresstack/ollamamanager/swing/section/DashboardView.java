@@ -27,10 +27,23 @@ public interface DashboardView {
     /** Enable or disable the Stop action; called immediately when a stop starts and when it ends. */
     void setStopEnabled(boolean enabled);
 
+    /** Enable or disable the Restart action; called immediately when a stop or restart starts and ends. */
+    void setRestartEnabled(boolean enabled);
+
     void showFailure(String action, Exception error);
 
     void trackJob(Job job);
 
-    /** Ask the user to confirm the hard stop; see {@code Dialogs.STOP_WARNING}. */
-    boolean confirmStop();
+    /**
+     * Ask the user to confirm the stop; see {@code Dialogs.STOP_WARNING} and {@code Dialogs.EXTERNAL_STOP_WARNING}.
+     *
+     * @param external whether the server was not started by the manager
+     */
+    boolean confirmStop(boolean external);
+
+    /**
+     * Ask the user to confirm a restart with the stored settings; for an external server the restart replaces it
+     * with an own server from the same installation.
+     */
+    boolean confirmRestart(boolean external);
 }

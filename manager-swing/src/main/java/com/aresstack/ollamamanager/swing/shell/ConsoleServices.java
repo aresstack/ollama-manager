@@ -3,6 +3,7 @@ package com.aresstack.ollamamanager.swing.shell;
 import com.aresstack.ollamamanager.application.benchmark.BenchmarkHistoryPort;
 import com.aresstack.ollamamanager.application.benchmark.ConcurrencyBenchmarkService;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
+import com.aresstack.ollamamanager.application.configuration.ExistingSettingsImport;
 import com.aresstack.ollamamanager.application.installation.PortableInstallationService;
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
@@ -30,6 +31,7 @@ public final class ConsoleServices {
     private final ModelProfileRepository profileRepository;
     private final ConcurrencyBenchmarkService benchmarks;
     private final BenchmarkHistoryPort benchmarkHistory;
+    private final ExistingSettingsImport existingSettings;
 
     private ConsoleServices(Builder builder) {
         if (builder.configuration == null) {
@@ -46,6 +48,7 @@ public final class ConsoleServices {
         this.profileRepository = builder.profileRepository;
         this.benchmarks = builder.benchmarks;
         this.benchmarkHistory = builder.benchmarkHistory;
+        this.existingSettings = builder.existingSettings;
     }
 
     /** Start a builder around the single shared configuration service. */
@@ -111,6 +114,11 @@ public final class ConsoleServices {
     }
 
     /** Collects optional services. */
+    /** @return the import of an existing installation's settings, or {@code null} when not wired */
+    public ExistingSettingsImport existingSettings() {
+        return existingSettings;
+    }
+
     public static final class Builder {
         private final ConfigurationService configuration;
         private ServerLifecycleService serverLifecycle;
@@ -123,6 +131,7 @@ public final class ConsoleServices {
         private ModelProfileRepository profileRepository;
         private ConcurrencyBenchmarkService benchmarks;
         private BenchmarkHistoryPort benchmarkHistory;
+        private ExistingSettingsImport existingSettings;
 
         private Builder(ConfigurationService configuration) {
             this.configuration = configuration;
@@ -171,6 +180,11 @@ public final class ConsoleServices {
         public Builder benchmarks(ConcurrencyBenchmarkService value, BenchmarkHistoryPort history) {
             this.benchmarks = value;
             this.benchmarkHistory = history;
+            return this;
+        }
+
+        public Builder existingSettings(ExistingSettingsImport value) {
+            this.existingSettings = value;
             return this;
         }
 
