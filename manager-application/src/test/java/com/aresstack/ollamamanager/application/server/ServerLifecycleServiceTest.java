@@ -4,6 +4,8 @@ import com.aresstack.ollamamanager.application.common.LifecycleLock;
 import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.ErrorKind;
 import com.aresstack.ollamamanager.application.common.OperationException;
+import com.aresstack.ollamamanager.application.port.ExternalServerControlPort;
+import com.aresstack.ollamamanager.application.port.ExternalServerProcess;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
 import com.aresstack.ollamamanager.application.port.OllamaRuntimePort;
 import com.aresstack.ollamamanager.domain.server.Endpoint;
@@ -174,6 +176,107 @@ public class ServerLifecycleServiceTest {
             assertEquals(e.getMessage(), expected, e.kind());
         } catch (Exception e) {
             throw new AssertionError(e);
+        }
+    }
+
+    @Test
+    public void stopsAttachedExternalServerThroughExternalControl() throws Exception {
+        FakeControl control = new FakeControl(new ExternalServerProcess(77, "ollama.exe",
+            new File("/opt/ollama/ollama").getAbsoluteFile(), 70, "ollama app.exe"));
+        ServerLifecycleService controlled = controlled(control);
+        controlled.attachExternal(EXTERNAL, "0.12.3");
+        assertTrue(controlled.canStop(controlled.status()));
+
+        assertEquals(ServerState.STOPPED, controlled.stop().state());
+        assertEquals(1, control.terminated.size());
+        assertEquals(RuntimeOwnership.NONE, controlled.status().ownership());
+    }
+
+    @Test
+    public void externalServerWithoutControlStaysUncontrolled() throws Exception {
+        service.attachExternal(EXTERNAL, "0.12.3");
+        assertFalse(service.canStop(service.status()));
+        assertFails(ErrorKind.NOT_OWNED, service::stop);
+        assertFails(ErrorKind.NOT_OWNED, () -> service.restart(ServerSettings.defaults(), CancellationToken.none()));
+    }
+
+    @Test
+    public void refusesToStopAProcessThatIsNotOllama() throws Exception {
+        FakeControl control = new FakeControl(new ExternalServerProcess(77, "nginx", null, 1, "systemd"));
+        ServerLifecycleService controlled = controlled(control);
+        controlled.attachExternal(EXTERNAL, "0.12.3");
+
+        assertFails(ErrorKind.NOT_OLLAMA, controlled::stop);
+        assertTrue(control.terminated.isEmpty());
+        assertEquals(RuntimeOwnership.EXTERNAL, controlled.status().ownership());
+        assertEquals(ServerState.RUNNING, controlled.status().state());
+    }
+
+    @Test
+    public void restartReplacesExternalServerWithOwnServerFromItsBinary() throws Exception {
+        File binary = new File("/opt/ollama/bin/ollama").getAbsoluteFile();
+        FakeControl control = new FakeControl(new ExternalServerProcess(77, "ollama", binary, 1, "bash"));
+        ServerLifecycleService controlled = controlled(control);
+        controlled.attachExternal(EXTERNAL, "0.12.3");
+        ServerSettings settings = ServerSettings.defaults().with(ServerSettingCatalog.PARALLELISM, 2);
+
+        ServerStatus status = controlled.restart(settings, CancellationToken.none());
+
+        assertEquals(ServerState.RUNNING, status.state());
+        assertEquals(RuntimeOwnership.OWNED, status.ownership());
+        assertEquals(InstallationKind.MANAGED_INSTALLED, runtime.last.installation().kind());
+        assertEquals(binary.getParentFile(), runtime.last.installation().binaryDirectory());
+        assertEquals("0.12.3", runtime.last.installation().version());
+        assertEquals(settings, runtime.last.appliedSettings());
+    }
+
+    @Test
+    public void restartWithUnknownBinaryKeepsExternalServerRunning() throws Exception {
+        FakeControl control = new FakeControl(new ExternalServerProcess(77, "ollama", null, 1, "bash"));
+        ServerLifecycleService controlled = controlled(control);
+        controlled.attachExternal(EXTERNAL, "0.12.3");
+
+        assertFails(ErrorKind.NOT_FOUND, () -> controlled.restart(ServerSettings.defaults(),
+            CancellationToken.none()));
+        assertTrue(control.terminated.isEmpty());
+        assertEquals(ServerState.RUNNING, controlled.status().state());
+        assertEquals(RuntimeOwnership.EXTERNAL, controlled.status().ownership());
+    }
+
+    @Test
+    public void reportsAServerThatIsStartedAgainBySomethingElse() throws Exception {
+        FakeControl control = new FakeControl(new ExternalServerProcess(77, "ollama", null, 1, "systemd"));
+        control.respawn = new ExternalServerProcess(78, "ollama", null, 1, "systemd");
+        ServerLifecycleService controlled = controlled(control);
+        controlled.attachExternal(EXTERNAL, "0.12.3");
+
+        assertFails(ErrorKind.PROCESS_FAILED, controlled::stop);
+        assertEquals(1, control.terminated.size());
+        assertEquals(ServerState.RUNNING, controlled.status().state());
+    }
+
+    private ServerLifecycleService controlled(FakeControl control) {
+        return new ServerLifecycleService(runtime, 1000, new LifecycleLock(), control, 0);
+    }
+
+    private static final class FakeControl implements ExternalServerControlPort {
+        final List<ExternalServerProcess> terminated = new ArrayList<ExternalServerProcess>();
+        ExternalServerProcess listener;
+        ExternalServerProcess respawn;
+
+        FakeControl(ExternalServerProcess listener) {
+            this.listener = listener;
+        }
+
+        @Override
+        public ExternalServerProcess find(Endpoint endpoint, CancellationToken cancellation) {
+            return listener;
+        }
+
+        @Override
+        public void terminate(ExternalServerProcess process, long gracePeriodMillis, CancellationToken cancellation) {
+            terminated.add(process);
+            listener = respawn;
         }
     }
 

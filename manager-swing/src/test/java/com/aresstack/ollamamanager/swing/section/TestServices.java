@@ -5,6 +5,8 @@ import com.aresstack.ollamamanager.application.common.CancellationToken;
 import com.aresstack.ollamamanager.application.common.OperationException;
 import com.aresstack.ollamamanager.application.configuration.ConfigurationService;
 import com.aresstack.ollamamanager.application.port.ConfigurationRepository;
+import com.aresstack.ollamamanager.application.port.ExternalServerControlPort;
+import com.aresstack.ollamamanager.application.port.ExternalServerProcess;
 import com.aresstack.ollamamanager.application.port.ManagedServer;
 import com.aresstack.ollamamanager.application.port.OllamaRuntimePort;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
@@ -16,6 +18,7 @@ import com.aresstack.ollamamanager.domain.server.ServerSettings;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -93,6 +96,32 @@ final class TestServices {
         ServerLifecycleService lifecycle = stoppedLifecycle(lock);
         lifecycle.attachExternal(OllamaInstallation.external("0.1.0", ENDPOINT), "0.1.0");
         return lifecycle;
+    }
+
+    /** Lifecycle service with an attached external server that {@code control} can stop. */
+    static ServerLifecycleService externalLifecycle(FakeExternalControl control) throws OperationException {
+        ServerLifecycleService lifecycle = new ServerLifecycleService(new FakeRuntime(), 0, new LifecycleLock(),
+            control, 0);
+        lifecycle.attachExternal(OllamaInstallation.external("0.1.0", ENDPOINT), "0.1.0");
+        return lifecycle;
+    }
+
+    /** External control whose only listener is a fake Ollama process; terminating it frees the port. */
+    static final class FakeExternalControl implements ExternalServerControlPort {
+        final File binary = new File("/opt/ollama/bin/ollama").getAbsoluteFile();
+        final List<ExternalServerProcess> terminated = new ArrayList<ExternalServerProcess>();
+        private boolean running = true;
+
+        @Override
+        public ExternalServerProcess find(Endpoint endpoint, CancellationToken cancellation) {
+            return running ? new ExternalServerProcess(4242, "ollama", binary, 1, "systemd") : null;
+        }
+
+        @Override
+        public void terminate(ExternalServerProcess process, long gracePeriodMillis, CancellationToken cancellation) {
+            terminated.add(process);
+            running = false;
+        }
     }
 
     private static final class FakeRuntime implements OllamaRuntimePort {

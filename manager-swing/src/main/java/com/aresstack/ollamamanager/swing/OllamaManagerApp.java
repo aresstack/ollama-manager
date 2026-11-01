@@ -20,6 +20,7 @@ import com.aresstack.ollamamanager.infrastructure.json.Json;
 import com.aresstack.ollamamanager.infrastructure.ollamaapi.HttpOllamaApiClient;
 import com.aresstack.ollamamanager.infrastructure.persistence.JsonConfigurationRepository;
 import com.aresstack.ollamamanager.infrastructure.persistence.UserDataDirectory;
+import com.aresstack.ollamamanager.infrastructure.runtime.ExternalServerControls;
 import com.aresstack.ollamamanager.infrastructure.runtime.ProcessOllamaRuntime;
 import com.aresstack.ollamamanager.swing.shell.ConsoleServices;
 
@@ -38,6 +39,8 @@ public final class OllamaManagerApp {
     static final String PORTABLE_DIRECTORY = "ollama";
     /** Time an owned server gets to exit on its own before it is killed. */
     static final long STOP_GRACE_PERIOD_MILLIS = 5000;
+    /** How long to wait for the port after an external server was stopped. */
+    static final long PORT_RELEASE_MILLIS = 10000;
 
     private OllamaManagerApp() {
     }
@@ -64,7 +67,8 @@ public final class OllamaManagerApp {
         ProcessOllamaRuntime runtime = new ProcessOllamaRuntime(portableRoot);
         LifecycleLock lifecycleLock = new LifecycleLock();
         ServerLifecycleService lifecycle =
-            new ServerLifecycleService(runtime, STOP_GRACE_PERIOD_MILLIS, lifecycleLock);
+            new ServerLifecycleService(runtime, STOP_GRACE_PERIOD_MILLIS, lifecycleLock,
+                ExternalServerControls.forCurrentSystem(), PORT_RELEASE_MILLIS);
         PortableInstallationService installations = new PortableInstallationService(
             GitHubReleaseCatalog.defaults(), PortableDistributionInstaller.defaults(), portableRoot,
             new OwnedServerUsage(lifecycle), lifecycleLock);
