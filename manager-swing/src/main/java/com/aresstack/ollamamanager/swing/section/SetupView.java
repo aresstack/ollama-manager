@@ -31,4 +31,10 @@ public interface SetupView {
 
     /** Ask before starting a server; the text names the endpoint and the settings that are used. */
     boolean confirmStart(OllamaInstallation installation, String endpoint);
+
+    /** Ask before stopping the running server; {@code external} when the manager did not start it. */
+    boolean confirmStop(boolean external);
+
+    /** Ask before restarting the running server with the stored settings. */
+    boolean confirmRestart(boolean external);
 }
