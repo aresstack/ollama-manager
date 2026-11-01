@@ -21,6 +21,7 @@ public final class WindowStateStore {
     private static final String MAXIMIZED = "window.maximized";
     private static final String FONT_SCALE = "font.scale";
     private static final String SECTION = "section";
+    private static final String DIVIDER = "navigation.divider";
 
     private final Preferences preferences;
 
@@ -71,6 +72,16 @@ public final class WindowStateStore {
 
     public void saveFontScale(float scale) {
         preferences.putFloat(FONT_SCALE, FontScale.clamp(scale));
+    }
+
+    /** Width of the navigation sidebar, or {@code fallback} when none was saved or it is unusable. */
+    public int dividerLocation(int fallback) {
+        int saved = preferences.getInt(DIVIDER, -1);
+        return saved < 120 || saved > 600 ? fallback : saved;
+    }
+
+    public void saveDividerLocation(int location) {
+        preferences.putInt(DIVIDER, location);
     }
 
     public Section lastSection() {

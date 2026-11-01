@@ -3,11 +3,15 @@ package com.aresstack.ollamamanager.swing.section;
 import com.aresstack.ollamamanager.domain.server.OptionType;
 import com.aresstack.ollamamanager.domain.server.ServerSetting;
 import com.aresstack.ollamamanager.domain.server.ServerSettingCatalog;
+import com.aresstack.ollamamanager.swing.component.ActionBar;
 import com.aresstack.ollamamanager.swing.component.Dialogs;
 import com.aresstack.ollamamanager.swing.component.FormPanel;
 import com.aresstack.ollamamanager.swing.component.Html;
+import com.aresstack.ollamamanager.swing.component.MessageBanner;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
+import com.aresstack.ollamamanager.swing.component.StatusBadge;
+import com.aresstack.ollamamanager.swing.component.Theme;
 import com.aresstack.ollamamanager.swing.shell.Section;
 
 import javax.swing.BorderFactory;
@@ -18,10 +22,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.UIManager;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,9 +41,11 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
 
     private final Map<ServerSetting<?>, Editor> editors = new LinkedHashMap<ServerSetting<?>, Editor>();
     private final Map<ServerSetting<?>, JLabel> labels = new LinkedHashMap<ServerSetting<?>, JLabel>();
-    private final JLabel notice = new JLabel(" ");
+    private final MessageBanner notice = new MessageBanner();
     private final JLabel appliedSource = new JLabel(" ");
-    private final Map<ServerSetting<?>, JLabel> appliedLabels = new LinkedHashMap<ServerSetting<?>, JLabel>();
+    private final Map<ServerSetting<?>, StatusBadge> appliedLabels =
+        new LinkedHashMap<ServerSetting<?>, StatusBadge>();
+    private final List<JPanel> appliedCells = new ArrayList<JPanel>();
     private final JButton save = new JButton("Save");
     private final JButton revert = new JButton("Revert");
     private final JButton reload = new JButton("Reload");
@@ -52,18 +56,26 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         for (ServerSetting<?> setting : ServerSettingCatalog.all()) {
             Editor editor = editorFor(setting);
             editors.put(setting, editor);
-            JLabel applied = new JLabel(" ");
+            StatusBadge applied = new StatusBadge();
+            applied.setVisible(false);
+            applied.setFocusable(false);
             appliedLabels.put(setting, applied);
+            // Reserve the same width for every "running" badge so the editors line up.
+            JPanel appliedCell = new JPanel(new BorderLayout());
+            appliedCell.setOpaque(false);
+            appliedCell.add(applied, BorderLayout.LINE_START);
+            appliedCells.add(appliedCell);
             JPanel cell = new JPanel(new BorderLayout(Spacing.GAP, 0));
             cell.setOpaque(false);
             cell.add(editor.component(), BorderLayout.CENTER);
-            cell.add(applied, BorderLayout.EAST);
+            cell.add(appliedCell, BorderLayout.EAST);
             JLabel label = form.addRow(setting.label(), cell, tooltip(setting));
             label.setLabelFor(editor.component());
             editor.component().setToolTipText(tooltip(setting));
             labels.put(setting, label);
         }
         form.addFiller();
+        fitAppliedWidth();
         JScrollPane scroll = new JScrollPane(form);
         scroll.setBorder(null);
 
@@ -78,15 +90,16 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
         reload.addActionListener(event -> presenter.load());
         addToolbarItem(reload);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEADING, Spacing.GAP, 0));
-        buttons.add(save);
-        buttons.add(revert);
+        ActionBar buttons = new ActionBar().addAction(save).addAction(revert);
         JPanel south = new JPanel(new BorderLayout(0, Spacing.GAP));
+        south.setOpaque(false);
         south.setBorder(BorderFactory.createEmptyBorder(Spacing.GAP, 0, 0, 0));
         south.add(notice, BorderLayout.NORTH);
         south.add(buttons, BorderLayout.CENTER);
 
+        appliedSource.setForeground(Theme.mutedForeground());
         JPanel body = new JPanel(new BorderLayout(0, Spacing.GAP));
+        body.setOpaque(false);
         body.add(appliedSource, BorderLayout.NORTH);
         body.add(scroll, BorderLayout.CENTER);
         body.add(south, BorderLayout.SOUTH);
@@ -120,15 +133,20 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
     public void showApplied(Map<ServerSetting<?>, String> applied, Set<ServerSetting<?>> pendingRestart,
                             String source) {
         appliedSource.setText("Stored values are edited below. " + source);
-        for (Map.Entry<ServerSetting<?>, JLabel> entry : appliedLabels.entrySet()) {
-            JLabel label = entry.getValue();
+        for (Map.Entry<ServerSetting<?>, StatusBadge> entry : appliedLabels.entrySet()) {
+            StatusBadge label = entry.getValue();
             if (applied == null) {
-                label.setText(" ");
+                label.setVisible(false);
                 continue;
             }
             String value = applied.get(entry.getKey());
             String running = "running: " + (value == null || value.isEmpty() ? "default" : value);
-            label.setText(pendingRestart.contains(entry.getKey()) ? running + " — restart pending" : running);
+            boolean pending = pendingRestart.contains(entry.getKey());
+            label.show(pending ? running + " — restart pending" : running,
+                pending ? Theme.Tone.WARNING : Theme.Tone.SUCCESS);
+            label.setToolTipText(pending ? "The stored value differs from what the running server uses."
+                : "The running server uses this value.");
+            label.setVisible(true);
         }
     }
 
@@ -143,9 +161,8 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
 
     @Override
     public void showErrors(Map<ServerSetting<?>, String> errors) {
-        Color normal = UIManager.getColor("Label.foreground");
-        Color error = UIManager.getColor("Component.errorFocusColor") != null
-            ? UIManager.getColor("Component.errorFocusColor") : Color.RED.darker();
+        Color normal = Theme.foreground();
+        Color error = Theme.color(Theme.Tone.ERROR);
         for (Map.Entry<ServerSetting<?>, JLabel> entry : labels.entrySet()) {
             String message = errors.get(entry.getKey());
             JLabel label = entry.getValue();
@@ -175,7 +192,30 @@ public final class ServerSettingsPanel extends SectionPanel implements ServerSet
 
     @Override
     public void showNotice(String text) {
-        notice.setText(text == null || text.isEmpty() ? " " : text);
+        if (text == null || text.isEmpty()) {
+            notice.clear();
+        } else if (text.startsWith("Fix ")) {
+            notice.error(text);
+        } else {
+            notice.show(text.contains("restart") ? Theme.Tone.WARNING : Theme.Tone.SUCCESS, text);
+        }
+    }
+
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        if (appliedSource != null) {
+            appliedSource.setForeground(Theme.mutedForeground());
+            fitAppliedWidth();
+        }
+    }
+
+    private void fitAppliedWidth() {
+        StatusBadge sample = new StatusBadge("running: 4096 — restart pending", Theme.Tone.WARNING);
+        int width = sample.getPreferredSize().width;
+        for (JPanel cell : appliedCells) {
+            cell.setPreferredSize(new java.awt.Dimension(width, sample.getPreferredSize().height));
+        }
     }
 
     @Override

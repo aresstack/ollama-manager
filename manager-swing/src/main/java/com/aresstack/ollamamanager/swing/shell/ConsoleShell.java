@@ -52,6 +52,7 @@ public class ConsoleShell extends JFrame {
     private final JPanel content = new JPanel(cards);
     private final NavigationList navigation = new NavigationList();
     private final Map<Section, JComponent> panels = new EnumMap<Section, JComponent>(Section.class);
+    private final JSplitPane split;
 
     public ConsoleShell(ConsoleServices services, JobManager jobs, AutoCloseable onClose) {
         super("Ollama Manager");
@@ -80,10 +81,13 @@ public class ConsoleShell extends JFrame {
             }
         });
         JScrollPane navScroll = new JScrollPane(navigation);
+        navScroll.setBorder(null);
         navScroll.setMinimumSize(new Dimension(160, 100));
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navScroll, content);
-        split.setDividerLocation(190);
+        content.setMinimumSize(new Dimension(400, 100));
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, navScroll, content);
+        split.setDividerLocation(state.dividerLocation(220));
         split.setContinuousLayout(true);
+        split.setBorder(null);
 
         JPanel root = new JPanel(new BorderLayout());
         root.add(split, BorderLayout.CENTER);
@@ -104,6 +108,7 @@ public class ConsoleShell extends JFrame {
             @Override
             public void windowClosing(WindowEvent event) {
                 state.save(ConsoleShell.this);
+                state.saveDividerLocation(split.getDividerLocation());
             }
 
             @Override
