@@ -1,0 +1,56 @@
+# HuggingFace task catalog: pipeline_tag | Display | Category — bundled OFFLINE FALLBACK snapshot generated from
+# https://huggingface.co/api/models-tags-by-type (complete, not curated). Primary source is live;
+# this file is only used when live and cache are both unavailable. Regenerate by re-fetching.
+
+text-classification|Text Classification|Natural Language Processing
+token-classification|Token Classification|Natural Language Processing
+table-question-answering|Table Question Answering|Natural Language Processing
+question-answering|Question Answering|Natural Language Processing
+zero-shot-classification|Zero-Shot Classification|Natural Language Processing
+translation|Translation|Natural Language Processing
+summarization|Summarization|Natural Language Processing
+feature-extraction|Feature Extraction|Natural Language Processing
+text-generation|Text Generation|Natural Language Processing
+fill-mask|Fill-Mask|Natural Language Processing
+sentence-similarity|Sentence Similarity|Natural Language Processing
+text-to-speech|Text-to-Speech|Audio
+text-to-audio|Text-to-Audio|Audio
+automatic-speech-recognition|Automatic Speech Recognition|Audio
+audio-to-audio|Audio-to-Audio|Audio
+audio-classification|Audio Classification|Audio
+audio-text-to-text|Audio-Text-to-Text|Multimodal
+voice-activity-detection|Voice Activity Detection|Audio
+depth-estimation|Depth Estimation|Computer Vision
+image-classification|Image Classification|Computer Vision
+object-detection|Object Detection|Computer Vision
+image-segmentation|Image Segmentation|Computer Vision
+text-to-image|Text-to-Image|Computer Vision
+image-to-text|Image-to-Text|Computer Vision
+image-to-image|Image-to-Image|Computer Vision
+image-to-video|Image-to-Video|Computer Vision
+unconditional-image-generation|Unconditional Image Generation|Computer Vision
+video-classification|Video Classification|Computer Vision
+reinforcement-learning|Reinforcement Learning|Reinforcement Learning
+robotics|Robotics|Reinforcement Learning
+tabular-classification|Tabular Classification|Tabular
+tabular-regression|Tabular Regression|Tabular
+text-ranking|Text Ranking|Natural Language Processing
+time-series-forecasting|Time Series Forecasting|Tabular
+text-to-video|Text-to-Video|Computer Vision
+image-text-to-text|Image-Text-to-Text|Multimodal
+image-text-to-image|Image-Text-to-Image|Multimodal
+image-text-to-video|Image-Text-to-Video|Multimodal
+visual-question-answering|Visual Question Answering|Multimodal
+document-question-answering|Document Question Answering|Multimodal
+zero-shot-image-classification|Zero-Shot Image Classification|Computer Vision
+graph-ml|Graph Machine Learning|Other
+mask-generation|Mask Generation|Computer Vision
+zero-shot-object-detection|Zero-Shot Object Detection|Computer Vision
+text-to-3d|Text-to-3D|Computer Vision
+image-to-3d|Image-to-3D|Computer Vision
+image-feature-extraction|Image Feature Extraction|Computer Vision
+video-text-to-text|Video-Text-to-Text|Multimodal
+keypoint-detection|Keypoint Detection|Computer Vision
+visual-document-retrieval|Visual Document Retrieval|Multimodal
+any-to-any|Any-to-Any|Multimodal
+video-to-video|Video-to-Video|Computer Vision

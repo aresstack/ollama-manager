@@ -51,8 +51,8 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     private final StatusBadge runningState = new StatusBadge("Not checked yet", Theme.Tone.NEUTRAL);
     private final WrapLabel runningText = new WrapLabel("Detection runs when this section opens.");
-    private final JButton useRunning = new JButton("Use running server");
-    private final JButton stopUsing = new JButton("Stop using it");
+    private final JButton stopServer = new JButton("Stop server…");
+    private final JButton restartServer = new JButton("Restart…");
 
     private final InstallationTableModel installationModel = new InstallationTableModel();
     private final JTable installations = new JTable(installationModel);
@@ -76,10 +76,12 @@ public final class SetupPanel extends SectionPanel implements SetupView {
     private final MessageBanner notice = new MessageBanner();
     private final JobProgressPanel progress = new JobProgressPanel();
     private SetupDetection detection;
+    private final SetupPresenter presenter;
     private boolean busy;
 
     public SetupPanel(SetupPresenter presenter) {
         super(Section.SETUP.title(), Section.SETUP.description());
+        this.presenter = presenter;
         detect.setMnemonic('D');
         detect.addActionListener(event -> presenter.detect());
         addToolbarItem(detect);
@@ -112,15 +114,17 @@ public final class SetupPanel extends SectionPanel implements SetupView {
     }
 
     private CardPanel runningCard(SetupPresenter presenter) {
-        useRunning.setMnemonic('U');
-        useRunning.setToolTipText("Show this server in the manager. It is never stopped, restarted or changed.");
-        useRunning.addActionListener(event -> presenter.useRunningServer());
-        stopUsing.setToolTipText("Forget the external server in the manager. The server keeps running unchanged.");
-        stopUsing.addActionListener(event -> presenter.stopUsingExternal());
+        stopServer.setToolTipText("Stop this server after a confirmation. Running requests are aborted; on Windows"
+            + " the Ollama app is ended too.");
+        stopServer.addActionListener(event -> presenter.stopRunningServer());
+        restartServer.setToolTipText("Restart this server with the stored server settings after a confirmation. A"
+            + " server not started by the manager is started again from the same installation.");
+        restartServer.addActionListener(event -> presenter.restartRunningServer());
         JPanel content = new JPanel(new BorderLayout(0, Spacing.GAP));
         content.setOpaque(false);
         content.add(runningText, BorderLayout.CENTER);
-        content.add(new ActionBar().addAction(useRunning).addAction(stopUsing), BorderLayout.SOUTH);
+        content.add(new ActionBar().addAction(restartServer)
+            .addAction(stopServer), BorderLayout.SOUTH);
         CardPanel card = new CardPanel("1 · Server on the configured address", content);
         card.setTrailing(runningState);
         return card;
@@ -214,13 +218,13 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         detection = value;
         String host = value.endpoint().toHostValue();
         if (value.isServerRunning()) {
-            runningState.show(value.isExternalAttached() ? "in use" : "running", Theme.Tone.SUCCESS);
+            runningState.show("in use", Theme.Tone.SUCCESS);
             runningText.setText("Ollama " + value.runningVersion() + " answers on " + host + "."
                 + (value.isExternalAttached()
-                    ? " The manager uses this server: models can be managed on it, and it is never stopped or"
-                        + " restarted from here."
-                    : " Use it as it is, or start an installation below as the manager's own server on another"
-                        + " port."));
+                    ? " It was not started by the manager and is used automatically: models can be managed on it,"
+                        + " and Restart or Stop control it after a confirmation."
+                    : " The manager uses it: models can be managed on it, and Restart or Stop control it after a"
+                        + " confirmation."));
         } else if (value.probeFailure() != null) {
             runningState.show("occupied, not usable", Theme.Tone.WARNING);
             runningText.setText(host + " is occupied but does not answer like an Ollama server: "
@@ -327,6 +331,16 @@ public final class SetupPanel extends SectionPanel implements SetupView {
     }
 
     @Override
+    public boolean confirmStop(boolean external) {
+        return Dialogs.confirmStop(this, external);
+    }
+
+    @Override
+    public boolean confirmRestart(boolean external) {
+        return Dialogs.confirmRestart(this, external);
+    }
+
+    @Override
     public boolean confirmStart(OllamaInstallation installation, String endpoint) {
         return Dialogs.confirm(this, "Start server", "Start Ollama " + installation.version() + " from\n"
             + installation.binaryDirectory() + "\nas the manager's own server on " + endpoint
@@ -358,9 +372,9 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     private void updateButtons() {
         OllamaInstallation chosen = selectedInstallation();
-        useRunning.setEnabled(!busy && detection != null && detection.isServerRunning()
-            && !detection.isExternalAttached());
-        stopUsing.setEnabled(!busy && detection != null && detection.isExternalAttached());
+        boolean control = !busy && presenter.canControlRunning(detection);
+        stopServer.setEnabled(control);
+        restartServer.setEnabled(control);
         select.setEnabled(!busy && chosen != null);
         start.setEnabled(!busy && detection != null && detection.selected() != null);
         uninstall.setEnabled(!busy && chosen != null && chosen.kind() == InstallationKind.MANAGED_PORTABLE);

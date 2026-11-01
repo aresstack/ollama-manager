@@ -12,6 +12,7 @@ import com.aresstack.ollamamanager.swing.component.Dialogs;
 import com.aresstack.ollamamanager.swing.component.FormPanel;
 import com.aresstack.ollamamanager.swing.component.JobProgressPanel;
 import com.aresstack.ollamamanager.swing.component.MessageBanner;
+import com.aresstack.ollamamanager.swing.component.Html;
 import com.aresstack.ollamamanager.swing.component.MeterBar;
 import com.aresstack.ollamamanager.swing.component.SectionPanel;
 import com.aresstack.ollamamanager.swing.component.Spacing;
@@ -117,6 +118,12 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         scroll.getVerticalScrollBar().setUnitIncrement(Spacing.MARGIN);
         setBody(scroll);
         presenter.bind(this);
+        // The server may have been started, attached or stopped elsewhere meanwhile: never show a stale state.
+        addHierarchyListener(event -> {
+            if ((event.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+                presenter.refreshStatus();
+            }
+        });
     }
 
     @Override
@@ -191,8 +198,12 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         } else {
             for (GpuUsageSample sample : samples) {
                 MeterBar meter = new MeterBar();
-                meter.show(fraction(sample), usageCaption(sample));
-                gpuUsage.addRow(sample.gpuName(), meter, "VRAM in use and GPU utilisation reported by the driver.");
+                // The bar shows what is still free: green while plenty is left, red when the GPU is nearly full.
+                meter.setHigherIsBetter(true);
+                meter.setThresholds(0.25, 0.10);
+                meter.show(freeFraction(sample), freeCaption(sample));
+                // The row tooltip is applied to label and meter alike, so pass the telemetry details here.
+                gpuUsage.addRow(sample.gpuName(), meter, usageTooltip(sample));
             }
         }
         gpuUsage.addFiller();
@@ -200,25 +211,38 @@ public final class DashboardPanel extends SectionPanel implements DashboardView 
         gpuUsage.repaint();
     }
 
-    static double fraction(GpuUsageSample sample) {
+    /** Free VRAM as a fraction of the total, or negative when the driver reports no memory figures. */
+    static double freeFraction(GpuUsageSample sample) {
         if (sample.usedVramBytes() == null || sample.totalVramBytes() == null || sample.totalVramBytes() <= 0) {
             return -1;
         }
-        return sample.usedVramBytes() / (double) sample.totalVramBytes();
+        return Math.max(0, sample.totalVramBytes() - sample.usedVramBytes()) / (double) sample.totalVramBytes();
     }
 
-    static String usageCaption(GpuUsageSample sample) {
-        StringBuilder text = new StringBuilder();
-        if (sample.usedVramBytes() != null && sample.totalVramBytes() != null) {
-            text.append(Format.bytes(sample.usedVramBytes())).append(" / ")
-                .append(Format.bytes(sample.totalVramBytes())).append(" VRAM");
+    /** Caption painted on the bar: free VRAM and its percentage. */
+    static String freeCaption(GpuUsageSample sample) {
+        double free = freeFraction(sample);
+        if (free < 0) {
+            return "VRAM unknown";
+        }
+        long freeBytes = Math.max(0, sample.totalVramBytes() - sample.usedVramBytes());
+        return Format.bytes(freeBytes) + " of " + Format.bytes(sample.totalVramBytes()) + " VRAM free, "
+            + Math.round(free * 100) + " % free";
+    }
+
+    /** Tooltip with the whole picture: free, in use and GPU utilisation. */
+    static String usageTooltip(GpuUsageSample sample) {
+        StringBuilder text = new StringBuilder("<html>");
+        if (freeFraction(sample) >= 0) {
+            text.append(Html.escape(freeCaption(sample))).append("<br>In use: ")
+                .append(Html.escape(Format.bytes(sample.usedVramBytes())));
         } else {
             text.append("VRAM unknown");
         }
         if (sample.utilizationPercent() != null) {
-            text.append(", ").append(sample.utilizationPercent()).append(" % busy");
+            text.append("<br>GPU busy: ").append(sample.utilizationPercent()).append(" %");
         }
-        return text.toString();
+        return text.append("</html>").toString();
     }
 
     static Theme.Tone stateTone(ServerState state) {

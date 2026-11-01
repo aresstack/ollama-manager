@@ -20,6 +20,7 @@ public final class MeterBar extends JComponent implements Accessible {
     private static final long serialVersionUID = 1L;
 
     private double fraction = -1;
+    private boolean higherIsBetter;
     private String caption = "—";
     private double warnAt = 0.8;
     private double errorAt = 0.95;
@@ -54,6 +55,16 @@ public final class MeterBar extends JComponent implements Accessible {
         repaint();
     }
 
+    /**
+     * Choose what a full bar means. By default a high fill is bad (usage): the tone turns to warning and error as
+     * the fill rises past the thresholds. With {@code higherIsBetter} the fill shows a remaining amount (free
+     * memory): the tone turns to warning and error as the fill drops below the thresholds.
+     */
+    public void setHigherIsBetter(boolean higherIsBetter) {
+        this.higherIsBetter = higherIsBetter;
+        repaint();
+    }
+
     public double fraction() {
         return fraction;
     }
@@ -66,6 +77,12 @@ public final class MeterBar extends JComponent implements Accessible {
     public Theme.Tone tone() {
         if (fraction < 0) {
             return Theme.Tone.NEUTRAL;
+        }
+        if (higherIsBetter) {
+            if (fraction <= errorAt) {
+                return Theme.Tone.ERROR;
+            }
+            return fraction <= warnAt ? Theme.Tone.WARNING : Theme.Tone.SUCCESS;
         }
         if (fraction >= errorAt) {
             return Theme.Tone.ERROR;

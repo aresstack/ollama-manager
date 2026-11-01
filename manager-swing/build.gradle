@@ -8,6 +8,7 @@ application {
 
 dependencies {
     implementation project(':manager-infrastructure')
+    implementation project(':manager-askai')
 }
 
 jar {
@@ -65,10 +66,12 @@ tasks.register('managerZip', Zip) {
 
 // Fail the build if a required license or attribution file is missing from the shipped archives.
 def requiredJarEntries = ['META-INF/LICENSE', 'META-INF/THIRD-PARTY-NOTICES.md', 'META-INF/licenses/Apache-2.0.txt',
-                          'META-INF/licenses/MPL-2.0.txt', 'META-INF/licenses/BSD-2-Clause-Jodd.txt', 'okhttp3/internal/publicsuffix/NOTICE']
+                          'META-INF/licenses/MPL-2.0.txt', 'META-INF/licenses/BSD-2-Clause-Jodd.txt', 'META-INF/licenses/MIT-AresStack.txt',
+                          'META-INF/licenses/MIT-SLF4J.txt', 'META-INF/NOTICE.txt', 'okhttp3/internal/publicsuffix/NOTICE']
 def requiredZipEntries = ['ollama-manager/ollama-manager.jar', 'ollama-manager/LICENSE',
                           'ollama-manager/THIRD-PARTY-NOTICES.md', 'ollama-manager/licenses/Apache-2.0.txt',
-                          'ollama-manager/licenses/MPL-2.0.txt', 'ollama-manager/licenses/BSD-2-Clause-Jodd.txt']
+                          'ollama-manager/licenses/MPL-2.0.txt', 'ollama-manager/licenses/BSD-2-Clause-Jodd.txt',
+                          'ollama-manager/licenses/MIT-AresStack.txt', 'ollama-manager/licenses/MIT-SLF4J.txt']
 
 tasks.register('verifyDistributionContents') {
     group = 'verification'

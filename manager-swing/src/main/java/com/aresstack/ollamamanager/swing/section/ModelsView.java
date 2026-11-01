@@ -12,6 +12,10 @@ public interface ModelsView {
 
     void showModels(List<ModelEntry> entries);
 
+    /** Show where and when the listed models were read, so stale or foreign data is recognisable. */
+    default void showSource(String text) {
+    }
+
     /** Show why the model list is not available, for example because no server is running. */
     void showUnavailable(String reason);
 

@@ -35,6 +35,13 @@ public final class DashboardPresenter {
 
         ServerLifecycleService lifecycle = services.serverLifecycle();
         view.showServerStatus(lifecycle == null ? null : lifecycle.status());
+        if (lifecycle != null && services.setup() != null
+            && lifecycle.status().ownership() != RuntimeOwnership.OWNED) {
+            // Use a server on the configured address automatically, and forget one that disappeared.
+            jobs.submit("Check server", true, context -> services.setup().synchronize(
+                services.configuration().current().desiredServerSettings().bind(), context.cancellation()),
+                view::showServerStatus, error -> view.showServerStatus(lifecycle.status()));
+        }
 
         if (services.hardwareProbe() == null) {
             view.showHardware(null);
@@ -43,6 +50,16 @@ public final class DashboardPresenter {
                 context -> services.hardwareProbe().probe(context.cancellation()),
                 view::showHardware, error -> view.showFailure("Detect hardware", error)));
         }
+        refreshGpuUsage();
+    }
+
+    /** Re-read the server state and GPU usage, for example whenever the dashboard becomes visible. */
+    public void refreshStatus() {
+        if (busy) {
+            return;
+        }
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        view.showServerStatus(lifecycle == null ? null : lifecycle.status());
         refreshGpuUsage();
     }
 

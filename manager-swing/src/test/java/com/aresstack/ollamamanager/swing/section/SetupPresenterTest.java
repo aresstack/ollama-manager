@@ -122,17 +122,92 @@ public class SetupPresenterTest {
     }
 
     @Test
-    public void useRunningServerAttachesItReadOnly() throws Exception {
+    public void runningServerIsUsedAutomaticallyOnDetection() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+
+        presenter.detect();
+
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+        assertTrue(view.detection.isExternalAttached());
+        assertNull(services.configuration().current().selectedInstallationKind());
+        assertFalse(calls.contains("start"));
+    }
+
+    @Test
+    public void externalServerThatStoppedAnsweringIsForgotten() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+
+        runningVersion = null;
+        presenter.detect();
+
+        assertEquals(RuntimeOwnership.NONE, lifecycle.status().ownership());
+        assertFalse(view.detection.isExternalAttached());
+        assertEquals(ServerState.STOPPED, services.setup().verifyAttached(
+            com.aresstack.ollamamanager.application.common.CancellationToken.none()).state());
+
+        // The server comes back: it is used again without any click.
+        runningVersion = "0.40.14";
+        presenter.detect();
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+    }
+
+    @Test
+    public void runningServerWithoutControlOffersNoStop() {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
 
-        presenter.useRunningServer();
+        assertFalse(presenter.canControlRunning(view.detection));
+        presenter.stopRunningServer();
+        assertTrue(view.lifecycleQuestions.isEmpty());
+    }
 
-        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
-        assertNull(services.configuration().current().selectedInstallationKind());
-        assertTrue(view.notices.contains(SetupPresenter.ATTACHED));
-        assertFalse(calls.contains("start"));
+    @Test
+    public void runningExternalServerIsStoppedAfterConfirmation() throws Exception {
+        runningVersion = "0.40.13";
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        control.onTerminate = () -> runningVersion = null;
+        ServerLifecycleService controlled = new ServerLifecycleService(runtime, 0, lock, control, 0);
+        ConsoleServices withControl = TestServices.builder().serverLifecycle(controlled)
+            .setup(new SetupService(runtime, api, controlled, stub(HardwareProbePort.class, (method, args) -> null),
+                new PackageAdvisor(new GpuCompatibilityRules()), installations))
+            .build();
+        SetupPresenter presenter = new SetupPresenter(withControl, inline());
+        presenter.bind(view);
+        presenter.detect();
+        assertTrue(presenter.canControlRunning(view.detection));
+
+        presenter.stopRunningServer();
+
+        assertEquals(Collections.singletonList("stop:true"), view.lifecycleQuestions);
+        assertEquals(1, control.terminated.size());
+        assertEquals(ServerState.STOPPED, controlled.status().state());
+        assertTrue(view.notices.toString(), view.notices.contains(SetupPresenter.SERVER_STOPPED));
+    }
+
+    @Test
+    public void runningExternalServerIsRestartedAsOwnServer() throws Exception {
+        runningVersion = "0.40.13";
+        TestServices.FakeExternalControl control = new TestServices.FakeExternalControl();
+        ServerLifecycleService controlled = new ServerLifecycleService(runtime, 0, lock, control, 0);
+        ConsoleServices withControl = TestServices.builder().serverLifecycle(controlled)
+            .setup(new SetupService(runtime, api, controlled, stub(HardwareProbePort.class, (method, args) -> null),
+                new PackageAdvisor(new GpuCompatibilityRules()), installations))
+            .build();
+        SetupPresenter presenter = new SetupPresenter(withControl, inline());
+        presenter.bind(view);
+        presenter.detect();
+
+        presenter.restartRunningServer();
+
+        assertEquals(Collections.singletonList("restart:true"), view.lifecycleQuestions);
+        assertEquals(RuntimeOwnership.OWNED, controlled.status().ownership());
+        assertEquals(control.binary.getParentFile(), started.binaryDirectory());
+        assertTrue(view.notices.toString(), view.notices.contains(SetupPresenter.SERVER_RESTARTED));
     }
 
     @Test
@@ -216,7 +291,7 @@ public class SetupPresenterTest {
 
         assertFalse(calls.contains("start"));
         assertEquals(0, view.startQuestions);
-        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("A server already answers on"));
+        assertTrue(view.notices.get(view.notices.size() - 1).startsWith("An Ollama server not started by the manager"));
     }
 
     @Test
@@ -283,23 +358,32 @@ public class SetupPresenterTest {
     }
 
     @Test
-    public void stopUsingExternalServerAllowsStartingOwnServer() throws Exception {
+    public void startIsRefusedWhileAnAnsweringExternalServerIsInUse() throws Exception {
         runningVersion = "0.40.13";
         SetupPresenter presenter = presenter(inline());
         presenter.detect();
-        presenter.useRunningServer();
+        presenter.select(PORTABLE);
+
+        presenter.startSelected();
+
+        assertFalse(calls.contains("start"));
+        assertEquals(String.format(SetupPresenter.EXTERNAL_RUNNING, Endpoint.DEFAULT.toHostValue()),
+            view.notices.get(view.notices.size() - 1));
+        assertEquals(RuntimeOwnership.EXTERNAL, lifecycle.status().ownership());
+    }
+
+    @Test
+    public void vanishedExternalServerAllowsStartingOwnServer() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
         presenter.select(PORTABLE);
         runningVersion = null;
         presenter.detect();
 
-        presenter.startSelected();
-        assertEquals(SetupPresenter.DETACH_FIRST, view.notices.get(view.notices.size() - 1));
-        assertFalse(calls.contains("start"));
-
-        presenter.stopUsingExternal();
+        // The external server stopped answering, so it is forgotten and the own server can start at once.
         presenter.startSelected();
 
-        assertTrue(view.notices.contains(SetupPresenter.DETACHED));
         assertEquals(RuntimeOwnership.OWNED, lifecycle.status().ownership());
         assertTrue(calls.contains("start"));
     }
@@ -445,6 +529,20 @@ public class SetupPresenterTest {
         @Override
         public boolean confirmUninstall(OllamaInstallation installation) {
             return acceptUninstall;
+        }
+
+        final List<String> lifecycleQuestions = new ArrayList<String>();
+
+        @Override
+        public boolean confirmStop(boolean external) {
+            lifecycleQuestions.add("stop:" + external);
+            return true;
+        }
+
+        @Override
+        public boolean confirmRestart(boolean external) {
+            lifecycleQuestions.add("restart:" + external);
+            return true;
         }
 
         @Override

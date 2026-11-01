@@ -1,0 +1,57 @@
+# HuggingFace library catalog: id | Display — bundled OFFLINE FALLBACK snapshot generated from
+# https://huggingface.co/api/models-tags-by-type (complete, not curated). Primary source is live;
+# this file is only used when live and cache are both unavailable. Regenerate by re-fetching.
+
+pytorch|PyTorch
+tf|TensorFlow
+jax|JAX
+safetensors|Safetensors
+transformers|Transformers
+peft|PEFT
+gguf|GGUF
+tensorboard|TensorBoard
+diffusers|Diffusers
+onnx|ONNX
+stable-baselines3|stable-baselines3
+sentence-transformers|sentence-transformers
+mlx|MLX
+ml-agents|ml-agents
+tf-keras|TF-Keras
+keras|Keras
+joblib|Joblib
+adapter-transformers|Adapters
+transformers.js|Transformers.js
+timm|timm
+setfit|setfit
+openvino|OpenVINO
+sample-factory|sample-factory
+coreml|Core ML
+flair|Flair
+tflite|LiteRT
+nemo|NeMo
+fastai|fastai
+espnet|ESPnet
+bertopic|BERTopic
+spacy|spaCy
+rust|Rust
+sklearn|Scikit-learn
+fasttext|fastText
+open_clip|OpenCLIP
+executorch|ExecuTorch
+keras-hub|KerasHub
+asteroid|Asteroid
+speechbrain|speechbrain
+allennlp|AllenNLP
+llamafile|llamafile
+paddlepaddle|PaddlePaddle
+fairseq|Fairseq
+PaddleOCR|PaddleOCR
+stanza|Stanza
+pyannote-audio|pyannote.audio
+optimum_habana|Habana
+span-marker|SpanMarker
+optimum_graphcore|Graphcore
+paddlenlp|paddlenlp
+unity-sentis|unity-sentis
+dduf|DDUF
+univa|univa

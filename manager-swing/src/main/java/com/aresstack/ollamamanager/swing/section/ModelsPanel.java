@@ -171,6 +171,12 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     }
 
     @Override
+    public void showSource(String text) {
+        String counts = notice.getText().trim();
+        notice.setText(counts.isEmpty() ? text : counts + "  ·  " + text);
+    }
+
+    @Override
     public void setMutationsAllowed(boolean allowed, String reason) {
         mutationsAllowed = allowed;
         if (allowed || reason == null) {
@@ -349,11 +355,16 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
     }
 
     private void openInstallDialog() {
-        if (presenter.catalog() == null) {
-            pullName.requestFocusInWindow();
-            return;
-        }
-        new ModelInstallDialog(this, presenter.catalog(), presenter.jobs(), presenter::pull).setVisible(true);
+        presenter.openInstaller((endpoint, configuration) -> {
+            ModelInstallDialog dialog = new ModelInstallDialog(this, endpoint, configuration);
+            dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+                @Override
+                public void windowClosed(java.awt.event.WindowEvent event) {
+                    presenter.refresh();
+                }
+            });
+            dialog.setVisible(true);
+        });
     }
 
     private void updateButtons() {
@@ -361,7 +372,7 @@ public final class ModelsPanel extends SectionPanel implements ModelsView {
         pull.setEnabled(enabled);
         pullName.setEnabled(enabled);
         pullShortcut.setEnabled(enabled);
-        browse.setEnabled(enabled && presenter.catalog() != null);
+        browse.setEnabled(enabled && presenter.modelInstallConfiguration() != null);
         for (JButton action : cardActions) {
             action.setEnabled(enabled);
         }

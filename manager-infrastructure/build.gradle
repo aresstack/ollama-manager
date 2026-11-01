@@ -2,6 +2,4 @@ dependencies {
     api project(':manager-application')
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.1'
-    // Parses ollama.com library pages (HTML only; the fetch goes through HttpTransport).
-    implementation 'org.jodd:jodd-lagarto:6.0.6'
 }
