@@ -17,15 +17,18 @@ public final class SetupDetection {
 
     private final Endpoint endpoint;
     private final String runningVersion;
+    private final boolean externalAttached;
     private final List<OllamaInstallation> discovered;
     private final List<OllamaInstallation> portable;
     private final InstallationKind selectedKind;
     private final File selectedDirectory;
 
-    SetupDetection(Endpoint endpoint, String runningVersion, List<OllamaInstallation> discovered,
+    SetupDetection(Endpoint endpoint, String runningVersion, boolean externalAttached,
+                   List<OllamaInstallation> discovered,
                    List<OllamaInstallation> portable, InstallationKind selectedKind, File selectedDirectory) {
         this.endpoint = endpoint;
         this.runningVersion = runningVersion;
+        this.externalAttached = externalAttached;
         this.discovered = Collections.unmodifiableList(new ArrayList<OllamaInstallation>(discovered));
         this.portable = Collections.unmodifiableList(new ArrayList<OllamaInstallation>(portable));
         this.selectedKind = selectedKind;
@@ -44,6 +47,11 @@ public final class SetupDetection {
 
     public boolean isServerRunning() {
         return runningVersion != null;
+    }
+
+    /** @return whether the manager currently uses an external server read-only */
+    public boolean isExternalAttached() {
+        return externalAttached;
     }
 
     /** @return installations found on disk outside the manager's portable directory */

@@ -181,7 +181,9 @@ public class SetupPresenterTest {
         presenter.uninstall(PORTABLE);
 
         assertFalse(calls.contains("uninstall"));
-        assertTrue(view.notices.contains(SetupPresenter.IN_USE));
+        String notice = view.notices.get(view.notices.size() - 1);
+        assertTrue(notice.startsWith(SetupPresenter.NOT_REMOVED));
+        assertTrue(notice.contains("stop it first"));
         assertFalse(presenter.isBusy());
     }
 
@@ -255,6 +257,41 @@ public class SetupPresenterTest {
         assertFalse(calls.contains("start"));
         assertTrue(view.notices.contains(SetupPresenter.LIFECYCLE_BUSY));
         assertFalse(presenter.isBusy());
+    }
+
+    @Test
+    public void detectionNeverReplacesTheProgressOfARunningInstall() {
+        List<Runnable> pending = new ArrayList<Runnable>();
+        SetupPresenter presenter = presenter(new JobManager(pending::add, UiDispatcher.inline()));
+        presenter.install(EnumSet.of(DistributionPackage.BASE));
+        Job install = view.tracked;
+
+        presenter.detect();
+
+        assertEquals(install, view.tracked);
+        assertEquals(1, pending.size());
+    }
+
+    @Test
+    public void stopUsingExternalServerAllowsStartingOwnServer() throws Exception {
+        runningVersion = "0.40.13";
+        SetupPresenter presenter = presenter(inline());
+        presenter.detect();
+        presenter.useRunningServer();
+        presenter.select(PORTABLE);
+        runningVersion = null;
+        presenter.detect();
+
+        presenter.startSelected();
+        assertEquals(SetupPresenter.DETACH_FIRST, view.notices.get(view.notices.size() - 1));
+        assertFalse(calls.contains("start"));
+
+        presenter.stopUsingExternal();
+        presenter.startSelected();
+
+        assertTrue(view.notices.contains(SetupPresenter.DETACHED));
+        assertEquals(RuntimeOwnership.OWNED, lifecycle.status().ownership());
+        assertTrue(calls.contains("start"));
     }
 
     private SetupPresenter presenter(JobManager jobs) {

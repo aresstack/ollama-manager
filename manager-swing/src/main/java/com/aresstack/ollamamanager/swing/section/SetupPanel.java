@@ -41,6 +41,7 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     private final JLabel running = new JLabel("Not checked yet.");
     private final JButton useRunning = new JButton("Use running server (read-only)");
+    private final JButton stopUsing = new JButton("Stop using it");
     private final DefaultListModel<OllamaInstallation> installationModel = new DefaultListModel<OllamaInstallation>();
     private final JList<OllamaInstallation> installations = new JList<OllamaInstallation>(installationModel);
     private final JButton select = new JButton("Select");
@@ -66,7 +67,12 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         useRunning.setMnemonic('U');
         useRunning.setToolTipText("Show this server in the manager. It is never stopped, restarted or changed.");
         useRunning.addActionListener(event -> presenter.useRunningServer());
-        JPanel runningBlock = block("Running server", running, useRunning);
+        stopUsing.setToolTipText("Forget the external server in the manager. The server keeps running unchanged.");
+        stopUsing.addActionListener(event -> presenter.stopUsingExternal());
+        JPanel runningBlock = new JPanel(new BorderLayout(0, Spacing.GAP));
+        runningBlock.setBorder(BorderFactory.createTitledBorder("Running server"));
+        runningBlock.add(running, BorderLayout.CENTER);
+        runningBlock.add(row(useRunning, stopUsing), BorderLayout.SOUTH);
 
         installations.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         installations.setVisibleRowCount(4);
@@ -147,6 +153,9 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         running.setText(value.isServerRunning()
             ? "Ollama " + value.runningVersion() + " answers on " + value.endpoint().toHostValue() + "."
             : "No server answers on " + value.endpoint().toHostValue() + ".");
+        if (value.isExternalAttached()) {
+            running.setText(running.getText() + " The manager uses an external server read-only.");
+        }
         OllamaInstallation previous = installations.getSelectedValue();
         installationModel.clear();
         for (OllamaInstallation installation : value.installations()) {
@@ -237,7 +246,9 @@ public final class SetupPanel extends SectionPanel implements SetupView {
 
     private void updateButtons() {
         OllamaInstallation chosen = installations.getSelectedValue();
-        useRunning.setEnabled(!busy && detection != null && detection.isServerRunning());
+        useRunning.setEnabled(!busy && detection != null && detection.isServerRunning()
+            && !detection.isExternalAttached());
+        stopUsing.setEnabled(!busy && detection != null && detection.isExternalAttached());
         select.setEnabled(!busy && chosen != null);
         start.setEnabled(!busy && detection != null && detection.selected() != null);
         uninstall.setEnabled(!busy && chosen != null && chosen.kind() == InstallationKind.MANAGED_PORTABLE);
@@ -246,14 +257,6 @@ public final class SetupPanel extends SectionPanel implements SetupView {
         for (JCheckBox box : packages.values()) {
             box.setEnabled(!busy);
         }
-    }
-
-    private static JPanel block(String title, JLabel text, JButton action) {
-        JPanel panel = new JPanel(new BorderLayout(0, Spacing.GAP));
-        panel.setBorder(BorderFactory.createTitledBorder(title));
-        panel.add(text, BorderLayout.CENTER);
-        panel.add(row(action), BorderLayout.SOUTH);
-        return panel;
     }
 
     private static JPanel row(JButton... buttons) {

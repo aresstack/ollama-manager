@@ -45,8 +45,10 @@ public final class SetupPresenter {
     static final String STARTED = "Server started by the manager.";
     static final String START_CANCELLED = "Start cancelled. Check the dashboard for the server state.";
     static final String LIFECYCLE_BUSY = "Another server operation is running. Try again when it has finished.";
-    static final String IN_USE = "This version is in use by the running server, or another server operation is"
-        + " running. Stop the server first.";
+    static final String NOT_REMOVED = "Not removed: ";
+    static final String DETACHED = "No longer using the external server. It keeps running unchanged.";
+    static final String DETACH_FIRST = "The manager still uses an external server. Choose \"Stop using it\" first;"
+        + " the external server itself is not touched.";
     static final String PORT_TAKEN = "A server already answers on %s. Use it read-only, or change Bind in the"
         + " server settings to start the manager's own server on another port.";
     static final String ALREADY_RUNNING = "The manager's own server is already running. Stop it on the dashboard"
@@ -71,6 +73,10 @@ public final class SetupPresenter {
 
     /** Detect a running server on the configured endpoint and installations on disk. Nothing is changed. */
     public void detect() {
+        if (busy) {
+            // Never replace the progress and Cancel of a running install, start or removal.
+            return;
+        }
         final long generation = ++detectGeneration;
         final SetupService setup = services.setup();
         if (setup == null) {
@@ -88,7 +94,9 @@ public final class SetupPresenter {
             PortableInstallationService installations = services.installations();
             List<OllamaInstallation> portable = installations == null
                 ? Collections.<OllamaInstallation>emptyList() : installations.installedVersions();
-            return new SetupDetection(endpoint, version, discovered, portable,
+            ServerLifecycleService lifecycle = services.serverLifecycle();
+            boolean attached = lifecycle != null && lifecycle.status().ownership() == RuntimeOwnership.EXTERNAL;
+            return new SetupDetection(endpoint, version, attached, discovered, portable,
                 configuration.selectedInstallationKind(), configuration.selectedBinaryDirectory());
         }, found -> {
             if (generation == detectGeneration) {
@@ -114,6 +122,17 @@ public final class SetupPresenter {
             setup.attachExisting(endpoint, context.cancellation());
             return null;
         }, ATTACHED);
+    }
+
+    /** Forget the attached external server; the server process itself is never touched. */
+    public void stopUsingExternal() {
+        ServerLifecycleService lifecycle = services.serverLifecycle();
+        if (busy || lifecycle == null || lifecycle.status().ownership() != RuntimeOwnership.EXTERNAL) {
+            return;
+        }
+        lifecycle.detachExternal();
+        view.showNotice(DETACHED);
+        detect();
     }
 
     /** Store {@code installation} as the one the manager starts. */
@@ -217,6 +236,10 @@ public final class SetupPresenter {
             view.showNotice(ALREADY_RUNNING);
             return;
         }
+        if (now.ownership() == RuntimeOwnership.EXTERNAL) {
+            view.showNotice(DETACH_FIRST);
+            return;
+        }
         if (detection.isServerRunning()) {
             // Never start a second server on a port that another Ollama already serves.
             view.showNotice(String.format(PORT_TAKEN, detection.endpoint().toHostValue()));
@@ -273,7 +296,8 @@ public final class SetupPresenter {
     /** A concurrent lifecycle operation is refused immediately by the application layer; say so plainly. */
     private void showFailure(String action, Exception error) {
         if (error instanceof OperationException && ((OperationException) error).kind() == ErrorKind.INVALID_STATE) {
-            view.showNotice(action.startsWith("Remove") ? IN_USE : LIFECYCLE_BUSY);
+            // A removal can also be refused for the active version; keep the service's own reason.
+            view.showNotice(action.startsWith("Remove") ? NOT_REMOVED + error.getMessage() : LIFECYCLE_BUSY);
             return;
         }
         view.showFailure(action, error);
