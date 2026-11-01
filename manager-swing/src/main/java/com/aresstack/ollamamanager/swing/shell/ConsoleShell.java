@@ -7,6 +7,7 @@ import com.aresstack.ollamamanager.swing.section.BenchmarksPresenter;
 import com.aresstack.ollamamanager.swing.section.DashboardPanel;
 import com.aresstack.ollamamanager.swing.section.DashboardPresenter;
 import com.aresstack.ollamamanager.swing.section.JobsPanel;
+import com.aresstack.ollamamanager.swing.section.InstallModelsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPanel;
 import com.aresstack.ollamamanager.swing.section.ModelsPresenter;
 import com.aresstack.ollamamanager.swing.section.SetupPanel;
@@ -66,6 +67,7 @@ public class ConsoleShell extends JFrame {
         panels.put(Section.DASHBOARD, new DashboardPanel(dashboard));
         panels.put(Section.SETUP, new SetupPanel(new SetupPresenter(services, jobs)));
         panels.put(Section.MODELS, new ModelsPanel(new ModelsPresenter(services, jobs)));
+        panels.put(Section.INSTALL, new InstallModelsPanel(services));
         panels.put(Section.SERVER_SETTINGS, new ServerSettingsPanel(new ServerSettingsPresenter(services, jobs)));
         panels.put(Section.PROFILES, new ProfilesPanel(new ProfilesPresenter(services, jobs)));
         panels.put(Section.JOBS, new JobsPanel(services, jobs));

@@ -150,19 +150,6 @@ public final class ModelsPresenter {
         });
     }
 
-    /** @return the settings file of the askai-java8 model installer, or {@code null} when not wired */
-    java.io.File modelInstallConfiguration() {
-        return services.modelInstallConfiguration();
-    }
-
-    /** Open the model installer for the running server, or show why there is none. */
-    void openInstaller(java.util.function.BiConsumer<Endpoint, java.io.File> opener) {
-        Endpoint endpoint = runningEndpoint();
-        if (endpoint != null && services.modelInstallConfiguration() != null) {
-            opener.accept(endpoint, services.modelInstallConfiguration());
-        }
-    }
-
     boolean isBusy() {
         return busy;
     }
