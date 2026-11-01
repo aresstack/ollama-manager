@@ -20,6 +20,17 @@ subprojects {
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         options.compilerArgs << '-Xlint:all' << '-Xlint:-options' << '-Werror'
+        // On a newer JDK (for example an IDE running Gradle on Java 17), compile against the Java 8 API so the
+        // build sees exactly what Java 8 sees and APIs deprecated only in later JDKs do not trip -Werror.
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.release = 8
+            // Newer javac adds serial checks for Swing fields that Java 8 javac does not report.
+            options.compilerArgs << '-Xlint:-serial'
+            if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
+                // Java 21 adds the this-escape check, which Java 8 javac does not know.
+                options.compilerArgs << '-Xlint:-this-escape'
+            }
+        }
     }
 
     dependencies {
