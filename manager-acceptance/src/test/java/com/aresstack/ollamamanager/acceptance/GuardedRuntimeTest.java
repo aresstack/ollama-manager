@@ -19,6 +19,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class GuardedRuntimeTest {
@@ -30,6 +32,7 @@ public class GuardedRuntimeTest {
     private File workDir;
     private OllamaInstallation installation;
     private GuardedRuntime runtime;
+    private final boolean[] alive = {true};
 
     @Before
     public void setUp() {
@@ -47,7 +50,27 @@ public class GuardedRuntimeTest {
             public ManagedServer start(OllamaInstallation ignored, ServerSettings settings,
                                        CancellationToken cancellation) {
                 started.add(settings);
-                return null;
+                return new ManagedServer() {
+                    @Override
+                    public OllamaInstallation installation() {
+                        return installation;
+                    }
+
+                    @Override
+                    public ServerSettings appliedSettings() {
+                        return settings;
+                    }
+
+                    @Override
+                    public boolean isAlive() {
+                        return alive[0];
+                    }
+
+                    @Override
+                    public Integer exitCode() {
+                        return alive[0] ? null : 1;
+                    }
+                };
             }
 
             @Override
@@ -87,6 +110,16 @@ public class GuardedRuntimeTest {
     private static ServerSettings settings(Endpoint bind, File modelRoot) {
         return ServerSettings.defaults().with(ServerSettingCatalog.BIND, bind)
             .with(ServerSettingCatalog.MODEL_ROOT, modelRoot.getAbsoluteFile());
+    }
+
+    @Test
+    public void reportsInUseOnlyWhileStartedServerIsAlive() throws Exception {
+        assertFalse(runtime.isInUse(installation));
+        runtime.start(installation, settings(new Endpoint("127.0.0.1", 11534), new File(workDir, "models")),
+            CancellationToken.none());
+        assertTrue(runtime.isInUse(installation));
+        alive[0] = false;
+        assertFalse(runtime.isInUse(installation));
     }
 
     private void expectRefused(ServerSettings settings) throws Exception {
