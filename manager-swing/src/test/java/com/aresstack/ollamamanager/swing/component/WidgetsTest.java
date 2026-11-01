@@ -54,6 +54,7 @@ public class WidgetsTest {
         assertEquals(Theme.Tone.NEUTRAL, badge.tone());
         badge.show("running", Theme.Tone.SUCCESS);
         assertEquals(Theme.Tone.SUCCESS, badge.tone());
+        assertEquals("running", badge.getAccessibleContext().getAccessibleName());
         assertTrue(badge.getIcon().getIconWidth() >= 8);
     }
 
