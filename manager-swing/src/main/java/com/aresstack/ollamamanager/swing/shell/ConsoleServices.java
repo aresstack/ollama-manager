@@ -5,6 +5,7 @@ import com.aresstack.ollamamanager.application.installation.PortableInstallation
 import com.aresstack.ollamamanager.application.model.ModelService;
 import com.aresstack.ollamamanager.application.port.GpuTelemetryPort;
 import com.aresstack.ollamamanager.application.port.HardwareProbePort;
+import com.aresstack.ollamamanager.application.profile.ModelProfileRepository;
 import com.aresstack.ollamamanager.application.profile.ProfileActivationService;
 import com.aresstack.ollamamanager.application.server.ServerLifecycleService;
 import com.aresstack.ollamamanager.application.setup.SetupService;
@@ -24,6 +25,7 @@ public final class ConsoleServices {
     private final PortableInstallationService installations;
     private final ProfileActivationService profiles;
     private final SetupService setup;
+    private final ModelProfileRepository profileRepository;
 
     private ConsoleServices(Builder builder) {
         if (builder.configuration == null) {
@@ -37,6 +39,7 @@ public final class ConsoleServices {
         this.installations = builder.installations;
         this.profiles = builder.profiles;
         this.setup = builder.setup;
+        this.profileRepository = builder.profileRepository;
     }
 
     /** Start a builder around the single shared configuration service. */
@@ -83,6 +86,14 @@ public final class ConsoleServices {
         return setup;
     }
 
+    /**
+     * @return the profile repository created by the composition root, or {@code null} when not wired; the UI
+     *         never creates its own instance
+     */
+    public ModelProfileRepository profileRepository() {
+        return profileRepository;
+    }
+
     /** Collects optional services. */
     public static final class Builder {
         private final ConfigurationService configuration;
@@ -93,6 +104,7 @@ public final class ConsoleServices {
         private PortableInstallationService installations;
         private ProfileActivationService profiles;
         private SetupService setup;
+        private ModelProfileRepository profileRepository;
 
         private Builder(ConfigurationService configuration) {
             this.configuration = configuration;
@@ -130,6 +142,11 @@ public final class ConsoleServices {
 
         public Builder setup(SetupService value) {
             this.setup = value;
+            return this;
+        }
+
+        public Builder profileRepository(ModelProfileRepository value) {
+            this.profileRepository = value;
             return this;
         }
 

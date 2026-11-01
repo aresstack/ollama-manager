@@ -38,6 +38,7 @@ public class OllamaManagerAppTest {
         assertNotNull(services.installations());
         assertNotNull(services.profiles());
         assertNotNull(services.setup());
+        assertNotNull(services.profileRepository());
         assertTrue(services.installations().installedVersions().isEmpty());
     }
 

@@ -52,15 +52,71 @@ public final class NvidiaSmi implements GpuTelemetryPort {
 
     /** Return detected NVIDIA GPUs, or an empty list if nvidia-smi is unavailable or unusable. */
     public List<GpuDescriptor> inventory(CancellationToken cancellation) throws OperationException {
-        String output = query(INVENTORY_WITH_CC_QUERY, cancellation);
-        if (output != null) {
-            List<GpuDescriptor> gpus = parseInventory(output, true);
+        return inventoryReport(cancellation).gpus();
+    }
+
+    /**
+     * Return detected NVIDIA GPUs together with whether the answer is reliable. It is unreliable when
+     * nvidia-smi was found but failed or printed malformed output, so an empty list must not be read as
+     * "no NVIDIA GPU"; a missing tool is reliable (nothing to report).
+     */
+    public InventoryReport inventoryReport(CancellationToken cancellation) throws OperationException {
+        Outcome withCc = run(INVENTORY_WITH_CC_QUERY, cancellation);
+        if (withCc.output != null) {
+            List<GpuDescriptor> gpus = parseInventory(withCc.output, true);
             if (!gpus.isEmpty()) {
-                return gpus;
+                return new InventoryReport(gpus, true);
             }
         }
-        output = query(INVENTORY_QUERY, cancellation);
-        return output == null ? Collections.<GpuDescriptor>emptyList() : parseInventory(output, false);
+        Outcome plain = run(INVENTORY_QUERY, cancellation);
+        if (plain.output == null) {
+            // Reliable only if no nvidia-smi was found at all; a found tool that failed is not.
+            return new InventoryReport(Collections.<GpuDescriptor>emptyList(), !plain.found && !withCc.found);
+        }
+        List<GpuDescriptor> gpus = parseInventory(plain.output, false);
+        boolean reliable = !gpus.isEmpty() || plain.output.trim().isEmpty();
+        return new InventoryReport(gpus, reliable);
+    }
+
+    /** NVIDIA inventory plus whether it can be trusted as complete. */
+    public static final class InventoryReport {
+        private final List<GpuDescriptor> gpus;
+        private final boolean reliable;
+
+        InventoryReport(List<GpuDescriptor> gpus, boolean reliable) {
+            this.gpus = gpus;
+            this.reliable = reliable;
+        }
+
+        public List<GpuDescriptor> gpus() {
+            return gpus;
+        }
+
+        public boolean isReliable() {
+            return reliable;
+        }
+    }
+
+    private static final class Outcome {
+        final boolean found;
+        final String output;
+
+        Outcome(boolean found, String output) {
+            this.found = found;
+            this.output = output;
+        }
+    }
+
+    private Outcome run(String fields, CancellationToken cancellation) throws OperationException {
+        for (String executable : executables) {
+            CommandResult result = runner.run(
+                Arrays.asList(executable, fields, "--format=csv,noheader,nounits"), timeoutMillis, cancellation);
+            if (!result.isFound()) {
+                continue;
+            }
+            return new Outcome(true, result.isSuccess() ? result.stdout() : null);
+        }
+        return new Outcome(false, null);
     }
 
     @Override
